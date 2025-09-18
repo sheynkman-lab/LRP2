@@ -3,32 +3,74 @@
 # Edit this file with your specific paths and parameters
 
 # =============================================================================
-# Cluster info
+# General, relevant for entire pipeline
 # =============================================================================
 
-export ACCOUNT="your_account_name"
-export EMAIL="your_email@university.edu"
+# Reference genome
+export GENCODE_GENOME_FA="/project/sheynkman/external_data/GENCODE_v47/GRCh38.primary_assembly.genome.fa"
+export GENCODE_GTF_FILE="/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf"
+
+# Output directory
+export OUTPUT_DIR="/home/cwp5au/megan/github/LRP2_lite/results"
+
+# Base name for all output files in this project
+export OUTPUT_BASE_NAME="sample"
+
+# Species- currently supports human and mouse, but this is mainly a limitation of CPAT
+export SPECIES="human"
 
 # =============================================================================
-# User-specific paths
+# Environment
+# =============================================================================
+
+LRP2_ENV_NAME="LRP2"
+LRP2_ENV_FILE="environments/SQANTI3.conda_env.yml"
+
+# =============================================================================
+# Module: 01_Isoseq
 # =============================================================================
 
 # Input data paths
 export SAMPLE_METADATA="config/sample_metadata.txt"
 export NUM_SAMPLES=4  # Number of *flnc.bam files in directory
 
-# Reference genome
-export GENOME_FA="/project/sheynkman/external_data/GENCODE_v47/GRCh38.primary_assembly.genome.fa"
-export GTF_FILE="/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf"
-
-# Output directory
-export OUTPUT_DIR="/home/cwp5au/megan/github/LRP2_lite/results"
-
-# =============================================================================
-# Tool parameters
-# =============================================================================
-
-# Iso-Seq collapse parameters
+# Iso-Seq collapse parameters- these are the default but the user can change
 export MAX_FUZZY_JUNCTION=0
 export MAX_5P_DIFF=100
 export MAX_3P_DIFF=200
+
+# =============================================================================
+# Module: 02_sqanti
+# =============================================================================
+
+# SQANTI path- change this based on sqanti path
+SQANTI_PATH="/project/sheynkman/programs/SQANTI3-5.5"
+export PYTHONPATH=$PYTHONPATH:/project/sheynkman/programs/SQANTI3-5.5/src/utilities/cupcake/
+export PYTHONPATH=$PYTHONPATH:/project/sheynkman/programs/SQANTI3-5.5/src/utilities/cupcake/sequence/
+
+# GTF source options: "lrp_isoseq" (this pipeline) or "custom" 
+export GTF_SOURCE="lrp_isoseq"
+
+# If using custom GTF, specify path here
+export CUSTOM_GTF_PATH=""
+
+# SQANTI filtering parameters
+export PROTEIN_CODING_FILTER=TRUE
+export INTERNAL_PRIMING_FILTER=TRUE
+export TEMPLATE_SWITCHING_FILTER=TRUE
+export PERCENT_POLYA_THRESHOLD=95
+export STRUCTURE_FILTER="strict"
+
+# =============================================================================
+# Module: 03_orf_calling
+# =============================================================================
+
+# CPAT parameters, should we add --antisense?
+export MIN_ORF=50 # cpat default is 75, same as NCBI ORFfinder
+export TOP_ORF=50 # CPAT recommends 100
+
+
+
+
+
+

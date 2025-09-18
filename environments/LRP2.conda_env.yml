@@ -1,0 +1,79 @@
+name: LRP2
+channels:
+  - conda-forge
+  - bioconda
+  - anaconda
+  - r
+  - defaults
+  
+dependencies:
+  # Core tools with specific versions
+  - python=3.11
+  - r=4.5
+  - perl=5.40
+  
+  # Python packages
+  - numpy
+  - pandas
+  - scipy
+  - biopython
+  - cython
+  - pysam
+  - psutil
+  - bx-python
+  - pybedtools
+  - polars
+  - pyarrow
+  
+  # Bioinformatics tools
+  - bcbio-gff
+  - bedtools
+  - samtools
+  - minimap2
+  - gmap
+  - star
+  - kallisto
+  - gffread
+  - seqtk
+  - desalt
+  - slamem
+  - gtfparse
+  
+  # R packages
+  - r-tidyverse
+  - r-data.table
+  - r-biocmanager
+  - r-caret
+  - r-dt
+  - r-devtools
+  - r-e1071
+  - r-ggplotify
+  - r-gridbase
+  - r-gridextra
+  - r-htmltools
+  - r-jsonlite
+  - r-optparse
+  - r-plotly
+  - r-plyr
+  - r-pROC
+  - r-randomForest
+  - r-reshape
+  - r-rmarkdown
+  - r-scales
+  - r-stringi
+  - bioconductor-rtracklayer
+  - bioconductor-biostrings
+  - bioconductor-noiseq
+  - bioconductor-biobase
+  - bioconductor-biocgenerics
+  - bioconductor-busparse
+  
+  # System dependencies (required by R packages)
+  - openssl
+  - pandoc
+  
+  # Pip packages
+  - pip
+  - pip:
+    - ultra-bioinformatics
+    - cpat==3.0.4
