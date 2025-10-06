@@ -18,7 +18,6 @@ THREADS=8 # should match above
 module purge
 module load isoseqenv # pre-loaded isoseq for clustering
 module load smrtlink
-module load samtools
 
 mkdir -p ${OUTPUT_DIR}/pacbio_isoseq # create one output directory, if not already created
 

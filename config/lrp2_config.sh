@@ -24,7 +24,7 @@ export SPECIES="human"
 # =============================================================================
 
 LRP2_ENV_NAME="LRP2"
-LRP2_ENV_FILE="environments/SQANTI3.conda_env.yml"
+LRP2_ENV_FILE="environments/LRP2.conda_env.yml"
 
 # =============================================================================
 # Module: 01_Isoseq
@@ -58,7 +58,7 @@ export CUSTOM_GTF_PATH=""
 export PROTEIN_CODING_FILTER=TRUE
 export INTERNAL_PRIMING_FILTER=TRUE
 export TEMPLATE_SWITCHING_FILTER=TRUE
-export PERCENT_POLYA_THRESHOLD=95
+export PERCENT_POLYA_THRESHOLD=60
 export STRUCTURE_FILTER="strict"
 
 # =============================================================================

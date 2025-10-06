@@ -65,25 +65,6 @@ STRUCTURAL_CATEGORIES <- list(
 # Helper functions
 # =============================================================================
 
-#' Apply filter and track dropouts
-#' @param df Data frame to filter
-#' @param condition Logical condition for filtering
-#' @param reason Reason for dropout
-#' @param dropout_tracker List to store dropout reasons
-#' @return Filtered data frame
-apply_filter <- function(df, condition, reason, dropout_tracker) {
-  pre_ids <- df$isoform
-  df_filtered <- df[condition, ]
-  post_ids <- df_filtered$isoform
-  
-  # Track dropped transcripts
-  dropped <- setdiff(pre_ids, post_ids)
-  dropout_tracker[[reason]] <- dropped
-  
-  message(paste0("Filter '", reason, "': dropped ", length(dropped), " transcripts"))
-  return(df_filtered)
-}
-
 #' Save filtered sequences to FASTA
 #' @param fasta_file Input FASTA file
 #' @param keep_ids IDs to keep
@@ -118,40 +99,38 @@ save_filtered_gtf <- function(gtf_file, keep_ids, output_file) {
 }
 
 # =============================================================================
-# Command line arguments and environmental variables
+# Get environment variables for filtering parameters
 # =============================================================================
+filter_protein_coding = TRUE
+filter_internal_priming = TRUE
+filter_RTS = TRUE
+percent_polyA_threshold = 60
 
-parser <- ArgumentParser(description = "Filter SQANTI3 transcripts using environment variables")
-  
-# Default is to filter
-parser$add_argument("--filter_protein_coding", default = TRUE, action = "store_true",
-                    help = "Filter transcripts from protein-coding genes")
-parser$add_argument("--filter_internal_priming", default = TRUE, action = "store_true",
-                    help = "Filter transcripts that are the result of internal priming")
-parser$add_argument("--filter_RTS", default = TRUE, action = "store_true",
-                    help = "Filter template switching artifacts")
-  
-# Filtering parameters
-parser$add_argument("--percent_polyA_threshold", default = 95, type = "double",
-                    help = "Max percent A content downstream")
-parser$add_argument("--structural_level", default = "strict",
-                    choices = c("strict", "all"), help = "SQANTI Structural category level")
-  
-# Get environment variables set in pipeline config
+filter_protein_coding <- aTRUEfilter_protein_coding <- as.logical(Sys.getenv("PROTEIN_CODING_FILTER", "TRUE"))
+filter_internal_priming <- as.logical(Sys.getenv("INTERNAL_PRIMING_FILTER", "TRUE"))
+filter_RTS <- as.logical(Sys.getenv("TEMPLATE_SWITCHING_FILTER", "TRUE"))
+percent_polyA_threshold <- as.numeric(Sys.getenv("PERCENT_POLYA_THRESHOLD", "60"))
+structural_level <- Sys.getenv("STRUCTURE_FILTER", "strict")
+
 basename <- Sys.getenv("OUTPUT_BASE_NAME")
 dir <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti") 
 gencode_gtf <- Sys.getenv("GENCODE_GTF_FILE")
+
+gencode_gtf <- "/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf"
 
 # =============================================================================
 # Check required files
 # =============================================================================
 
+classification_file <- "/home/cwp5au/megan/github/LRP2_lite/results/sqanti/sample_classification.txt"
 classification_file <- paste0(dir, "/", basename, "_classification.txt")
 stopifnot("File not found" = file.exists(classification_file))
-  
+
+sqanti_gtf <- "/home/cwp5au/megan/github/LRP2_lite/results/sqanti/sample_corrected.gtf"
 sqanti_gtf <- paste0(dir, "/", basename, "_corrected.gtf")
 stopifnot("File not found" = file.exists(sqanti_gtf))
-  
+ 
+sqanti_fasta <- "/home/cwp5au/megan/github/LRP2_lite/results/sqanti/sample_corrected.fasta"
 sqanti_fasta <- paste0(dir, "/", basename, "_corrected.fasta")
 stopifnot("File not found" = file.exists(sqanti_fasta))
 
@@ -160,75 +139,118 @@ dropout_dir <- file.path(dir, "dropout")
 dir.create(dropout_dir, recursive = TRUE, showWarnings = FALSE)
 
 # =============================================================================
-# Main code
+# Load and merge inputs
 # =============================================================================
 
-message("Loading SQANTI3 classification data...")
-  
-# Load and process gencode gtf file
-gencode <- import(gencode_gtf, format = "gtf")
+# Gencode gtf used to select protein coding genes and add column of readable gene name
+gencode    <- import(gencode_gtf, format = "gtf")
 gencode_df <- as.data.table(gencode)
 
-gencode_df %<>% filter(type == "transcript") %>% select(gene_id, gene_type, gene_name, transcript_id, transcript_type, transcript_name, protein_id)
-gencode_gene = gencode_df %>% select(associated_gene = gene_id, gene_type, gene_name) %>% distinct()
-  
-# Load and preprocess classification data, merge with gencode annotation info
-sqanti_df <- read_tsv(classification_file, show_col_types = FALSE) %>%
-  # Remove rows without associated genes and keep only ENS gene IDs
-  filter(!is.na(associated_gene), 
-          str_starts(associated_gene, "ENS"))
-  
-sqanti_df %<>% left_join(gencode_gene)
-  
-original_ids <- sqanti_df$isoform
-message(paste0("Starting with ", length(original_ids), " transcripts"))
-  
-# Initialize dropout tracking
-dropout_tracker <- list()
-  
+gencode_df %<>% 
+  filter(type == "transcript") %>% 
+  select(associated_gene = gene_id, gene_type, gene_name, associated_transcript = transcript_id, transcript_name, protein_id)
+
+gencode_gene = gencode_df %>% 
+  select(associated_gene, gene_type, gene_name) %>% 
+  distinct()
+
+# SQANTI classification file- keep only isoforms with ENS gene IDs
+sqanti_df_full <- read_tsv(classification_file, show_col_types = FALSE) %>%
+  filter(!is.na(associated_gene), str_starts(associated_gene, "ENS"))
+
+sqanti_df_full %<>% 
+  left_join(gencode_gene) %>% 
+  left_join(gencode_df)
+
+# =============================================================================
 # Apply filters sequentially
-if (args$filter_protein_coding) {
-  message("Applying protein-coding gene filter...")
-  sqanti_df <- apply_filter(
-    sqanti_df,
-    sqanti_df$gene_type == "protein_coding",
-    "not_protein_coding",
-    dropout_tracker
-  )
-}
+# =============================================================================
+
+# Initialize dropout tracking
+original_ids <- sqanti_df_full$isoform
+dropout_tracker <- list()
+
+# Keep only transcripts of protein coding genes
+sqanti_df = sqanti_df_full # 653,675
+if (filter_protein_coding) {
+  ids <- sqanti_df$isoform
+  sqanti_df %<>% 
+    filter(gene_type == "protein_coding")
   
-if (args$filter_internal_priming) {
-  message("Applying internal priming filter...")
-  sqanti_df <- apply_filter(
-    sqanti_df,
-    sqanti_df$perc_A_downstream_TTS <= args$percent_polyA_threshold,
-    "internal_priming",
-    dropout_tracker
-  )
-}
+  kept_ids    <- sqanti_df$isoform
+  dropped_ids <- setdiff(ids, kept_ids)
+  dropout_tracker[["not_protein_coding"]] <- dropped_ids
   
-if (args$filter_RTS) {
-  message("Applying template switching filter...")
-  sqanti_df <- apply_filter(
-    sqanti_df,
-    !sqanti_df$RTS_stage,  # Keep only FALSE (no RTS)
-    "Template_switching_artifact",
-    dropout_tracker
-  )
+  message("Protein coding filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
+}
+
+# Filter based on downstream polyA sequence to remove internal priming
+if (filter_internal_priming) {
+  ids <- sqanti_df$isoform
+  
+  # keep all isoforms below threshold
+  keep1 = sqanti_df %>% 
+    filter(perc_A_downstream_TTS <= percent_polyA_threshold)
+
+  # Get downstream sequence for FSM above threshold
+  protected_seqs = sqanti_df %>%
+    filter(perc_A_downstream_TTS > percent_polyA_threshold, structural_category == "full-splice_match") %>%
+    distinct(associated_gene, seq_A_downstream_TTS)
+
+  # Keep high polyA isoforms that share sequence with FSM transcript
+  keep2 = sqanti_df %>% 
+    inner_join(protected_seqs, by = c("associated_gene", "seq_A_downstream_TTS"))
+
+  sqanti_df = bind_rows(keep1, keep2) %>% distinct()
+  
+  kept_ids    <- sqanti_df$isoform
+  dropped_ids <- setdiff(ids, kept_ids)
+  dropout_tracker[["internal_priming"]] <- dropped_ids
+  
+  message("Internal priming filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
+}
+
+# Filter out template switching, keep RTS_stage = FALSE (no RTS)
+if (filter_RTS) {
+  ids <- sqanti_df$isoform
+  
+  # sum read counts
+  # Find column positions
+  ratio_tss_pos <- which(colnames(sqanti_df) == "ratio_TSS")
+  gene_type_pos <- which(colnames(sqanti_df) == "gene_type")
+
+  # Get columns between them (if any exist)
+  if (gene_type_pos - ratio_tss_pos > 1) {
+    count_cols <- (ratio_tss_pos + 1):(gene_type_pos - 1)
+    sqanti_df$avg_counts <- rowMeans(sqanti_df[, count_cols], na.rm = TRUE)
+  } else {
+    sqanti_df$avg_counts <- NA  # No columns in between
+  }
+  
+  # filtering considerations
+  sqanti_df %<>% filter(
+    structural_category == "full-splice_match" |
+    RTS_stage == FALSE | 
+    (RTS_stage == TRUE & all_canonical == TRUE & avg_counts > 3))
+  
+  kept_ids <- sqanti_df$isoform
+  dropped_ids <- setdiff(ids, kept_ids)
+  dropout_tracker[["Template_switching_artifact"]] <- dropped_ids
+  
+  message("Template switching filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
 }
   
 # Apply structural category filter
-message("Applying structural category filter...")
-allowed_categories <- STRUCTURAL_CATEGORIES[[args$structural_level]]
-sqanti_df <- apply_filter(
-  sqanti_df,
-  sqanti_df$structural_category %in% allowed_categories,
-  "structural_category_filtered",
-  dropout_tracker
-)
-  
-# Calculate final results
+allowed_categories <- STRUCTURAL_CATEGORIES[[structural_level]]
+ids <- sqanti_df$isoform
+sqanti_df %<>% filter(structural_category %in% allowed_categories)
+
 kept_ids <- sqanti_df$isoform
+dropped_ids <- setdiff(ids, kept_ids)
+dropout_tracker[["structural_category_filtered"]] <- dropped_ids
+message("Structural category filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
+
+# Calculate final results
 all_dropout_ids <- setdiff(original_ids, kept_ids)
   
 message(paste0("Final: ", length(kept_ids), " kept, ", length(all_dropout_ids), " dropped"))
@@ -268,6 +290,22 @@ for (i in seq_len(nrow(dropout_summary))) {
   cat(paste0("  ", dropout_summary$dropout_reason[i], ": ", dropout_summary$n[i], "\n"))
     }
 
+test %>% filter(structural_category == "full-splice_match", gene_type == "protein_coding", gene_name == "RBFOX2")
+sqanti_df_full %>% filter(gene_name == "RBFOX2")
+sqanti_df_full %>% filter(RTS_stage == TRUE)
+sqanti_df %>% filter(RTS_stage == FALSE | structural_category == "full-splice_match")
+sqanti_df %>% filter(RTS_stage == TRUE & structural_category != "full-splice_match" & all_canonical == "canonical")
+
+
+
+
+
+sqanti_df %>% filter(perc_A_downstream_TTS <= percent_polyA_threshold | structural_category == "full-splice_match")
+sqanti_df %>% filter(perc_A_downstream_TTS > percent_polyA_threshold & structural_category == "full-splice_match")
+sqanti_df %>% filter(associated_gene == "ENSG00000215788.11") %>% group_by(associated_gene, seq_A_downstream_TTS) %>% tally()
+
+dropout_reasons_df %>% group_by(dropout_reason) %>% tally()
+
 
 ```
 
@@ -302,6 +340,7 @@ switch %>% filter(FL.BioSample_1 > 1, all_canonical == "canonical") %>% group_by
 
 
 ```
+
 Compare to Emily's analysis- similar percentage
 ```{r}
 em = read_tsv("~/sheynkman/projects/LRP_AML/02_sqanti/AML_classification.txt") # 1,689,238
@@ -795,6 +834,15 @@ group_by_protein_sequence <- function(filtered_results, full_fasta) {
 ```
 
 
+Compare SQANTI and SQANTI protein output
+```{r}
+trans = read_tsv("/home/cwp5au/sheynkman/projects/LRP_AML/03_filter_sqanti/filtered_AML_classification.txt")
+protein = read_tsv("/home/cwp5au/sheynkman/projects/LRP_AML/allAMLvNBM/09_sqanti_protein/AML.sqanti_protein_classification.tsv")
+
+trans %>% filter(associated_gene == "ENSG00000116954.8")
+protein %>% filter(tx_gene == "ENSG00000116954.8")
+
+```
 
 
 

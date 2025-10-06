@@ -48,17 +48,17 @@ case $GTF_SOURCE in
 esac
 
 # Step 1: Run SQANTI3 on long read gtf
-# python $SQANTI_PATH/sqanti3_qc.py \
-#     --force_id_ignore \
-#     --skipORF \
-#     --output $OUTPUT_BASE_NAME \
-#     --dir ${OUTPUT_DIR}/sqanti \
-#     --cpus $THREADS \
-#     --report both \
-#     --fl_count results/pacbio_isoseq/merged.collapsed.flnc_count.txt \
-#     --isoforms $LRS_GTF \
-#     --refGTF $GENCODE_GTF_FILE \
-#     --refFasta $GENCODE_GENOME_FA
+python $SQANTI_PATH/sqanti3_qc.py \
+    --force_id_ignore \
+    --skipORF \
+    --output $OUTPUT_BASE_NAME \
+    --dir ${OUTPUT_DIR}/sqanti \
+    --cpus $THREADS \
+    --report both \
+    --fl_count results/pacbio_isoseq/merged.collapsed.flnc_count.txt \
+    --isoforms $LRS_GTF \
+    --refGTF $GENCODE_GTF_FILE \
+    --refFasta $GENCODE_GENOME_FA
 
 # Step 2: Filter SQANTI transcripts with custom script
 Rscript scripts/02_filter_sqanti_transcripts.R 
