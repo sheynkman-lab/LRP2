@@ -1,0 +1,20 @@
+2025-10-08 03:27:29 [INFO]  Running CPAT version 3.0.4...
+2025-10-08 03:27:29 [INFO]  Start codons used: [ATG]
+2025-10-08 03:27:29 [INFO]  Stop codons used: [TAG,TAA,TGA]
+2025-10-08 03:27:29 [INFO]  Reading external_data/Human_Hexamer.tsv
+2025-10-08 03:27:29 [INFO]  Checking format of "/home/cwp5au/megan/github/LRP2_lite/results/sqanti/sample_corrected_filtered.fasta"
+2025-10-08 03:27:29 [INFO]  Input gene file is in FASTA format
+2025-10-08 03:27:29 [INFO]  Searching for ORFs ...
+2025-10-08 03:27:42 [WARNING]  No ORFs found for PB.1233.65
+2025-10-08 03:28:15 [WARNING]  No ORFs found for PB.5429.243
+2025-10-08 03:28:17 [WARNING]  No ORFs found for PB.5762.111
+2025-10-08 03:28:26 [WARNING]  No ORFs found for PB.7174.74
+2025-10-08 03:29:31 [WARNING]  No ORFs found for PB.16672.37
+2025-10-08 03:30:29 [WARNING]  No ORFs found for PB.25814.64
+2025-10-08 03:32:40 [WARNING]  No ORFs found for PB.40640.10
+2025-10-08 03:32:49 [WARNING]  No ORFs found for PB.41454.70
+2025-10-08 03:33:12 [WARNING]  No ORFs found for PB.44084.1
+2025-10-08 03:33:27 [INFO]  Calculate coding probability ...
+2025-10-08 03:33:48 [INFO]  Removing file "/home/cwp5au/megan/github/LRP2_lite/results/orf_calling/sample_cpat.ORF_info.tsv"
+2025-10-08 03:33:48 [INFO]  Select ORF with the highest coding probability ...
+2025-10-08 03:33:50 [INFO]  Done!

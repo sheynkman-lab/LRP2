@@ -880,8 +880,484 @@ protein %>% filter(tx_gene == "ENSG00000116954.8")
 
 ```
 
+Annotate cds and utr based on ORF
+```{r}
+# Sample GTF
+sample_gtf_path = "~/megan/github/LRP2_lite/results/sqanti/sample_corrected_filtered.gtf"
+orfs_file = "results/orf_calling/sample_best_cpat_orfs_mapped.tsv"
+
+gtf = import(sample_gtf_path)
+
+#!/usr/bin/env Rscript
+
+#' GTF CDS Feature Addition Script
+#' 
+#' Creates GTF file that includes ORF regions as CDS features
+#' Input: PacBio GTF, ORF calls, pb_gene mapping
+#' Output: PacBio GTF with added CDS features (ORFs)
+
+# =============================================================================
+# Load required libraries
+# =============================================================================
+
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(rtracklayer)
+  library(magrittr)
+})
+
+# =============================================================================
+# Get environment variables and check required files
+# =============================================================================
+
+basename         <- Sys.getenv("OUTPUT_BASE_NAME")
+sqanti_dir       <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti") 
+cpat_dir         <- file.path(Sys.getenv("OUTPUT_DIR"), "orf_calling") 
+
+sample_gtf_path  <- file.path(sqanti_dir, paste0(basename, "_corrected_filtered.gtf"))
+orfs_file        <- file.path(cpat_dir, paste0(basename, "_best_cpat_orfs_mapped.tsv"))
+
+stopifnot("Sample GTF file not found" = file.exists(sample_gtf_path))
+stopifnot("Best ORFs file not found" = file.exists(orfs_file))
+
+# =============================================================================
+# Helper functions
+# =============================================================================
+
+#' Find which exon block contains an ORF coordinate
+#' @param orf_coord Position in transcript coordinates
+#' @param cumulative_lens Cumulative exon lengths
+#' @return List with block index and delta from end
+get_first_block_index <- function(orf_coord, cumulative_lens) {
+  for (i in seq_along(cumulative_lens)) {
+    if (orf_coord <= cumulative_lens[i]) {
+      delta <- cumulative_lens[i] - orf_coord
+      return(list(index = i, delta = delta))
+    }
+  }
+  return(NULL)
+}
+
+#' Trim coordinates to ORF range (positive strand)
+#' @param i1 Start block index
+#' @param delta1 Distance from end of start block
+#' @param i2 End block index
+#' @param delta2 Distance from end of end block
+#' @param coords_df Data frame with start/end coordinates
+#' @return Trimmed coordinates
+trim_coords_positive <- function(i1, delta1, i2, delta2, coords_df) {
+  orf_coords <- coords_df %>%
+    slice(i1:i2) %>%
+    mutate(
+      start = if_else(row_number() == 1, end - delta1, start),
+      end = if_else(row_number() == n(), end - delta2, end)
+    )
+  return(orf_coords)
+}
+
+#' Trim coordinates to ORF range (negative strand)
+#' @param i1 Start block index
+#' @param delta1 Distance from end of start block
+#' @param i2 End block index
+#' @param delta2 Distance from end of end block
+#' @param coords_df Data frame with start/end coordinates
+#' @return Trimmed coordinates
+trim_coords_negative <- function(i1, delta1, i2, delta2, coords_df) {
+  orf_coords <- coords_df %>%
+    slice(i1:i2) %>%
+    mutate(
+      start = if_else(row_number() == n(), start + delta2, start),
+      end = if_else(row_number() == 1, start + delta1, end)
+    )
+  return(orf_coords)
+}
+
+#' Generate GTF with CDS features
+#' @param sample_gtf GTF file path
+#' @param agg_orfs_file Aggregated ORFs file path
+#' @param refined_orfs_file Refined ORFs file path
+#' @param pb_gene_file PacBio to gene mapping file path
+#' @param output_cds Output GTF file path
+#' @return NULL (writes output file)
+make_pacbio_cds_gtf <- function(sample_gtf, agg_orfs_file, refined_orfs_file, 
+                                pb_gene_file, output_cds) {
+  
+  # === STEP 1: Load GTF and extract exons ===
+  message("\n--- STEP 1: Reading GTF file ---")
+  
+  gtf <- import(sample_gtf) %>%
+    as.data.frame() %>%
+    filter(type == "exon") %>%
+    select(seqnames, start, end, strand, transcript_id) %>%
+    rename(chr = seqnames, acc = transcript_id)
+  
+  message(paste0("Loaded ", nrow(gtf), " exon features"))
+  
+  # === STEP 2: Load ORF aggregation data ===
+  message("\n--- STEP 2: Reading ORF aggregation data ---")
+  
+  agg_orfs <- read_tsv(agg_orfs_file, show_col_types = FALSE)
+  
+  # Create mappings from base accession
+  base_acc_to_cpm <- setNames(agg_orfs$CPM, agg_orfs$base_acc)
+  base_acc_to_transcripts <- setNames(agg_orfs$pb_accs, agg_orfs$base_acc)
+  
+  # Filter to representative transcripts only
+  repr_pbs <- agg_orfs$base_acc
+  gtf %<>% filter(acc %in% repr_pbs)
+  
+  message(paste0("Filtered to ", n_distinct(gtf$acc), " representative transcripts"))
+  
+  # === STEP 3: Organize coordinates by transcript ===
+  message("\n--- STEP 3: Processing transcript coordinates ---")
+  
+  pbs <- gtf %>%
+    group_by(acc) %>%
+    arrange(acc, if_else(strand == "+", start, -start)) %>%
+    mutate(
+      block_len = end - start + 1,
+      cum_block_len = cumsum(block_len)
+    ) %>%
+    summarise(
+      chr = first(chr),
+      strand = first(strand),
+      coords = list(tibble(start = start, end = end)),
+      block_lens = list(block_len),
+      cum_block_lens = list(cum_block_len),
+      .groups = "drop"
+    )
+  
+  # === STEP 4: Load ORF ranges and gene mappings ===
+  message("\n--- STEP 4: Loading ORF coordinates and gene mappings ---")
+  
+  ranges <- read_tsv(refined_orfs_file, show_col_types = FALSE) %>%
+    select(pb_acc, orf_start, orf_end)
+  
+  pb_to_gene <- read_tsv(pb_gene_file, show_col_types = FALSE)
+  pb_gene_map <- setNames(pb_to_gene$gene, pb_to_gene$pb_acc)
+  
+  message(paste0("Processing ", nrow(ranges), " ORF calls"))
+  
+  # === STEP 5: Map ORFs to genomic coordinates and write output ===
+  message("\n--- STEP 5: Mapping ORFs and writing output GTF ---")
+  
+  output_lines <- list()
+  n_processed <- 0
+  n_skipped <- 0
+  
+  for (i in seq_len(nrow(ranges))) {
+    acc <- ranges$pb_acc[i]
+    orf_start <- ranges$orf_start[i]
+    orf_end <- ranges$orf_end[i]
+    
+    # Check if transcript exists and has gene mapping
+    if (!(acc %in% pbs$acc)) {
+      n_skipped <- n_skipped + 1
+      next
+    }
+    
+    gene <- pb_gene_map[acc]
+    if (is.na(gene) || gene == "-") {
+      n_skipped <- n_skipped + 1
+      next
+    }
+    
+    # Get transcript information
+    pb_info <- pbs %>% filter(acc == !!acc)
+    chr <- pb_info$chr
+    strand <- pb_info$strand
+    coords <- pb_info$coords[[1]]
+    cum_lens <- pb_info$cum_block_lens[[1]]
+    
+    # Get CPM and collapsed transcript names
+    cpm <- base_acc_to_cpm[acc]
+    if (is.na(cpm)) cpm <- 0
+    
+    all_transcripts <- base_acc_to_transcripts[acc]
+    if (is.na(all_transcripts)) all_transcripts <- acc
+    all_transcripts <- str_replace_all(all_transcripts, "\\|", ",")
+    
+    # Truncate long names
+    max_name_length <- 50
+    if (nchar(all_transcripts) > max_name_length) {
+      transcript_list <- str_split(all_transcripts, ",")[[1]]
+      all_transcripts <- paste0(transcript_list[1], "_plus_", 
+                                length(transcript_list) - 1, "_others")
+    }
+    
+    # Find ORF blocks
+    idx1 <- get_first_block_index(orf_start, cum_lens)
+    idx2 <- get_first_block_index(orf_end, cum_lens)
+    
+    if (is.null(idx1) || is.null(idx2)) {
+      n_skipped <- n_skipped + 1
+      next
+    }
+    
+    # Trim coordinates to ORF range
+    if (strand == "+") {
+      orf_coords <- trim_coords_positive(idx1$index, idx1$delta, 
+                                         idx2$index, idx2$delta, coords)
+    } else {
+      orf_coords <- trim_coords_negative(idx1$index, idx1$delta, 
+                                         idx2$index, idx2$delta, coords)
+    }
+    
+    # Create transcript ID with gene, transcripts, and CPM
+    acc_w_gene_w_cpm <- paste0(gene, "|", all_transcripts, "|", cpm)
+    attributes <- paste0('gene_id "', gene, '"; transcript_id "', 
+                        acc_w_gene_w_cpm, '";')
+    
+    # Write exon lines
+    for (j in seq_len(nrow(coords))) {
+      line <- paste(chr, "hg38", "exon", coords$start[j], coords$end[j], 
+                   ".", strand, ".", attributes, sep = "\t")
+      output_lines <- c(output_lines, line)
+    }
+    
+    # Write CDS lines
+    for (j in seq_len(nrow(orf_coords))) {
+      line <- paste(chr, "hg38", "CDS", orf_coords$start[j], orf_coords$end[j], 
+                   ".", strand, ".", attributes, sep = "\t")
+      output_lines <- c(output_lines, line)
+    }
+    
+    n_processed <- n_processed + 1
+  }
+  
+  # Write output file
+  writeLines(unlist(output_lines), output_cds)
+  
+  # === Summary ===
+  message("\n=== PROCESSING COMPLETE ===")
+  message(paste0("Successfully processed: ", n_processed, " transcripts"))
+  message(paste0("Skipped (no gene mapping or not found): ", n_skipped, " transcripts"))
+  message(paste0("Output written to: ", output_cds))
+  message(paste0("Total GTF lines written: ", length(output_lines)))
+}
+
+# =============================================================================
+# Main execution
+# =============================================================================
+
+message("\n=== GTF CDS FEATURE ADDITION ===")
+message(paste0("Sample GTF: ", sample_gtf_path))
+message(paste0("Aggregated ORFs: ", agg_orfs_file))
+message(paste0("Refined ORFs: ", refined_orfs_file))
+message(paste0("PacBio-Gene mapping: ", pb_gene_file))
+message(paste0("Output: ", output_cds_path))
+
+make_pacbio_cds_gtf(
+  sample_gtf_path,
+  agg_orfs_file,
+  refined_orfs_file,
+  pb_gene_file,
+  output_cds_path
+)
+
+message("\nScript completed successfully!")
+```
+Create a single function for CDS mapping- replace
+```{r}
+sample_gtf_path = "~/megan/github/LRP2_lite/results/sqanti/sample_corrected_filtered.gtf"
+sample_gtf  = import(sample_gtf_path) %>% as.data.frame()
+
+gencode_gtf = import("/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf") %>% as.data.frame()
+
+cpat_results_file = "/home/cwp5au/megan/github/LRP2_lite/results/orf_calling/sample_cpat.ORF_prob.tsv"
+orf_coords = read_tsv(cpat_results_file, show_col_types = FALSE) %>%
+  separate(ID, into = c("isoform_id", "orf_rank"), sep = "_ORF_", remove = FALSE)
+
+map_orfs_to_genome <- function(orf_coords, sample_gtf, gencode_gtf, full_fasta) {
+  
+  # Extract exon information from sample GTF
+  sample_exons = sample_gtf %>%
+    filter(type == "exon") %>%
+    select(isoform_id = transcript_id, seqnames, start, end, strand) %>%
+    mutate(exon_length = end - start + 1) %>%
+    arrange(isoform_id, if_else(strand == "+", start, -start))
+  
+  # Calculate cumulative exon positions for coordinate mapping
+  sample_exons %<>%
+    group_by(isoform_id) %>%
+    mutate(
+      exon_number = row_number(),
+      cumulative_length = cumsum(exon_length), 
+      prior_length = lag(cumulative_length, default = 0)
+    ) %>%
+    ungroup()
+  
+  # Count the number of upstream ORFs
+  orf_coords %<>% left_join(full_fasta, by = "isoform_id") %>%
+    mutate(upstream_atgs = ifelse(!is.na(full_sequence), 
+                                  str_count(substr(full_sequence, 1, ORF_start - 1), "ATG"),
+                                  Inf)
+    ) %>%
+    select(-full_sequence)
+  
+  # Map ORF Start coordinates to genomic positions- strandedness here is tricky
+  mapped_starts = orf_coords %>%
+    left_join(sample_exons, by = c("isoform_id")) %>%
+    filter(ORF_start > prior_length & ORF_start <= cumulative_length) %>% # which exon has the ORF start?
+    mutate(orf_genomic_start = ifelse(strand == "+",
+                                  start + (ORF_start - prior_length) - 1,
+                                  end - (ORF_start - prior_length) + 1),
+           orf_start_exon   = exon_number,
+           orf_start_offset = ORF_start - prior_length  # position within this exon
+    ) %>%
+    select(-start, -end, -exon_length, -exon_number, -cumulative_length, -prior_length)
+  
+  # Map ORF End coordinates to genomic positions
+  mapped_complete = mapped_starts %>%
+    left_join(sample_exons, by = c("isoform_id", "seqnames", "strand")) %>%
+    filter(ORF_end > prior_length & ORF_end <= cumulative_length) %>% # which exon has the ORF end?
+    mutate(
+      orf_genomic_end = if_else(strand == "+",
+                                 start + (ORF_end - prior_length) - 1,
+                                 end - (ORF_end - prior_length) + 1),
+      orf_end_exon   = exon_number,
+      orf_end_offset = ORF_end - prior_length  # position within this exon
+    ) %>%
+    select(-start, -end, -exon_length, -exon_number, -cumulative_length, -prior_length)
+  
+  # Check for GENCODE start codon matches- looking for any match here
+  gencode_start_codons = gencode_gtf %>%
+    filter(type == "start_codon") %>% 
+    mutate(gencode_pos = ifelse(strand == "+", start, end)) %>%
+    select(seqnames, strand, gencode_pos) %>%
+    distinct() %>%
+    mutate(gencode_match = TRUE)
+  
+  mapped_orfs = mapped_complete %>% 
+    left_join(gencode_start_codons, by = c("seqnames", "strand", "orf_genomic_start" = "gencode_pos")) %>%
+    mutate(gencode_match = ifelse(is.na(gencode_match), FALSE, gencode_match))
+  
+  return(mapped_orfs)
+}
 
 
+```
+
+Next function to trim CDS to add to gtf- do this after filtering for best ORF? 
+- yes because otherwise, will have multiple ORFs per transcript in the gtf
+- and this is how it was in the OG pipeline
+```{r}
+test = best_orfs
+
+#' Get CDS coordinates by trimming exons to ORF boundaries
+#' Uses the exon mapping information to extract only CDS regions
+#' @param best_orfs Each row has an ORF with mapping info
+#' @param sample_gtf Info on all exons
+#' @return Data frame with CDS start/end coordinates
+get_cds_coords <- function(best_orfs, sample_exons) {
+  
+  # Join mapped ORFs with their exons- select all CDS exons
+  cds_all = best_orfs %>%
+    left_join(sample_exons, by = c("isoform_id", "seqnames", "strand")) %>%
+    filter(exon_number >= orf_start_exon & exon_number <= orf_end_exon) %>% # get all CDS exons
+    group_by(isoform_id) %>%
+    arrange(isoform_id, exon_number) %>%
+    mutate(
+      is_first_orf_exon = (exon_number == min(exon_number)),
+      is_last_orf_exon = (exon_number == max(exon_number))
+    ) %>%
+    ungroup()
+  
+  # Trim first and last cds exons based on precise cds start and end
+  cds_trimmed = cds_all %>%
+    mutate(
+      new_start = case_when(
+        strand == "+" & is_first_orf_exon ~ start + orf_start_offset - 1,
+        strand == "-" & is_last_orf_exon ~ start + orf_end_offset - 1,
+        TRUE ~ start
+      ),
+      new_end = case_when(
+        strand == "+" & is_last_orf_exon ~ start + orf_end_offset - 1,
+        strand == "-" & is_first_orf_exon ~ end - orf_start_offset + 1,
+        TRUE ~ end
+      )
+    ) %>%
+    select(ID, isoform_id, seqnames, exon_number, new_start, new_end, strand)
+  
+  return(cds_trimmed)
+}
+
+get_cds_coords(best_orfs, sample_exons)
+
+
+gencode_gtf %>% group_by(type) %>% tally()
+sample_gtf %>% group_by(type) %>% tally()
+
+```
+
+Make the gtf- dont think this needs to be a function
+- can we output a gtf of all transcripts and then one that is aggregated at the ORF level with ORF id?
+
+
+```{r}
+basename = "sample"
+gene_mapping
+all_cds_exons
+sample_gtf
+
+mapped_orfs_classified %>% filter(isoform_id == "PB.100.1")
+
+
+sample_gtf_path = "~/megan/github/LRP2_lite/results/sqanti/sample_corrected_filtered.gtf"
+gencode_gtf = import("/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf") %>% as.data.frame()
+
+sample_gtf  = import(sample_gtf_path) %>% as.data.frame()
+
+cpat_fasta_file = "/home/cwp5au/megan/github/LRP2_lite/results/orf_calling/sample_cpat.ORF_seqs.fa"
+cpat_results_file = "/home/cwp5au/megan/github/LRP2_lite/results/orf_calling/sample_cpat.ORF_prob.tsv"
+sample_full_fasta_path = "/home/cwp5au/megan/github/LRP2_lite/results/sqanti/sample_corrected_filtered.fasta"
+classification_file = "/home/cwp5au/megan/github/LRP2_lite/results/sqanti/sample_classification_filtered.txt"
+
+
+write_gtf_with_cds <- function(sample_gtf, all_cds_exons, gene_mapping) {
+  
+  # selecting type individually in case custom gtfs have more type columns- want to reset attributes column
+  sample_gtf %<>% 
+    select(isoform_id = transcript_id, everything()) %>%
+    left_join(gene_mapping %>% select(isoform_id, gencode_gene_id = gene_id, gene_name), by = "isoform_id")
+  
+  # Create transcript lines (one per transcript)
+  transcript_lines = sample_gtf %>%
+    filter(type == "transcript") %>%
+    select(seqnames, type, start, end, strand, source, isoform_id, gencode_gene_id, gene_name)
+  
+  # Create exon lines
+  exon_lines = sample_gtf %>%
+    filter(type == "exon") %>%
+    select(seqnames, type, start, end, strand, source, isoform_id, gencode_gene_id, gene_name)
+  
+  # Create CDS lines
+  cds_lines = all_cds_exons %>%
+    left_join(gene_mapping %>% select(isoform_id, gencode_gene_id = gene_id, gene_name), by = "isoform_id") %>%
+    mutate(type = "CDS", source = sample_gtf$source[1]) %>%
+    select(seqnames, type, start = new_start, end = new_end, strand, source, isoform_id, gencode_gene_id, gene_name)
+  
+  # combine types and add attribute column
+  updated_gtf = bind_rows(transcript_lines, exon_lines, cds_lines) %>%
+    arrange(isoform_id, start) %>%
+    mutate(
+      attributes = paste0('gene_id "', gencode_gene_id, '"; transcript_id "', isoform_id, '"; gene_name "', gene_name, '";'),
+      score = ".", 
+      frame = "."
+    ) %>%
+    select(seqnames, source, type, start, end, score, strand, frame, attributes)
+
+  message(paste0("Combined ", nrow(transcript_lines), " transcript lines, ",
+                 nrow(exon_lines), " exon lines, and ", 
+                 nrow(cds_lines), " CDS lines"))
+  
+  return(updated_gtf)
+}
+
+
+
+
+```
 
 
 
