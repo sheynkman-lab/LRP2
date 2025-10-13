@@ -1156,7 +1156,75 @@ make_pacbio_cds_gtf(
 )
 
 message("\nScript completed successfully!")
+
 ```
+
+# issue with
+```{r}
+all_cds_exons %>% filter(new_start > new_end) # PB.10040.43
+
+#keep = best_orfs
+best_orfs = keep
+best_orfs %>% filter(strand == "+")
+
+
+get_cds_coords <- function(best_orfs, sample_exons) {
+  
+  best_orfs %<>% filter(isoform_id == "PB.10453.48")
+  # Join mapped ORFs with their exons- select all CDS exons
+  cds_all = best_orfs %>%
+    left_join(sample_exons, by = c("isoform_id", "seqnames", "strand")) %>%
+    filter(exon_number >= orf_start_exon & exon_number <= orf_end_exon) %>% # get all CDS exons
+    group_by(isoform_id) %>%
+    arrange(isoform_id, exon_number) %>%
+    mutate(
+      is_first_orf_exon = (exon_number == min(exon_number)),
+      is_last_orf_exon = (exon_number == max(exon_number))
+    ) %>%
+    ungroup()
+  
+  # Trim first and last cds exons based on precise cds start and end
+  cds_trimmed = cds_all %>%
+    mutate(
+      new_start = case_when(
+        strand == "+" & is_first_orf_exon ~ start + orf_start_offset - 1,
+        strand == "-" & is_last_orf_exon ~ end - orf_end_offset + 1,
+        TRUE ~ start
+      ),
+      new_end = case_when(
+        strand == "+" & is_last_orf_exon ~ start + orf_end_offset - 1,
+        strand == "-" & is_first_orf_exon ~ end - orf_start_offset + 1,
+        TRUE ~ end
+      )
+    ) %>%
+    select(ID, isoform_id, orf_isoform_id, seqnames, exon_number, new_start, new_end, strand)
+  
+  return(cds_trimmed)
+}
+
+cds_trimmed %>% filter(new_start == new_end) %>% left_join(gene_mapping)
+all_cds_exons = get_cds_coords(best_orfs, sample_exons)
+all_cds_exons
+
+# PB.27.11 (-)
+gencode_gtf %>% filter(type == "CDS", transcript_name == "NOC2L-201")
+
+# PB.30.2 (+)
+gencode_gtf %>% filter(type == "CDS", transcript_name == "ISG15-203")
+gencode_gtf %>% filter(transcript_name == "ISG15-203")
+
+# PB.10453.20
+mapped_orfs_classified %>% filter(isoform_id == "PB.10453.48")
+cds_all %>% filter(isoform_id == "PB.10453.48")
+gencode_gtf %>% filter(type == "CDS", transcript_name == "SELENOT-206")
+
+
+# TNFAIP8-201, PB.15079.14, PB.15079.29, PB.15079.30
+gencode_gtf %>% filter(type == "CDS", transcript_name == "TNFAIP8-201")
+cds_trimmed %>% filter(isoform_id == "PB.15079.14")
+```
+
+
 Create a single function for CDS mapping- replace
 ```{r}
 sample_gtf_path = "~/megan/github/LRP2_lite/results/sqanti/sample_corrected_filtered.gtf"
@@ -1308,6 +1376,7 @@ gencode_gtf = import("/project/sheynkman/external_data/GENCODE_v47/gencode.v47.a
 
 sample_gtf  = import(sample_gtf_path) %>% as.data.frame()
 
+cpat_dir = "/home/cwp5au/megan/github/LRP2_lite/results/orf_calling"
 cpat_fasta_file = "/home/cwp5au/megan/github/LRP2_lite/results/orf_calling/sample_cpat.ORF_seqs.fa"
 cpat_results_file = "/home/cwp5au/megan/github/LRP2_lite/results/orf_calling/sample_cpat.ORF_prob.tsv"
 sample_full_fasta_path = "/home/cwp5au/megan/github/LRP2_lite/results/sqanti/sample_corrected_filtered.fasta"
@@ -1359,6 +1428,386 @@ write_gtf_with_cds <- function(sample_gtf, all_cds_exons, gene_mapping) {
 
 ```
 
+Compare SQANTI transcript and protein classification output for AML samples
+```{r}
+transcript = read_tsv("/home/cwp5au/sheynkman/projects/LRP_AML/03_filter_sqanti/filtered_AML_classification.txt")
+transcript %>% group_by(structural_category) %>% tally()
+transcript %>% group_by(subcategory) %>% tally()
+  
+protein = read_tsv("/home/cwp5au/sheynkman/projects/LRP_AML/allAMLvNBM/09_sqanti_protein/AML.sqanti_protein_classification.tsv")
+
+transcript %>% filter(str_detect(isoform, "PB\\.1000\\.")) %>% arrange(isoform)
+protein %>% filter(str_detect(pb, "PB\\.1000\\.")) %>% arrange(pb)
+
+transcript %>% filter(isoform == "PB.1000.25")
+protein %>% filter(pb == "PB.1000.25")
+
+
+protein_class = protein %>% select(isoform = pb, tx_cat, pr_splice_cat, tx_subcat, pr_splice_subcat, tx_gene, pr_gene, tx_transcripts, pr_transcripts)
+transcript_class = transcript %>% select(isoform, structural_category, associated_gene, associated_transcript, subcategory)
+
+df = protein_class %>% left_join(transcript_class)
+
+# original transcript calls versus current
+all(df$tx_cat == df$structural_category)
+df %>% filter(tx_cat != structural_category) # fusions, 89 dont match
+
+all(df$tx_subcat == df$subcategory)
+df %>% filter(tx_subcat != subcategory) # 14,861
+
+
+# transcript versus protein
+all(df$tx_cat == df$pr_splice_cat)
+df %>% filter(tx_cat != pr_splice_cat)
+
+all(df$tx_subcat == df$pr_splice_subcat)
+df %>% filter(tx_subcat != pr_splice_subcat)
+
+# match to gencode
+all(df$tx_gene == df$associated_gene)
+df %>% filter(tx_gene != associated_gene) # 104, includes a lot of fusions
+
+# look at a fusion
+transcript %>% filter(isoform == "PB.34191.15")
+protein %>% filter(pb == "PB.34191.15")
+
+
+protein %>% filter(is_nmd == TRUE)
+transcript %>% group_by(subcategory) %>% tally() # 97,481
+protein %>% group_by(tx_subcat) %>% tally() # 32,029
+protein %>% group_by(pr_splice_subcat) %>% tally()
+
+
+protein %>% filter(pb == "PB.1000.25")
+
+protein %>% filter(tx_cat == "full-splice_match") %>% group_by(pr_splice_cat) %>% tally()
+protein %>% filter(tx_cat == "incomplete-splice_match") %>% group_by(pr_splice_cat) %>% tally()
+protein %>% filter(tx_cat == "novel_in_catalog") %>% group_by(pr_splice_cat) %>% tally()
+protein %>% filter(tx_cat == "novel_not_in_catalog") %>% group_by(pr_splice_cat) %>% tally()
+
+
+```
+5'UTR code
+```{r}
+gencode_gtf_path = "/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf"
+sample_cds_gtf_path = "/project/sheynkman/users/megan/github/LRP2_lite/results/orf_calling/sample_corrected_filtered_CDS.gtf"
+basename = "sample"  
+
+#!/usr/bin/env Rscript
+
+#' 5' UTR Classification Script
+#' 
+#' Classifies PacBio 5' UTRs as either:
+#'   - "subset" (N-terminal truncation, using internal start codon)
+#'   - "unique" (novel start site, extending into new sequence)
+#' 
+#' Combines three Python scripts into one streamlined R workflow
+
+# =============================================================================
+# Load libraries
+# =============================================================================
+
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(rtracklayer)
+  library(GenomicRanges)
+})
+
+# =============================================================================
+# Get environment variables and check required files
+# =============================================================================
+
+basename         <- Sys.getenv("OUTPUT_BASE_NAME")
+cpat_dir         <- file.path(Sys.getenv("OUTPUT_DIR"), "orf_calling") 
+gencode_gtf_path <- Sys.getenv("GENCODE_GTF_FILE")
+
+sample_cds_gtf_path   <- file.path(cpat_dir, paste0(basename, "_corrected_filtered_CDS.gtf"))
+#sqanti_class_path   <- paste0(, "/", basename, "_classification_filtered.txt")
+
+stopifnot("GENCODE gtf file not found" = file.exists(gencode_gtf_path))
+stopifnot("Sample gtf file not found" = file.exists(sample_cds_gtf_path))
+#stopifnot("Classification file not found" = file.exists(sqanti_class_path))
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+#' Extract 5' UTR coordinates
+#' @param exons Data frame with start, end columns (sorted)
+#' @param nterm Integer: N-terminal coordinate
+#' @param strand Character: '+' or '-'
+#' @return Data frame with 5' UTR exon coordinates
+get_5utr_coords <- function(exons, nterm, strand) {
+  utr_coords = tibble(start = integer(), end = integer())
+  
+  if (strand == "+") {
+    for (i in seq_len(nrow(exons))) {
+      if (exons$start[i] <= nterm && nterm <= exons$end[i]) {
+        utr_coords <- bind_rows(utr_coords, tibble(start = exons$start[i], end = nterm))
+        break
+      } else if (exons$start[i] < nterm) {
+        utr_coords <- bind_rows(utr_coords, tibble(start = exons$start[i], end = exons$end[i]))
+      }
+    }
+  } else {
+    for (i in nrow(exons):1) {
+      if (exons$start[i] <= nterm && nterm <= exons$end[i]) {
+        utr_coords <- bind_rows(utr_coords, tibble(start = nterm, end = exons$end[i]))
+        break
+      } else if (exons$end[i] > nterm) {
+        utr_coords <- bind_rows(utr_coords, tibble(start = exons$start[i], end = exons$end[i]))
+      }
+    }
+  }
+  
+  return(arrange(utr_coords, start))
+}
+
+
+#' Classify monoexonic 5' UTR
+#' @param tss Integer: TSS coordinate
+#' @param strand Character: '+' or '-'
+#' @param seqname
+#' @param gencode_gr
+#' @return Character: "within" or "protruding"
+classify_monoexonic_utr <- function(tss, strand, seqname, gencode_gr) {
+  tss_gr = GRanges(seqnames = seqname, ranges = IRanges(start = tss, end = tss), strand = strand)
+  
+  # If overlaps GENCODE exon, it's within
+  if (tss_gr %over% gencode_gr) return("within")
+  
+  # Find distance to nearest exon
+  if (strand == "+") {
+    downstream <- gencode_gr[seqnames(gencode_gr) == seqname & start(gencode_gr) > tss]
+    min_dist <- if (length(downstream) > 0) min(start(downstream) - tss) else Inf
+  } else {
+    upstream <- gencode_gr[seqnames(gencode_gr) == seqname & end(gencode_gr) < tss]
+    min_dist <- if (length(upstream) > 0) min(tss - end(upstream)) else Inf
+  }
+  
+  return(if_else(min_dist >= 10, "protruding", "within"))
+}
+
+#' Classify multiexonic 5' UTR based on junction chain
+#' @param tss Integer: TSS coordinate
+#' @param strand Character: '+' or '-'
+#' @param junc_chain Character: junction chain string
+#' @param gc_chains Character vector: GENCODE junction chains for this gene
+#' @return Character: "perfect_subset", "known_protruding", or "novel"
+classify_multiexonic_utr <- function(tss, strand, junc_chain, gc_chains) {
+  if (junc_chain == "") return("novel")
+  
+  status <- "novel"
+  
+  for (gc_chain in gc_chains) {
+    if (!str_detect(gc_chain, fixed(junc_chain))) next
+    
+    # Junction chain matches - check if TSS protrudes beyond reference
+    if (strand == "+") {
+      prefix <- str_split(gc_chain, fixed(junc_chain))[[1]][1]
+      coords <- str_split(prefix, "_|-")[[1]]
+      gc_5end <- as.integer(coords[length(coords)])
+      
+      if ((tss + 9) < gc_5end) {
+        status <- "known_protruding"
+      } else {
+        return("perfect_subset")
+      }
+    } else {
+      suffix <- str_split(gc_chain, fixed(junc_chain))[[1]][2]
+      coords <- str_split(suffix, "_|-")[[1]]
+      gc_5end <- as.integer(coords[2])
+      
+      if ((tss - 9) > gc_5end) {
+        status <- "known_protruding"
+      } else {
+        return("perfect_subset")
+      }
+    }
+  }
+  
+  return(status)
+}
+
+
+# =============================================================================
+# STEP 1: Process GENCODE reference
+# =============================================================================
+
+message("\n--- STEP 1: Processing GENCODE reference ---")
+
+# Load GENCODE GTF
+gencode_gtf = import(gencode_gtf_path) %>% as.data.frame()
+
+# Identify protein-coding transcripts (have CDS)
+pc_transcripts = gencode_gtf %>%
+  filter(type == "CDS") %>%
+  pull(transcript_name) %>%
+  unique()
+
+# Extract exons and create GRanges for overlap checking
+gencode_exons = gencode_gtf %>%
+  filter(type == "exon", transcript_name %in% pc_transcripts) %>%
+  select(seqnames, start, end, gene_name, transcript_name, strand)
+
+gencode_gr = gencode_exons %>%
+  select(seqnames, start, end, strand) %>%
+  makeGRangesFromDataFrame() %>%
+  reduce()
+
+# Create exon chain strings per gene for junction matching
+gencode_chains = gencode_exons %>%
+  arrange(gene_name, transcript_name, start) %>%
+  group_by(gene_name, transcript_name) %>%
+  summarise(
+    exon_chain = paste(paste0(start, "-", end), collapse = "_"),
+    .groups = "drop_last"  # Keep gene grouping!
+  ) %>%
+  summarise(chains = list(exon_chain), .groups = "drop")
+
+# =============================================================================
+# STEP 2: Process PacBio transcripts
+# =============================================================================
+
+message("\n--- STEP 2: Processing PacBio transcripts ---")
+
+sample_gtf = import(sample_cds_gtf_path) %>% 
+  as.data.frame()
+
+# Get exons and CDS- edit naming, dont want to use pb_id
+sample_exons = sample_gtf %>%
+  filter(type == "exon") %>%
+  select(transcript_id, gene_name, seqnames, start, end, strand) %>%
+  arrange(transcript_id, start)
+
+sample_cds = sample_gtf %>%
+  filter(type == "CDS") %>%
+  select(transcript_id, start, end, strand) %>%
+  arrange(transcript_id, start)
+
+# Calculate 5' UTR properties- this is slow
+utr_info = sample_exons %>%
+  group_by(transcript_id, gene_name, seqnames, strand) %>%
+  summarise(exons = list(tibble(start = start, end = end)), .groups = "drop") %>%
+  left_join(
+    sample_cds %>%
+      group_by(transcript_id) %>%
+      summarise(cdss = list(tibble(start = start, end = end)), .groups = "drop"),
+    by = "transcript_id"
+  )
+
+
+```
+  
+  
+  
+```{r}
+# =============================================================================
+# STEP 3: Classify 5' UTRs
+# =============================================================================
+
+message("\n--- STEP 3: Classifying 5' UTRs ---")
+
+pb_classifications <- pb_utr_info %>%
+  rowwise() %>%
+  mutate(
+    # Calculate key coordinates
+    tss = get_tss(exons, strand),
+    nterm = if (!is.null(cdss)) get_nterm(cdss, strand) else NA_integer_,
+    
+    # Extract 5' UTR coordinates
+    utr_coords = if (!is.na(nterm)) list(get_5utr_coords(exons, nterm, strand)) else list(tibble(start = integer(), end = integer())),
+    
+    # Calculate properties
+    num_5utr_exons = nrow(utr_coords),
+    utr_exon_status = if_else(num_5utr_exons == 1, "monoexonic", "multiexonic"),
+    
+    # Create chain strings
+    utr_chain = make_chain_string(utr_coords),
+    junc_chain = get_junction_chain(utr_chain)
+  ) %>%
+  ungroup()
+
+# Get GENCODE exonic regions for each chromosome
+pb_classifications <- pb_classifications %>%
+  left_join(gencode_merged, by = "seqnames") %>%
+  rowwise() %>%
+  mutate(
+    exon_ranges = list(tibble(start = unlist(start), end = unlist(end)))
+  ) %>%
+  ungroup() %>%
+  select(-start, -end)
+
+# Get GENCODE chains for each gene
+pb_classifications <- pb_classifications %>%
+  left_join(gencode_chains, by = "gene_name")
+
+# Perform classification
+pb_classifications <- pb_classifications %>%
+  rowwise() %>%
+  mutate(
+    # Check if TSS is in known exons
+    tss_in_gc_exons = tss_in_exons(tss, exon_ranges),
+    
+    # Classify based on exon structure
+    junc_cat = case_when(
+      is.na(nterm) ~ "no_orf",
+      num_5utr_exons == 0 ~ "no_utr",
+      utr_exon_status == "monoexonic" ~ classify_monoexonic_utr(tss, strand, exon_ranges),
+      utr_exon_status == "multiexonic" ~ classify_multiexonic_utr(tss, strand, junc_chain, chains),
+      TRUE ~ "unknown"
+    ),
+    
+    # Final category
+    utr_cat = get_final_category(junc_cat)
+  ) %>%
+  ungroup()
+
+# =============================================================================
+# STEP 4: Merge with SQANTI classification
+# =============================================================================
+
+message("\n--- STEP 4: Merging with SQANTI classification ---")
+
+# Read SQANTI protein classification
+sqanti_class <- read_tsv(sqanti_class_path, show_col_types = FALSE)
+
+# Select relevant columns
+utr_results <- pb_classifications %>%
+  select(pb = pb_id, gene = gene_name, num_5utr_exons, utr_exon_status, 
+         tss_in_gc_exons, junc_cat, utr_cat)
+
+# Write standalone UTR classification
+utr_output <- file.path(output_dir, "pb_5utr_categories.tsv")
+write_tsv(utr_results, utr_output)
+message(paste0("Wrote 5' UTR classifications to: ", utr_output))
+
+# Merge with SQANTI classification
+final_output <- sqanti_class %>%
+  left_join(
+    utr_results %>% select(pb, utr_exon_status, utr_cat),
+    by = "pb"
+  )
+
+# Write merged output
+merged_output <- file.path(output_dir, "sqanti_protein_classification_w_5utr_info.tsv")
+write_tsv(final_output, merged_output)
+message(paste0("Wrote merged classification to: ", merged_output))
+
+# =============================================================================
+# Summary statistics
+# =============================================================================
+
+message("\n=== CLASSIFICATION SUMMARY ===")
+message(paste0("Total transcripts processed: ", nrow(utr_results)))
+message("\nUTR exon status:")
+print(table(utr_results$utr_exon_status))
+message("\nJunction category:")
+print(table(utr_results$junc_cat))
+message("\nFinal UTR category:")
+print(table(utr_results$utr_cat))
+message("\nAnalysis complete!")
+```
 
 
 
