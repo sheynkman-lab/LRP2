@@ -47,6 +47,9 @@ case $GTF_SOURCE in
         ;;
 esac
 
+export PYTHONPATH=$PYTHONPATH:/project/sheynkman/programs/SQANTI3-5.5/src/utilities/cupcake/
+export PYTHONPATH=$PYTHONPATH:/project/sheynkman/programs/SQANTI3-5.5/src/utilities/cupcake/sequence/
+
 # Step 1: Run SQANTI3 on long read gtf
 python $SQANTI_PATH/sqanti3_qc.py \
     --force_id_ignore \
@@ -61,6 +64,6 @@ python $SQANTI_PATH/sqanti3_qc.py \
     --refFasta $GENCODE_GENOME_FA
 
 # Step 2: Filter SQANTI transcripts with custom script
-Rscript scripts/02_filter_sqanti_transcripts.R 
+Rscript scripts/02_filter_sqanti_transcripts.R
 
 conda deactivate

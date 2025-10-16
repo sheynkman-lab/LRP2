@@ -44,9 +44,7 @@ export MAX_3P_DIFF=200
 # =============================================================================
 
 # SQANTI path- change this based on sqanti path
-SQANTI_PATH="/project/sheynkman/programs/SQANTI3-5.5"
-export PYTHONPATH=$PYTHONPATH:/project/sheynkman/programs/SQANTI3-5.5/src/utilities/cupcake/
-export PYTHONPATH=$PYTHONPATH:/project/sheynkman/programs/SQANTI3-5.5/src/utilities/cupcake/sequence/
+export SQANTI_PATH="/project/sheynkman/programs/SQANTI3-5.5"
 
 # GTF source options: "lrp_isoseq" (this pipeline) or "custom" 
 export GTF_SOURCE="lrp_isoseq"

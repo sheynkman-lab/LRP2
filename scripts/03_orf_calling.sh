@@ -52,14 +52,14 @@ case $SPECIES in
 esac
 
 # Step 1: Run CPAT
-# cpat.py \
-#    -x $HEXAMER_INPUT \
-#    -d $MODEL_INPUT \
-#    -g ${OUTPUT_DIR}/sqanti/${OUTPUT_BASE_NAME}_corrected_filtered.fasta \
-#    --min-orf=$MIN_ORF \
-#    --top-orf=$TOP_ORF \
-#    -o ${OUTPUT_DIR}/orf_calling/${OUTPUT_BASE_NAME}_cpat \
-#    2> ${OUTPUT_DIR}/orf_calling/${OUTPUT_BASE_NAME}_cpat.error 
+cpat.py \
+   -x $HEXAMER_INPUT \
+   -d $MODEL_INPUT \
+   -g ${OUTPUT_DIR}/sqanti/${OUTPUT_BASE_NAME}_corrected_filtered.fasta \
+   --min-orf=$MIN_ORF \
+   --top-orf=$TOP_ORF \
+   -o ${OUTPUT_DIR}/orf_calling/${OUTPUT_BASE_NAME}_cpat \
+   2> ${OUTPUT_DIR}/orf_calling/${OUTPUT_BASE_NAME}_cpat.error
 
 # Step 2: Filter CPAT output to call best ORF 
 Rscript scripts/03_filter_cpat.R
