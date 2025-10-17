@@ -61,6 +61,8 @@ cpat.py \
    -o ${OUTPUT_DIR}/orf_calling/${OUTPUT_BASE_NAME}_cpat \
    2> ${OUTPUT_DIR}/orf_calling/${OUTPUT_BASE_NAME}_cpat.error
 
+rm CPAT_run_info.log
+
 # Step 2: Filter CPAT output to call best ORF 
 Rscript scripts/03_filter_cpat.R
 

@@ -6,6 +6,8 @@ output: html_document
 ```{r}
 source("/project/sheynkman/users/megan/github/megan-schertzer/ms_functions.R")
 
+#packageVersion()
+#conda search -c bioconda bioconductor-txdbmaker
 ```
 
 What does sqanti classification file have?
@@ -1159,7 +1161,7 @@ message("\nScript completed successfully!")
 
 ```
 
-# issue with
+
 ```{r}
 all_cds_exons %>% filter(new_start > new_end) # PB.10040.43
 
@@ -1486,106 +1488,77 @@ protein %>% filter(tx_cat == "novel_not_in_catalog") %>% group_by(pr_splice_cat)
 
 
 ```
+
+
 5'UTR code
 ```{r}
+# AML test
 gencode_gtf_path = "/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf"
 sample_cds_gtf_path = "/project/sheynkman/users/megan/github/LRP2_lite/results/orf_calling/sample_corrected_filtered_CDS.gtf"
+protein_sqanti_path = "/project/sheynkman/users/megan/github/LRP2_lite/results/protein_sqanti/sample.sqanti_protein_classification.tsv"
 basename = "sample"  
+
+# jurkat test
+gencode_gtf_path = "~/datasets/jurkat_zenodo5234651/gencode.v35.annotation.chr22.gtf"
+sample_cds_gtf_path = "~/datasets/jurkat_zenodo5234651/jurkat_chr22_with_cds.gtf"
+protein_sqanti_path = "/project/sheynkman/users/megan/github/LRP2_lite/results/protein_sqanti/jurkat_chr22.sqanti_protein_classification.tsv"
+basename = "jurkat" 
 
 #!/usr/bin/env Rscript
 
 #' 5' UTR Classification Script
 #' 
-#' Classifies PacBio 5' UTRs as either:
+#' Classifies Long read derived 5' UTRs as either:
 #'   - "subset" (N-terminal truncation, using internal start codon)
 #'   - "unique" (novel start site, extending into new sequence)
 #' 
-#' Combines three Python scripts into one streamlined R workflow
+#' 
 
 # =============================================================================
 # Load libraries
 # =============================================================================
 
 suppressPackageStartupMessages({
-  library(tidyverse)
-  library(rtracklayer)
   library(GenomicRanges)
+  library(txdbmaker)
+  library(tidyverse)
+  library(magrittr)
+  library(rtracklayer)
 })
 
 # =============================================================================
 # Get environment variables and check required files
 # =============================================================================
 
-basename         <- Sys.getenv("OUTPUT_BASE_NAME")
-cpat_dir         <- file.path(Sys.getenv("OUTPUT_DIR"), "orf_calling") 
-gencode_gtf_path <- Sys.getenv("GENCODE_GTF_FILE")
+basename           <- Sys.getenv("OUTPUT_BASE_NAME")
+cpat_dir           <- file.path(Sys.getenv("OUTPUT_DIR"), "orf_calling") 
+protein_sqanti_dir <- file.path(Sys.getenv("OUTPUT_DIR"), "protein_sqanti") 
+gencode_gtf_path   <- Sys.getenv("GENCODE_GTF_FILE")
 
 sample_cds_gtf_path   <- file.path(cpat_dir, paste0(basename, "_corrected_filtered_CDS.gtf"))
-#sqanti_class_path   <- paste0(, "/", basename, "_classification_filtered.txt")
+protein_sqanti_path   <- file.path(protein_sqanti_dir, paste0(basename, ".sqanti_protein_classification.tsv"))
 
 stopifnot("GENCODE gtf file not found" = file.exists(gencode_gtf_path))
 stopifnot("Sample gtf file not found" = file.exists(sample_cds_gtf_path))
-#stopifnot("Classification file not found" = file.exists(sqanti_class_path))
+stopifnot("Protein classification file not found" = file.exists(protein_sqanti_path))
 
 # =============================================================================
 # Helper Functions
 # =============================================================================
 
-#' Extract 5' UTR coordinates
-#' @param exons Data frame with start, end columns (sorted)
-#' @param nterm Integer: N-terminal coordinate
-#' @param strand Character: '+' or '-'
-#' @return Data frame with 5' UTR exon coordinates
-get_5utr_coords <- function(exons, nterm, strand) {
-  utr_coords = tibble(start = integer(), end = integer())
-  
-  if (strand == "+") {
-    for (i in seq_len(nrow(exons))) {
-      if (exons$start[i] <= nterm && nterm <= exons$end[i]) {
-        utr_coords <- bind_rows(utr_coords, tibble(start = exons$start[i], end = nterm))
-        break
-      } else if (exons$start[i] < nterm) {
-        utr_coords <- bind_rows(utr_coords, tibble(start = exons$start[i], end = exons$end[i]))
-      }
-    }
-  } else {
-    for (i in nrow(exons):1) {
-      if (exons$start[i] <= nterm && nterm <= exons$end[i]) {
-        utr_coords <- bind_rows(utr_coords, tibble(start = nterm, end = exons$end[i]))
-        break
-      } else if (exons$end[i] > nterm) {
-        utr_coords <- bind_rows(utr_coords, tibble(start = exons$start[i], end = exons$end[i]))
-      }
-    }
-  }
-  
-  return(arrange(utr_coords, start))
-}
-
-
-#' Classify monoexonic 5' UTR
-#' @param tss Integer: TSS coordinate
-#' @param strand Character: '+' or '-'
-#' @param seqname
-#' @param gencode_gr
-#' @return Character: "within" or "protruding"
-classify_monoexonic_utr <- function(tss, strand, seqname, gencode_gr) {
-  tss_gr = GRanges(seqnames = seqname, ranges = IRanges(start = tss, end = tss), strand = strand)
-  
-  # If overlaps GENCODE exon, it's within
-  if (tss_gr %over% gencode_gr) return("within")
-  
-  # Find distance to nearest exon
-  if (strand == "+") {
-    downstream <- gencode_gr[seqnames(gencode_gr) == seqname & start(gencode_gr) > tss]
-    min_dist <- if (length(downstream) > 0) min(start(downstream) - tss) else Inf
-  } else {
-    upstream <- gencode_gr[seqnames(gencode_gr) == seqname & end(gencode_gr) < tss]
-    min_dist <- if (length(upstream) > 0) min(tss - end(upstream)) else Inf
-  }
-  
-  return(if_else(min_dist >= 10, "protruding", "within"))
-}
+test = utr_info
+test %>% filter(utr_exon_status == "multiexonic")
+test_row = test %>% filter(transcript_id == "PB.1001.2")
+utr_info[multi_idx, ] %>%
+    rowwise() %>%
+    mutate(
+      multi_class = classify_multiexonic_utr(tss, strand, junc_chain, chains)
+    )
+      
+tss = test_row$tss
+strand = test_row$strand
+junc_chain = test_row$junc_chain
+gc_chains = test_row$chains
 
 #' Classify multiexonic 5' UTR based on junction chain
 #' @param tss Integer: TSS coordinate
@@ -1593,32 +1566,39 @@ classify_monoexonic_utr <- function(tss, strand, seqname, gencode_gr) {
 #' @param junc_chain Character: junction chain string
 #' @param gc_chains Character vector: GENCODE junction chains for this gene
 #' @return Character: "perfect_subset", "known_protruding", or "novel"
-classify_multiexonic_utr <- function(tss, strand, junc_chain, gc_chains) {
-  if (junc_chain == "") return("novel")
+classify_multiexonic_utr = function(tss, strand, junc_chain, gc_chains) {
+  if (is.na(tss) || junc_chain == "" || length(gc_chains) == 0) return("novel")
+
+  # Split the concatenated chains
+  gc_chains = str_split(gc_chains, "\\|\\|\\|")[[1]]
   
-  status <- "novel"
+  status = "novel"
   
   for (gc_chain in gc_chains) {
     if (!str_detect(gc_chain, fixed(junc_chain))) next
     
     # Junction chain matches - check if TSS protrudes beyond reference
     if (strand == "+") {
-      prefix <- str_split(gc_chain, fixed(junc_chain))[[1]][1]
-      coords <- str_split(prefix, "_|-")[[1]]
-      gc_5end <- as.integer(coords[length(coords)])
+      prefix  = str_split(gc_chain, fixed(junc_chain))[[1]][1]
+      coords  = str_split(prefix, "_|-")[[1]][1]
+      gc_5end = as.integer(coords[length(coords)])
+      
+      if (is.na(gc_5end)) next
       
       if ((tss + 9) < gc_5end) {
-        status <- "known_protruding"
+        status = "known_protruding"
       } else {
         return("perfect_subset")
       }
     } else {
-      suffix <- str_split(gc_chain, fixed(junc_chain))[[1]][2]
-      coords <- str_split(suffix, "_|-")[[1]]
-      gc_5end <- as.integer(coords[2])
+      suffix  = str_split(gc_chain, fixed(junc_chain))[[1]][2]
+      coords  = str_split(suffix, "_|-")[[1]][1]
+      gc_5end = as.integer(coords[2])
+      
+      if (is.na(gc_5end)) next
       
       if ((tss - 9) > gc_5end) {
-        status <- "known_protruding"
+        status = "known_protruding"
       } else {
         return("perfect_subset")
       }
@@ -1627,7 +1607,6 @@ classify_multiexonic_utr <- function(tss, strand, junc_chain, gc_chains) {
   
   return(status)
 }
-
 
 # =============================================================================
 # STEP 1: Process GENCODE reference
@@ -1647,167 +1626,480 @@ pc_transcripts = gencode_gtf %>%
 # Extract exons and create GRanges for overlap checking
 gencode_exons = gencode_gtf %>%
   filter(type == "exon", transcript_name %in% pc_transcripts) %>%
-  select(seqnames, start, end, gene_name, transcript_name, strand)
+  select(seqnames, start, end, gene_id, transcript_name, strand)
 
 gencode_gr = gencode_exons %>%
   select(seqnames, start, end, strand) %>%
-  makeGRangesFromDataFrame() %>%
-  reduce()
+  makeGRangesFromDataFrame()
 
-# Create exon chain strings per gene for junction matching
+gencode_gr = GenomicRanges::reduce(gencode_gr) # Reduces overlapping exons into merged genomic intervals
+
+# Create exon chain strings per gene for junction matching (could potentially be tweaked to mimic collapse logic)
 gencode_chains = gencode_exons %>%
-  arrange(gene_name, transcript_name, start) %>%
-  group_by(gene_name, transcript_name) %>%
+  arrange(gene_id, transcript_name, start) %>%
+  group_by(gene_id, transcript_name) %>%
   summarise(
     exon_chain = paste(paste0(start, "-", end), collapse = "_"),
     .groups = "drop_last"  # Keep gene grouping!
   ) %>%
-  summarise(chains = list(exon_chain), .groups = "drop")
+  summarise(chains = paste(exon_chain, collapse = "|||"), .groups = "drop") 
 
 # =============================================================================
-# STEP 2: Process PacBio transcripts
+# STEP 2: Process long read transcripts
 # =============================================================================
 
-message("\n--- STEP 2: Processing PacBio transcripts ---")
+message("\n--- STEP 2: Processing Sample transcripts ---")
 
-sample_gtf = import(sample_cds_gtf_path) %>% 
-  as.data.frame()
+sample_gtf = import(sample_cds_gtf_path) %>% as.data.frame()
 
-# Get exons and CDS- edit naming, dont want to use pb_id
-sample_exons = sample_gtf %>%
-  filter(type == "exon") %>%
-  select(transcript_id, gene_name, seqnames, start, end, strand) %>%
-  arrange(transcript_id, start)
+# Create TxDb and extract 5' UTRs directly
+txdb      = makeTxDbFromGFF(sample_cds_gtf_path, format = "gtf")
+utr_by_tx = fiveUTRsByTranscript(txdb, use.names = TRUE)
 
+# Get transcript metadata (gene name, chromosome, strand)
+tx_metadata = sample_gtf %>%
+  filter(type == "transcript") %>%
+  select(transcript_id, gene_id, seqnames, strand)
+
+# Get CDS Nterm and TSS info 
 sample_cds = sample_gtf %>%
   filter(type == "CDS") %>%
-  select(transcript_id, start, end, strand) %>%
-  arrange(transcript_id, start)
-
-# Calculate 5' UTR properties- this is slow
-utr_info = sample_exons %>%
-  group_by(transcript_id, gene_name, seqnames, strand) %>%
-  summarise(exons = list(tibble(start = start, end = end)), .groups = "drop") %>%
-  left_join(
-    sample_cds %>%
-      group_by(transcript_id) %>%
-      summarise(cdss = list(tibble(start = start, end = end)), .groups = "drop"),
-    by = "transcript_id"
+  group_by(transcript_id) %>%
+  summarise(
+    nterm = ifelse(first(strand) == "+", min(start), max(end)),
+    .groups = "drop"
   )
 
+sample_exons = sample_gtf %>%
+  filter(type == "exon") %>%
+  group_by(transcript_id) %>%
+  summarise(
+    tss = ifelse(first(strand) == "+", min(start), max(end)),
+    .groups = "drop"
+  )
 
-```
-  
-  
-  
-```{r}
+# Convert 5' UTR GRangesList to tibble with stats
+utr_stats = tibble(
+  transcript_id    = names(utr_by_tx),
+  num_5utr_exons   = lengths(utr_by_tx),
+  utr_length       = sum(width(utr_by_tx))
+)
+
+# Create chain strings for 5' UTRs
+utr_chains = tibble(
+  transcript_id = names(utr_by_tx),
+  utr_chain = sapply(utr_by_tx, function(gr) {
+    if (length(gr) == 0) return("")
+    gr = sort(gr)
+    paste(paste0(start(gr), "-", end(gr)), collapse = "_")
+  })
+) %>%
+  mutate(
+    junc_chain = case_when(
+      utr_chain == "" ~ "",
+      !str_detect(utr_chain, "_") ~ "",
+      TRUE ~ {
+        coords = str_extract_all(utr_chain, "\\d+")
+        sapply(coords, function(x) {
+          if (length(x) <= 2) return("")
+          junctions = as.numeric(x[2:(length(x)-1)])
+          paste(junctions, collapse = "_")
+        })
+      }
+    )
+  )
+
+# Combine all info
+utr_info = tx_metadata %>%
+  left_join(sample_exons, by = "transcript_id") %>%
+  left_join(sample_cds, by = "transcript_id") %>%
+  left_join(utr_stats, by = "transcript_id") %>%
+  left_join(utr_chains, by = "transcript_id") %>%
+  mutate(
+    # Handle transcripts with no UTR
+    num_5utr_exons = replace_na(num_5utr_exons, 0),
+    utr_length = replace_na(utr_length, 0),
+    utr_exon_status = case_when(
+      num_5utr_exons == 0 ~ "no_utr",
+      num_5utr_exons == 1 ~ "monoexonic",
+      TRUE ~ "multiexonic"
+    )
+  )
+
 # =============================================================================
 # STEP 3: Classify 5' UTRs
 # =============================================================================
 
 message("\n--- STEP 3: Classifying 5' UTRs ---")
 
-pb_classifications <- pb_utr_info %>%
-  rowwise() %>%
-  mutate(
-    # Calculate key coordinates
-    tss = get_tss(exons, strand),
-    nterm = if (!is.null(cdss)) get_nterm(cdss, strand) else NA_integer_,
-    
-    # Extract 5' UTR coordinates
-    utr_coords = if (!is.na(nterm)) list(get_5utr_coords(exons, nterm, strand)) else list(tibble(start = integer(), end = integer())),
-    
-    # Calculate properties
-    num_5utr_exons = nrow(utr_coords),
-    utr_exon_status = if_else(num_5utr_exons == 1, "monoexonic", "multiexonic"),
-    
-    # Create chain strings
-    utr_chain = make_chain_string(utr_coords),
-    junc_chain = get_junction_chain(utr_chain)
-  ) %>%
-  ungroup()
+# Check TSS overlap with GENCODE using GRanges 
+tss_gr = GRanges(
+  seqnames = utr_info$seqnames,
+  ranges   = IRanges(start = utr_info$tss, end = utr_info$tss),
+  strand   = utr_info$strand
+)
 
-# Get GENCODE exonic regions for each chromosome
-pb_classifications <- pb_classifications %>%
-  left_join(gencode_merged, by = "seqnames") %>%
-  rowwise() %>%
-  mutate(
-    exon_ranges = list(tibble(start = unlist(start), end = unlist(end)))
-  ) %>%
-  ungroup() %>%
-  select(-start, -end)
+overlaps = findOverlaps(tss_gr, gencode_gr)
+utr_info$tss_in_gc_exons = seq_len(nrow(utr_info)) %in% queryHits(overlaps)
 
-# Get GENCODE chains for each gene
-pb_classifications <- pb_classifications %>%
-  left_join(gencode_chains, by = "gene_name")
+# For monoexonic: calculate distance to nearest GENCODE exon 
+distances       = rep(NA_real_, nrow(utr_info))
+non_overlapping = which(!utr_info$tss_in_gc_exons & utr_info$utr_exon_status == "monoexonic")
 
-# Perform classification
-pb_classifications <- pb_classifications %>%
-  rowwise() %>%
+if (length(non_overlapping) > 0) {
+  nearest                    = distanceToNearest(tss_gr[non_overlapping], gencode_gr)
+  distances[non_overlapping] = mcols(nearest)$distance
+}
+
+utr_info$distance_to_gc = distances
+
+# Join GENCODE chains for multiexonic comparison
+utr_info = utr_info %>%
+  left_join(gencode_chains, by = "gene_id")
+
+# Classify monoexonic UTRs
+utr_info = utr_info %>%
   mutate(
-    # Check if TSS is in known exons
-    tss_in_gc_exons = tss_in_exons(tss, exon_ranges),
-    
-    # Classify based on exon structure
+    mono_class = case_when(
+      utr_exon_status != "monoexonic" ~ NA_character_,
+      tss_in_gc_exons ~ "within",
+      distance_to_gc >= 10 ~ "protruding",
+      TRUE ~ "within"
+    )
+  )
+
+# Classify multiexonic UTRs (needs rowwise for junction matching)
+multi_idx = which(utr_info$utr_exon_status == "multiexonic")
+
+if (length(multi_idx) > 0) {
+  multi_results = utr_info[multi_idx, ] %>%
+    rowwise() %>%
+    mutate(
+      multi_class = classify_multiexonic_utr(tss, strand, junc_chain, chains)
+    ) %>%
+    ungroup() %>%
+    pull(multi_class)
+  
+  utr_info$multi_class            = NA_character_
+  utr_info$multi_class[multi_idx] = multi_results
+}
+
+# Final classification 
+utr_results = utr_info %>%
+  mutate(
     junc_cat = case_when(
       is.na(nterm) ~ "no_orf",
-      num_5utr_exons == 0 ~ "no_utr",
-      utr_exon_status == "monoexonic" ~ classify_monoexonic_utr(tss, strand, exon_ranges),
-      utr_exon_status == "multiexonic" ~ classify_multiexonic_utr(tss, strand, junc_chain, chains),
+      utr_exon_status == "no_utr" ~ "no_utr",
+      utr_exon_status == "monoexonic" ~ mono_class,
+      utr_exon_status == "multiexonic" ~ multi_class,
       TRUE ~ "unknown"
     ),
     
-    # Final category
-    utr_cat = get_final_category(junc_cat)
+    # Map to final categories
+    utr_cat = case_when(
+      junc_cat %in% c("no_orf", "no_utr", "unknown") ~ junc_cat,
+      junc_cat %in% c("within", "perfect_subset") ~ "subset",
+      junc_cat %in% c("protruding", "known_protruding", "novel") ~ "unique",
+      TRUE ~ "unknown"
+    )
   ) %>%
-  ungroup()
+  select(isoform_id = transcript_id, num_5utr_exons, utr_exon_status, tss_in_gc_exons, junc_cat, utr_cat)
 
-# =============================================================================
-# STEP 4: Merge with SQANTI classification
-# =============================================================================
+# Merge with SQANTI protein classification
+sqanti_class = read_tsv(protein_sqanti_path, show_col_types = FALSE)
+utr_output = sqanti_class %>%
+  full_join(utr_results, by = "isoform_id")
 
-message("\n--- STEP 4: Merging with SQANTI classification ---")
+# write out intermediate file for troubleshooting
+#write_tsv(utr_output, paste0("../results/protein_sqanti/", basename, "_5utr_classification.tsv"))
 
-# Read SQANTI protein classification
-sqanti_class <- read_tsv(sqanti_class_path, show_col_types = FALSE)
 
-# Select relevant columns
-utr_results <- pb_classifications %>%
-  select(pb = pb_id, gene = gene_name, num_5utr_exons, utr_exon_status, 
-         tss_in_gc_exons, junc_cat, utr_cat)
-
-# Write standalone UTR classification
-utr_output <- file.path(output_dir, "pb_5utr_categories.tsv")
-write_tsv(utr_results, utr_output)
-message(paste0("Wrote 5' UTR classifications to: ", utr_output))
-
-# Merge with SQANTI classification
-final_output <- sqanti_class %>%
-  left_join(
-    utr_results %>% select(pb, utr_exon_status, utr_cat),
-    by = "pb"
-  )
-
-# Write merged output
-merged_output <- file.path(output_dir, "sqanti_protein_classification_w_5utr_info.tsv")
-write_tsv(final_output, merged_output)
-message(paste0("Wrote merged classification to: ", merged_output))
-
-# =============================================================================
-# Summary statistics
-# =============================================================================
-
-message("\n=== CLASSIFICATION SUMMARY ===")
-message(paste0("Total transcripts processed: ", nrow(utr_results)))
-message("\nUTR exon status:")
-print(table(utr_results$utr_exon_status))
-message("\nJunction category:")
-print(table(utr_results$junc_cat))
-message("\nFinal UTR category:")
-print(table(utr_results$utr_cat))
+# 5' UTR summary statistics
+message("\n--- 5'UTR Classification complete! ---")
+message(sprintf("Total transcripts: %d", nrow(utr_output)))
+message(sprintf("  subset: %d", sum(utr_output$utr_cat == "subset", na.rm = TRUE)))
+message(sprintf("  unique: %d", sum(utr_output$utr_cat == "unique", na.rm = TRUE)))
+message(sprintf("  no_orf: %d", sum(utr_output$utr_cat == "no_orf", na.rm = TRUE)))
+message(sprintf("  no_utr: %d", sum(utr_output$utr_cat == "no_utr", na.rm = TRUE)))
 message("\nAnalysis complete!")
+
+
+# =============================================================================
+# STEP 4: Protein classification
+# =============================================================================
+
+message("\n--- STEP 4: Protein classification ---")
+
+protein_classifications = utr_output %>%
+  mutate(
+    protein_classification = case_when(
+      
+      ## Compared to the specific best-matching reference isoform
+      # pr_nterm_diff: difference in ORF start positions (ATG)
+      # pr_cterm_diff: difference in ORF end positions (stop codon)
+      
+      ## Compared to the nearest position across ALL isoforms of that gene
+      # pr_nterm_gene_diff: distance to nearest CDS start among all isoforms
+      # pr_cterm_gene_diff: distance to nearest CDS end among all isoforms
+      
+      # -----------------------------------------------------------------------------------------------------------
+      # SQANTI_Protein, Full Splice Match - CDS splice junctions match exactly, but precise N and C term may differ 
+      # -----------------------------------------------------------------------------------------------------------
+      
+      # Case 1: Both ORF N-term and C-term match exactly
+      # FPM = Full protein match
+      pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
+        pr_nterm_diff == 0 & pr_cterm_diff == 0 ~ 
+        "pFPM,known_nterm_known_splice_known_cterm",
+      
+      # Case 2: CDS start and/or end differ from the matched isoform, but both exist in other isoforms of the gene
+      pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
+        (pr_nterm_diff != 0 | pr_cterm_diff != 0) & pr_nterm_gene_diff == 0 & pr_cterm_gene_diff == 0 ~ 
+        "pNIC,combo_nterm_cterm",
+      
+      # Case 3: ATG matches the reference exactly, but end doesnt match any isoform (novel Cterm)
+      pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
+        pr_nterm_diff == 0 & pr_cterm_diff != 0 ~ 
+        "pNNC,known_nterm_known_splice_novel_cterm",
+      
+      # Case 4 subtypes: ATG doesn't match any isoform (Implicit: pr_nterm_gene_diff != 0), known end
+      
+      # 4a: ATG extends upstream of the reference CDS start = Novel N-terminal extension
+      pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
+        pr_nterm_diff != 0 & pr_cterm_diff == 0 & pr_nhang > 0 ~ 
+        "pNNC,novel_nterm_known_splice_known_cterm",
+      
+      # 4b: ATG is downstream/within reference CDS, using internal start codon = N-terminal truncation
+      pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
+        pr_nterm_diff != 0 & pr_cterm_diff == 0 & pr_nhang <= 0 & utr_cat == "subset" ~ 
+        "pIPM,nterm_truncation",
+      
+      # 4c: utr_cat captures TSS info- what is this?
+      pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
+        pr_nterm_diff != 0 & pr_cterm_diff == 0 & pr_nhang <= 0 & utr_cat == "unique" ~ 
+        "pNNC,novel_nterm_known_splice_known_cterm",
+      
+      # Case 5 subtypes: Both N-term and C-term differ from reference
+      
+      # 5a: ATG matches another isoform (known)
+      pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
+        pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff == 0 ~ 
+        "pNNC,known_nterm_known_splice_novel_cterm",
+      
+      # 5b: ATG doesn't match any isoform + internal start = truncation
+      pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
+        pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff != 0 & utr_cat == "subset" ~ 
+        "pIPM,nterm_truncation",
+      
+      # 5c: Novel ATG but end matches known isoform
+      pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
+        pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff != 0 & 
+        utr_cat == "unique" & pr_cterm_gene_diff == 0 ~ 
+        "pNNC,novel_nterm_known_splice_known_cterm",
+      
+      # 5d: Novel ATG and novel STOP
+      pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
+        pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff != 0 & 
+        utr_cat == "unique" & pr_cterm_gene_diff != 0 ~ 
+        "pNNC,novel_nterm_known_splice_novel_cterm",
+      
+      # FSM orphan catch-all
+      pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" ~ 
+        "orphan_fsm",
+      
+      # ------------------------------
+      # Incomplete Splice Match (ISM)
+      # ------------------------------
+      
+      # Case 1: N-term matches, C-term differs and extends beyond gene
+      pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_diff == 0 & pr_cterm_diff != 0 & pr_cterm_gene_diff != 0 ~ 
+        "pNNC,known_nterm_known_splice_novel_cterm",
+      
+      # Case 2: N-term matches, C-term differs but within gene
+      pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_diff == 0 & pr_cterm_diff != 0 & pr_cterm_gene_diff == 0 ~ 
+        "pNIC,combo_nterm_cterm",
+      
+      # Case 3: Both N-term and C-term match (retained intron causes unique splicing)
+      pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_diff == 0 & pr_cterm_diff == 0 ~ 
+        "pNIC,known_nterm_combo_splice_known_cterm",
+      
+      # Case 4: N-term differs but within gene, C-term matches
+      pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_diff != 0 & pr_cterm_diff == 0 & pr_nterm_gene_diff == 0 ~ 
+        "pNIC,combo_nterm_cterm",
+      
+      # Case 5: N-term differs and extends beyond gene, C-term matches
+      pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_diff != 0 & pr_cterm_diff == 0 & pr_nterm_gene_diff != 0 & 
+        pr_nhang <= 0 & utr_cat == "subset" ~ 
+        "pISM,ntrunc",
+      
+      pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_diff != 0 & pr_cterm_diff == 0 & pr_nterm_gene_diff != 0 & 
+        pr_nhang <= 0 & utr_cat == "unique" ~ 
+        "pNNC,novel_nterm_known_splice_known_cterm",
+      
+      pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_diff != 0 & pr_cterm_diff == 0 & pr_nterm_gene_diff != 0 & pr_nhang > 0 ~ 
+        "pNNC,novel_nterm_known_splice_known_cterm",
+      
+      # Case 6: Both N-term and C-term differ, both within gene
+      pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff == 0 & pr_cterm_gene_diff == 0 ~ 
+        "pNIC,combo_nterm_cterm",
+      
+      # Case 7: N-term within gene, C-term extends beyond
+      pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff == 0 & pr_cterm_gene_diff != 0 ~ 
+        "pNNC,known_nterm_known_splice_novel_cterm",
+      
+      # Case 8a: N-term extends beyond gene, any C-term - truncation
+      pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff != 0 & utr_cat == "subset" ~ 
+        "pISM,ntrunc",
+      
+      # Case 8b: N-term extends beyond gene (novel), C-term known (within gene)
+      pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff != 0 & 
+        utr_cat == "unique" & pr_cterm_gene_diff == 0 ~ 
+        "pNNC,novel_nterm_known_splice_known_cterm",
+      
+      # Case 8c: N-term extends beyond gene (novel), C-term extends beyond gene (novel)
+      pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff != 0 & 
+        utr_cat == "unique" & pr_cterm_gene_diff != 0 ~ 
+        "pNNC,novel_nterm_known_splice_novel_cterm",
+      
+      # ISM orphan catch-all
+      pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") ~ 
+        "orphan_ism",
+      
+      # ------------------------------
+      # Novel in Catalog (NIC)
+      # ------------------------------
+      
+      # Case 1: Both N-term and C-term within gene boundaries
+      pr_splice_cat == "novel_in_catalog" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_gene_diff == 0 & pr_cterm_gene_diff == 0 ~ 
+        "pNIC,known_nterm_combo_splice_known_cterm",
+      
+      # Case 2: N-term within gene, C-term extends beyond gene
+      pr_splice_cat == "novel_in_catalog" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_gene_diff == 0 & pr_cterm_gene_diff != 0 ~ 
+        "pNNC,known_nterm_combo_splice_novel_cterm",
+      
+      # Case 3: N-term extends beyond gene - truncation
+      pr_splice_cat == "novel_in_catalog" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_gene_diff != 0 & utr_cat == "subset" ~ 
+        "pISM,ntrunc",
+      
+      # Case 4: N-term extends beyond gene (novel), C-term within gene
+      pr_splice_cat == "novel_in_catalog" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_gene_diff != 0 & utr_cat == "unique" & pr_cterm_gene_diff == 0 ~ 
+        "pNNC,novel_nterm_combo_splice_known_cterm",
+      
+      # Case 5: N-term extends beyond gene (novel), C-term extends beyond gene
+      pr_splice_cat == "novel_in_catalog" & !str_detect(pr_splice_subcat, "mono-exon") & 
+        pr_nterm_gene_diff != 0 & utr_cat == "unique" & pr_cterm_gene_diff != 0 ~ 
+        "pNNC,novel_nterm_combo_splice_novel_cterm",
+      
+      # NIC orphan catch-all
+      pr_splice_cat == "novel_in_catalog" & !str_detect(pr_splice_subcat, "mono-exon") ~ 
+        "orphan_nic",
+      
+      # ------------------------------
+      # Novel Not in Catalog (NNC)
+      # ------------------------------
+    
+      # Case 1: Both N-term and C-term within gene boundaries
+      pr_splice_cat == "novel_not_in_catalog" & pr_nterm_gene_diff == 0 & pr_cterm_gene_diff == 0 ~ 
+        "pNNC,known_nterm_novel_splice_known_cterm",
+      
+      # Case 2: N-term within gene, C-term extends beyond gene
+      pr_splice_cat == "novel_not_in_catalog" & pr_nterm_gene_diff == 0 & pr_cterm_gene_diff != 0 ~ 
+        "pNNC,known_nterm_novel_splice_novel_cterm",
+      
+      # Case 3: N-term extends beyond gene - truncation
+      pr_splice_cat == "novel_not_in_catalog" & pr_nterm_gene_diff != 0 & utr_cat == "subset" ~ 
+        "pISM,ntrunc",
+      
+      # Case 4: N-term extends beyond gene (novel), C-term within gene
+      pr_splice_cat == "novel_not_in_catalog" & pr_nterm_gene_diff != 0 & 
+        utr_cat == "unique" & pr_cterm_gene_diff == 0 ~ 
+        "pNNC,novel_nterm_novel_splice_known_cterm",
+      
+      # Case 5: N-term extends beyond gene (novel), C-term extends beyond gene
+      pr_splice_cat == "novel_not_in_catalog" & pr_nterm_gene_diff != 0 & 
+        utr_cat == "unique" & pr_cterm_gene_diff != 0 ~ 
+        "pNNC,novel_nterm_novel_splice_novel_cterm",
+      
+      # NNC orphan catch-all
+      pr_splice_cat == "novel_not_in_catalog" ~ 
+        "orphan_nnc",
+      
+      # ------------------------------
+      # Mono-exon cases
+      # ------------------------------
+      
+      # Perfect mono-exon match
+      (pr_splice_subcat == "mono-exon" | pr_splice_subcat == "mono-exon_by_intron_retention") & 
+        pr_splice_cat == "full-splice_match" & pr_nterm_diff == 0 & pr_cterm_diff == 0 ~ 
+        "pFSM,mono-exon",
+      
+      # Intergenic mono-exon
+      (pr_splice_subcat == "mono-exon" | pr_splice_subcat == "mono-exon_by_intron_retention") & 
+        pr_splice_cat == "intergenic" ~ 
+        "intergenic,mono-exon",
+      
+      # Other mono-exon cases (orphan)
+      (pr_splice_subcat == "mono-exon" | pr_splice_subcat == "mono-exon_by_intron_retention") ~ 
+        "orphan_monoexon,mono-exon",
+      
+      # ------------------------------
+      # Miscellaneous multi-exon
+      # ------------------------------
+      
+      pr_splice_subcat == "multi-exon" & pr_splice_cat == "intergenic" ~ 
+        "intergenic,multi-exon",
+      
+      pr_splice_subcat == "multi-exon" & pr_splice_cat == "genic" ~ 
+        "genic,multi-exon",
+      
+      pr_splice_subcat == "multi-exon" & pr_splice_cat == "antisense" ~ 
+        "antisense,multi-exon",
+      
+      pr_splice_subcat == "multi-exon" & pr_splice_cat == "fusion" ~ 
+        "fusion,multi-exon",
+      
+      # ------------------------------
+      # Unclassified
+      # ------------------------------
+      
+      TRUE ~ ""
+    )
+  ) %>%
+  # Split protein_classification into base and subset
+  separate(protein_classification, 
+           into = c("protein_classification_base", "protein_classification_subset"), 
+           sep = ",", 
+           fill = "right", 
+           remove = FALSE)
+
+message("\n--- Protein classification complete! ---")
+
+
 ```
 
+```{r}
+sample = read_tsv("~/megan/github/LRP2_lite/results/protein_sqanti/sample_5utr_classification.tsv")
+sample %>% group_by(utr_exon_status, junc_cat) %>% tally()
+sample %>% group_by(utr_cat) %>% tally()
 
+# check ORF file for orf coords, incldues stop codon
+orfs = read_tsv("~/megan/github/LRP2_lite/results/orf_calling/sample_best_orfs_mapped.tsv")
 
+```
 

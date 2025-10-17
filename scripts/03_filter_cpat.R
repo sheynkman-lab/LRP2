@@ -193,7 +193,6 @@ group_by_protein_sequence <- function(filtered_results, full_fasta) {
 #' @return Data frame with CDS start/end coordinates
 get_cds_coords <- function(best_orfs, sample_exons) {
   
-  best_orfs %<>% filter(isoform_id == "PB.10453.48")
   # Join mapped ORFs with their exons- select all CDS exons
   cds_all = best_orfs %>%
     left_join(sample_exons, by = c("isoform_id", "seqnames", "strand")) %>%
