@@ -6,6 +6,7 @@ output: html_document
 ```{r}
 source("/project/sheynkman/users/megan/github/megan-schertzer/ms_functions.R")
 
+#wget https://github.com/conda-forge/miniforge/releases/download/24.11.3-0/Miniforge3-24.11.3-0-Linux-x86_64.sh
 #packageVersion()
 #conda search -c bioconda bioconductor-txdbmaker
 ```
@@ -382,9 +383,11 @@ cpat_fasta_file = "/home/cwp5au/megan/github/LRP2_lite/results/orf_calling/sampl
 cpat_results_file = "/home/cwp5au/megan/github/LRP2_lite/results/orf_calling/sample_cpat.ORF_prob.tsv"
 sample_full_fasta_path = "/home/cwp5au/megan/github/LRP2_lite/results/sqanti/sample_corrected_filtered.fasta"
 classification_file = "/home/cwp5au/megan/github/LRP2_lite/results/sqanti/sample_classification_filtered.txt"
-
-sample_gtf = import("../results/sqanti/sample_corrected_filtered.gtf") %>% as.data.frame()
-gencode_gtf = import("/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf") %>% as.data.frame()
+sample_gtf_path = "/home/cwp5au/megan/github/LRP2_lite/results/sqanti/sample_corrected_filtered.gtf"
+gencode_gtf_path = "/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf"
+cpat_dir = "/home/cwp5au/megan/github/LRP2_lite/results/orf_calling"
+#sample_gtf = import("../results/sqanti/sample_corrected_filtered.gtf") %>% as.data.frame()
+#gencode_gtf = import("/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf") %>% as.data.frame()
 basename = "sample"
 
 #!/usr/bin/env Rscript
@@ -1506,13 +1509,18 @@ basename = "jurkat"
 
 #!/usr/bin/env Rscript
 
-#' 5' UTR Classification Script
+#' Protein Classification Script
 #' 
-#' Classifies Long read derived 5' UTRs as either:
+#' Part 1: Classifies Long read derived 5' UTRs as either:
 #'   - "subset" (N-terminal truncation, using internal start codon)
 #'   - "unique" (novel start site, extending into new sequence)
-#' 
-#' 
+#'   
+#' Part 2: Protein Classification
+#' Integrates SQANTI-protein output to classify CDS structures:
+#'   - pFSM (Full Protein Match): CDS junctions exactly match reference
+#'   - pISM (Incomplete Protein Match): CDS junctions are subset of reference
+#'   - pNIC (Novel In Catalog): Novel combination of known N/splice/C
+#'   - pNNC (Novel Not in Catalog): At least one novel N/splice/C
 
 # =============================================================================
 # Load libraries
@@ -1545,20 +1553,6 @@ stopifnot("Protein classification file not found" = file.exists(protein_sqanti_p
 # =============================================================================
 # Helper Functions
 # =============================================================================
-
-test = utr_info
-test %>% filter(utr_exon_status == "multiexonic")
-test_row = test %>% filter(transcript_id == "PB.1001.2")
-utr_info[multi_idx, ] %>%
-    rowwise() %>%
-    mutate(
-      multi_class = classify_multiexonic_utr(tss, strand, junc_chain, chains)
-    )
-      
-tss = test_row$tss
-strand = test_row$strand
-junc_chain = test_row$junc_chain
-gc_chains = test_row$chains
 
 #' Classify multiexonic 5' UTR based on junction chain
 #' @param tss Integer: TSS coordinate
@@ -1807,6 +1801,13 @@ utr_results = utr_info %>%
 
 # Merge with SQANTI protein classification
 sqanti_class = read_tsv(protein_sqanti_path, show_col_types = FALSE)
+
+# Adjust C term differences since CPAT includes stop codon in coords and gencode does not
+sqanti_class %<>% mutate(
+  pr_cterm_diff = ifelse(!is.na(pr_cterm_diff), pr_cterm_diff + 3, pr_cterm_diff),
+  pr_cterm_gene_diff = ifelse(!is.na(pr_cterm_gene_diff), pr_cterm_gene_diff - 3, pr_cterm_gene_diff),
+  pr_chang = ifelse(!is.na(pr_chang), pr_chang - 3, pr_chang))
+
 utr_output = sqanti_class %>%
   full_join(utr_results, by = "isoform_id")
 
@@ -1821,7 +1822,6 @@ message(sprintf("  subset: %d", sum(utr_output$utr_cat == "subset", na.rm = TRUE
 message(sprintf("  unique: %d", sum(utr_output$utr_cat == "unique", na.rm = TRUE)))
 message(sprintf("  no_orf: %d", sum(utr_output$utr_cat == "no_orf", na.rm = TRUE)))
 message(sprintf("  no_utr: %d", sum(utr_output$utr_cat == "no_utr", na.rm = TRUE)))
-message("\nAnalysis complete!")
 
 
 # =============================================================================
@@ -1843,45 +1843,47 @@ protein_classifications = utr_output %>%
       # pr_cterm_gene_diff: distance to nearest CDS end among all isoforms
       
       # -----------------------------------------------------------------------------------------------------------
-      # SQANTI_Protein, Full Splice Match - CDS splice junctions match exactly, but precise N and C term may differ 
+      # SQANTI_Protein, Full Splice Match - CDS splice junctions match exactly (known_splice), but precise N and C term may differ 
       # -----------------------------------------------------------------------------------------------------------
       
-      # Case 1: Both ORF N-term and C-term match exactly
+      # Case 1: Both ATG and stop codon match reference isoform exactly
       # FPM = Full protein match
       pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
         pr_nterm_diff == 0 & pr_cterm_diff == 0 ~ 
         "pFPM,known_nterm_known_splice_known_cterm",
       
-      # Case 2: CDS start and/or end differ from the matched isoform, but both exist in other isoforms of the gene
+      # Case 2: Novel combination - ATG and/or STOP differ from reference isoform, but both exist in other isoforms of the gene
       pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
         (pr_nterm_diff != 0 | pr_cterm_diff != 0) & pr_nterm_gene_diff == 0 & pr_cterm_gene_diff == 0 ~ 
         "pNIC,combo_nterm_cterm",
       
-      # Case 3: ATG matches the reference exactly, but end doesnt match any isoform (novel Cterm)
+      # Case 3: ATG matches the reference exactly, but STOP codon is novel
       pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
         pr_nterm_diff == 0 & pr_cterm_diff != 0 ~ 
         "pNNC,known_nterm_known_splice_novel_cterm",
       
-      # Case 4 subtypes: ATG doesn't match any isoform (Implicit: pr_nterm_gene_diff != 0), known end
+      # Case 4 subtypes: ATG doesn't match any isoform (Implicit: pr_nterm_gene_diff != 0), known STOP
       
-      # 4a: ATG extends upstream of the reference CDS start = Novel N-terminal extension
+      # 4a: Protein extends upstream - novel N-terminal amino acids
       pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
         pr_nterm_diff != 0 & pr_cterm_diff == 0 & pr_nhang > 0 ~ 
         "pNNC,novel_nterm_known_splice_known_cterm",
       
       # 4b: ATG is downstream/within reference CDS, using internal start codon = N-terminal truncation
+      # IPM = Incomplete Protein Match
       pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
         pr_nterm_diff != 0 & pr_cterm_diff == 0 & pr_nhang <= 0 & utr_cat == "subset" ~ 
         "pIPM,nterm_truncation",
       
-      # 4c: utr_cat captures TSS info- what is this?
+      # 4c: Novel TSS context - ATG position is novel but protein doesn't extend
+      # Transcript has extended 5' UTR (novel TSS) creating novel regulatory context
       pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
         pr_nterm_diff != 0 & pr_cterm_diff == 0 & pr_nhang <= 0 & utr_cat == "unique" ~ 
         "pNNC,novel_nterm_known_splice_known_cterm",
       
-      # Case 5 subtypes: Both N-term and C-term differ from reference
+      # Case 5 subtypes: Both ATG and stop codon differ from reference isoform
       
-      # 5a: ATG matches another isoform (known)
+      # 5a: ATG matches another isoform (known), stop is novel
       pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
         pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff == 0 ~ 
         "pNNC,known_nterm_known_splice_novel_cterm",
@@ -1891,7 +1893,7 @@ protein_classifications = utr_output %>%
         pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff != 0 & utr_cat == "subset" ~ 
         "pIPM,nterm_truncation",
       
-      # 5c: Novel ATG but end matches known isoform
+      # 5c: Novel ATG (protein or TSS context) but end matches known isoform
       pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" & 
         pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff != 0 & 
         utr_cat == "unique" & pr_cterm_gene_diff == 0 ~ 
@@ -1907,67 +1909,75 @@ protein_classifications = utr_output %>%
       pr_splice_cat == "full-splice_match" & pr_splice_subcat == "multi-exon" ~ 
         "orphan_fsm",
       
-      # ------------------------------
-      # Incomplete Splice Match (ISM)
-      # ------------------------------
+      # ---------------------------------------------------------------------------------------
+      # SQANTI_Protein, Incomplete Splice Match (ISM) - CDS junctions are a subset of reference
+      # (e.g., 5' fragment, 3' fragment, intron retention in CDS)
+      # ---------------------------------------------------------------------------------------
       
-      # Case 1: N-term matches, C-term differs and extends beyond gene
+      # Case 1: ATG matches reference isoform, stop codon is novel
       pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_diff == 0 & pr_cterm_diff != 0 & pr_cterm_gene_diff != 0 ~ 
         "pNNC,known_nterm_known_splice_novel_cterm",
       
-      # Case 2: N-term matches, C-term differs but within gene
+      # Case 2: Novel combination - ATG matches reference isoform, stop codon matches another isoform
       pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_diff == 0 & pr_cterm_diff != 0 & pr_cterm_gene_diff == 0 ~ 
         "pNIC,combo_nterm_cterm",
       
-      # Case 3: Both N-term and C-term match (retained intron causes unique splicing)
+      # Case 3: Novel combination - Both ATG and stop codon match (incomplete CDS splicing only)
+      # Likely intron retention within CDS causing unique splicing pattern
       pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_diff == 0 & pr_cterm_diff == 0 ~ 
         "pNIC,known_nterm_combo_splice_known_cterm",
       
-      # Case 4: N-term differs but within gene, C-term matches
+      # Case 4: Novel combination - ATG differs from reference but matches another isoform, stop codon matches
       pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_diff != 0 & pr_cterm_diff == 0 & pr_nterm_gene_diff == 0 ~ 
         "pNIC,combo_nterm_cterm",
       
-      # Case 5: N-term differs and extends beyond gene, C-term matches
+      # Case 5 subtypes - ATG doesnt match any isoform (novel), stop codon matches
+      
+      # Case 5a: ATG is downstream (internal start codon) - N-terminal truncation
       pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_diff != 0 & pr_cterm_diff == 0 & pr_nterm_gene_diff != 0 & 
         pr_nhang <= 0 & utr_cat == "subset" ~ 
-        "pISM,ntrunc",
+        "pIPM,nterm_truncation",
       
+      # Case 5b: Novel TSS context - ATG position novel but protein doesn't extend
       pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_diff != 0 & pr_cterm_diff == 0 & pr_nterm_gene_diff != 0 & 
         pr_nhang <= 0 & utr_cat == "unique" ~ 
         "pNNC,novel_nterm_known_splice_known_cterm",
       
+      # Case 5c: Protein extends upstream - novel N-terminal amino acids
       pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_diff != 0 & pr_cterm_diff == 0 & pr_nterm_gene_diff != 0 & pr_nhang > 0 ~ 
         "pNNC,novel_nterm_known_splice_known_cterm",
       
-      # Case 6: Both N-term and C-term differ, both within gene
+      # Case 6: Novel Combination - Both ATG and stop match other isoforms
       pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff == 0 & pr_cterm_gene_diff == 0 ~ 
         "pNIC,combo_nterm_cterm",
       
-      # Case 7: N-term within gene, C-term extends beyond
+      # Case 7: ATG matches another isoform, stop codon is novel
       pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff == 0 & pr_cterm_gene_diff != 0 ~ 
         "pNNC,known_nterm_known_splice_novel_cterm",
       
-      # Case 8a: N-term extends beyond gene, any C-term - truncation
+      # Case 8 subtypes - ATG doesn't match any isoform, stop codon varies
+      
+      # Case 8a: Internal start codon - truncation
       pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff != 0 & utr_cat == "subset" ~ 
-        "pISM,ntrunc",
+        "pIPM,nterm_truncation",
       
-      # Case 8b: N-term extends beyond gene (novel), C-term known (within gene)
+      # Case 8b: Novel ATG (protein or TSS context), stop matches another isoform
       pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff != 0 & 
         utr_cat == "unique" & pr_cterm_gene_diff == 0 ~ 
         "pNNC,novel_nterm_known_splice_known_cterm",
       
-      # Case 8c: N-term extends beyond gene (novel), C-term extends beyond gene (novel)
+      # Case 8c: Both ATG and stop codon are novel (don't match any isoform)
       pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_diff != 0 & pr_cterm_diff != 0 & pr_nterm_gene_diff != 0 & 
         utr_cat == "unique" & pr_cterm_gene_diff != 0 ~ 
@@ -1977,31 +1987,31 @@ protein_classifications = utr_output %>%
       pr_splice_cat == "incomplete-splice_match" & !str_detect(pr_splice_subcat, "mono-exon") ~ 
         "orphan_ism",
       
-      # ------------------------------
-      # Novel in Catalog (NIC)
-      # ------------------------------
+      # ------------------------------------------------------------------------------------------
+      # SQANTI_Protein, Novel in Catalog (NIC) - combo_splice (no reference isoform to compare to)
+      # ------------------------------------------------------------------------------------------
       
-      # Case 1: Both N-term and C-term within gene boundaries
+      # Case 1: Both ATG and stop codon match an annotated isoform
       pr_splice_cat == "novel_in_catalog" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_gene_diff == 0 & pr_cterm_gene_diff == 0 ~ 
         "pNIC,known_nterm_combo_splice_known_cterm",
       
-      # Case 2: N-term within gene, C-term extends beyond gene
+      # Case 2: ATG matches an isoform, stop codon is novel
       pr_splice_cat == "novel_in_catalog" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_gene_diff == 0 & pr_cterm_gene_diff != 0 ~ 
         "pNNC,known_nterm_combo_splice_novel_cterm",
       
-      # Case 3: N-term extends beyond gene - truncation
+      # Case 3: ATG doesn't match - truncation
       pr_splice_cat == "novel_in_catalog" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_gene_diff != 0 & utr_cat == "subset" ~ 
-        "pISM,ntrunc",
+        "pIPM,nterm_truncation",
       
-      # Case 4: N-term extends beyond gene (novel), C-term within gene
+      # Case 4: Novel ATG (protein or TSS context), stop codon matches
       pr_splice_cat == "novel_in_catalog" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_gene_diff != 0 & utr_cat == "unique" & pr_cterm_gene_diff == 0 ~ 
         "pNNC,novel_nterm_combo_splice_known_cterm",
       
-      # Case 5: N-term extends beyond gene (novel), C-term extends beyond gene
+      # Case 5: Both ATG and stop codon are novel
       pr_splice_cat == "novel_in_catalog" & !str_detect(pr_splice_subcat, "mono-exon") & 
         pr_nterm_gene_diff != 0 & utr_cat == "unique" & pr_cterm_gene_diff != 0 ~ 
         "pNNC,novel_nterm_combo_splice_novel_cterm",
@@ -2010,28 +2020,28 @@ protein_classifications = utr_output %>%
       pr_splice_cat == "novel_in_catalog" & !str_detect(pr_splice_subcat, "mono-exon") ~ 
         "orphan_nic",
       
-      # ------------------------------
-      # Novel Not in Catalog (NNC)
-      # ------------------------------
+      # ----------------------------------------------------------------------------------------------
+      # SQANTI_Protein, Novel Not in Catalog (NNC) - novel_splice (no reference isoform to compare to)
+      # ----------------------------------------------------------------------------------------------
     
-      # Case 1: Both N-term and C-term within gene boundaries
+      # Case 1: Both ATG and stop codon match an annotated isoform
       pr_splice_cat == "novel_not_in_catalog" & pr_nterm_gene_diff == 0 & pr_cterm_gene_diff == 0 ~ 
         "pNNC,known_nterm_novel_splice_known_cterm",
       
-      # Case 2: N-term within gene, C-term extends beyond gene
+      # Case 2: ATG matches an isoform, stop codon is novel
       pr_splice_cat == "novel_not_in_catalog" & pr_nterm_gene_diff == 0 & pr_cterm_gene_diff != 0 ~ 
         "pNNC,known_nterm_novel_splice_novel_cterm",
       
-      # Case 3: N-term extends beyond gene - truncation
+      # Case 3: ATG doesn't match - truncation
       pr_splice_cat == "novel_not_in_catalog" & pr_nterm_gene_diff != 0 & utr_cat == "subset" ~ 
-        "pISM,ntrunc",
+        "pIPM,nterm_truncation",
       
-      # Case 4: N-term extends beyond gene (novel), C-term within gene
+      # Case 4: Novel ATG (protein or TSS context), stop codon matches
       pr_splice_cat == "novel_not_in_catalog" & pr_nterm_gene_diff != 0 & 
         utr_cat == "unique" & pr_cterm_gene_diff == 0 ~ 
         "pNNC,novel_nterm_novel_splice_known_cterm",
       
-      # Case 5: N-term extends beyond gene (novel), C-term extends beyond gene
+      # Case 5: Both ATG and stop codon are novel
       pr_splice_cat == "novel_not_in_catalog" & pr_nterm_gene_diff != 0 & 
         utr_cat == "unique" & pr_cterm_gene_diff != 0 ~ 
         "pNNC,novel_nterm_novel_splice_novel_cterm",
@@ -2047,7 +2057,7 @@ protein_classifications = utr_output %>%
       # Perfect mono-exon match
       (pr_splice_subcat == "mono-exon" | pr_splice_subcat == "mono-exon_by_intron_retention") & 
         pr_splice_cat == "full-splice_match" & pr_nterm_diff == 0 & pr_cterm_diff == 0 ~ 
-        "pFSM,mono-exon",
+        "pFPM,mono-exon",
       
       # Intergenic mono-exon
       (pr_splice_subcat == "mono-exon" | pr_splice_subcat == "mono-exon_by_intron_retention") & 
@@ -2089,8 +2099,18 @@ protein_classifications = utr_output %>%
            remove = FALSE)
 
 message("\n--- Protein classification complete! ---")
+message("\nBy classification base:")
+message(sprintf("  pFPM: %d", sum(pb_classifications$protein_classification_base == "pFPM", na.rm = TRUE)))
+message(sprintf("  pIPM: %d", sum(pb_classifications$protein_classification_base == "pIPM", na.rm = TRUE)))
+message(sprintf("  pNIC: %d", sum(pb_classifications$protein_classification_base == "pNIC", na.rm = TRUE)))
+message(sprintf("  pNNC: %d", sum(pb_classifications$protein_classification_base == "pNNC", na.rm = TRUE)))
+message(sprintf("  intergenic: %d", sum(pb_classifications$protein_classification_base == "intergenic", na.rm = TRUE)))
+message(sprintf("  genic: %d", sum(pb_classifications$protein_classification_base == "genic", na.rm = TRUE)))
+message(sprintf("  antisense: %d", sum(pb_classifications$protein_classification_base == "antisense", na.rm = TRUE)))
+message(sprintf("  fusion: %d", sum(pb_classifications$protein_classification_base == "fusion", na.rm = TRUE)))
+message(sprintf("  orphan: %d", sum(grepl("orphan", pb_classifications$protein_classification_base), na.rm = TRUE)))
 
-
+message("\nAnalysis complete!")
 ```
 
 ```{r}
@@ -2101,5 +2121,95 @@ sample %>% group_by(utr_cat) %>% tally()
 # check ORF file for orf coords, incldues stop codon
 orfs = read_tsv("~/megan/github/LRP2_lite/results/orf_calling/sample_best_orfs_mapped.tsv")
 
+
+names(sqanti_class)
+test = sqanti_class %>% mutate(
+  pr_cterm_diff = ifelse(!is.na(pr_cterm_diff), pr_cterm_diff + 3, pr_cterm_diff),
+  pr_cterm_gene_diff = ifelse(!is.na(pr_cterm_gene_diff), pr_cterm_gene_diff - 3, pr_cterm_gene_diff),
+  pr_chang = ifelse(!is.na(pr_chang), pr_chang - 3, pr_chang))
+
+test %>% group_by(pr_cterm_diff) %>% tally() %>% arrange(desc(n)) # 75710, equals 0 so no diff and 51276 NA (NIC and NNC)
+test %>% group_by(pr_cterm_gene_diff) %>% tally() %>% arrange(desc(n)) # 99117, equals 0 so no diff and 650 NA
+test %>% group_by(pr_chang) %>% tally() %>% arrange(desc(n)) #=
+test
+
 ```
+
+
+```{r}
+library(Biostrings)
+# Translate ORF to AA
+sample_full_fasta_path = "/home/cwp5au/megan/github/LRP2_lite/results/sqanti/sample_corrected_filtered.fasta"
+cpat_results_file      = "/home/cwp5au/megan/github/LRP2_lite/results/orf_calling/sample_cpat.ORF_prob.tsv"
+
+orf_coords = read_tsv("../results/orf_calling/sample_best_orfs_mapped.tsv", show_col_types = FALSE)
+
+full = readDNAStringSet(sample_full_fasta_path)
+full_fasta = tibble(
+  isoform_id    = names(full),
+  full_sequence = as.character(full)
+)
+
+orf_coords %<>% left_join(full_fasta, by = "isoform_id")
+
+# Extract sequences as named character vector
+pb_seqs <- setNames(as.character(pb_fasta), names(pb_fasta))
+
+# Translate each ORF to protein
+orfs$protein_seq <- sapply(1:nrow(orfs), function(i) {
+  pb_acc <- orfs$pb_acc[i]
+  start <- orfs$orf_start[i]
+  end <- orfs$orf_end[i]
+  
+  # Extract ORF region from transcript
+  orf_seq <- substr(pb_seqs[[pb_acc]], start, end)
+  
+  # Translate to protein (stop at first stop codon)
+  prot_seq <- as.character(translate(DNAString(orf_seq)))
+  prot_seq <- sub("\\*.*", "", prot_seq)  # Remove stop codon and everything after
+  
+  return(prot_seq)
+})
+
+
+
+
+best_orfs = read_tsv("../results/orf_calling/sample_best_orfs_mapped.tsv", show_col_types = FALSE)
+unique_orf = best_orfs %>% distinct(gene_id, gene_name, orf_isoform_id, orf_protein_sequence)
+protein_seqs = AAStringSet(unique_orf$orf_protein_sequence)
+names(protein_seqs) = paste0(unique_orf$orf_isoform_id, "|", unique_orf$gene_id, "|", unique_orf$gene_name)
+writeXStringSet(protein_seqs, "../results/orf_calling/sample_")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
