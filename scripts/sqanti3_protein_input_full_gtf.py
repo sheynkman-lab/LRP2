@@ -1475,8 +1475,10 @@ if __name__ == "__main__":
                 'pr_cterm_gene_diff': pr.tts_gene_diff,
                 'tx_transcripts': ','.join(tx.transcripts),
                 'pr_transcripts': ','.join(pr.transcripts),
-                'tx_gene': ','.join(tx.genes),
-                'pr_gene': ','.join(pr.genes),
+                #'tx_gene': ','.join(tx.genes), # fix bug of duplication
+                #'pr_gene': ','.join(pr.genes),
+                'tx_gene': ','.join(list(dict.fromkeys(tx.genes))),
+                'pr_gene': ','.join(list(dict.fromkeys(pr.genes))),
                 'tx_num_exons': tx.num_exons,
                 'pr_num_exons': pr.num_exons,
                 'is_nmd': tx.is_NMD * 1,

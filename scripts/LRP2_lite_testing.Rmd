@@ -8,7 +8,8 @@ source("/project/sheynkman/users/megan/github/megan-schertzer/ms_functions.R")
 
 #wget https://github.com/conda-forge/miniforge/releases/download/24.11.3-0/Miniforge3-24.11.3-0-Linux-x86_64.sh
 #packageVersion()
-#conda search -c bioconda bioconductor-txdbmaker
+# added genomic ranges and tidyverse to sqanti3 env
+
 ```
 
 What does sqanti classification file have?
@@ -1529,6 +1530,7 @@ basename = "jurkat"
 suppressPackageStartupMessages({
   library(GenomicRanges)
   library(txdbmaker)
+  library(Biostrings)
   library(tidyverse)
   library(magrittr)
   library(rtracklayer)
@@ -2137,44 +2139,9 @@ test
 
 
 ```{r}
-library(Biostrings)
-# Translate ORF to AA
-sample_full_fasta_path = "/home/cwp5au/megan/github/LRP2_lite/results/sqanti/sample_corrected_filtered.fasta"
-cpat_results_file      = "/home/cwp5au/megan/github/LRP2_lite/results/orf_calling/sample_cpat.ORF_prob.tsv"
-
-orf_coords = read_tsv("../results/orf_calling/sample_best_orfs_mapped.tsv", show_col_types = FALSE)
-
-full = readDNAStringSet(sample_full_fasta_path)
-full_fasta = tibble(
-  isoform_id    = names(full),
-  full_sequence = as.character(full)
-)
-
-orf_coords %<>% left_join(full_fasta, by = "isoform_id")
-
-# Extract sequences as named character vector
-pb_seqs <- setNames(as.character(pb_fasta), names(pb_fasta))
-
-# Translate each ORF to protein
-orfs$protein_seq <- sapply(1:nrow(orfs), function(i) {
-  pb_acc <- orfs$pb_acc[i]
-  start <- orfs$orf_start[i]
-  end <- orfs$orf_end[i]
-  
-  # Extract ORF region from transcript
-  orf_seq <- substr(pb_seqs[[pb_acc]], start, end)
-  
-  # Translate to protein (stop at first stop codon)
-  prot_seq <- as.character(translate(DNAString(orf_seq)))
-  prot_seq <- sub("\\*.*", "", prot_seq)  # Remove stop codon and everything after
-  
-  return(prot_seq)
-})
-
-
-
-
+# add fasta to orf calling module
 best_orfs = read_tsv("../results/orf_calling/sample_best_orfs_mapped.tsv", show_col_types = FALSE)
+best_orfs %>% filter(gene_id == "ENSG00000157191.20")
 unique_orf = best_orfs %>% distinct(gene_id, gene_name, orf_isoform_id, orf_protein_sequence)
 protein_seqs = AAStringSet(unique_orf$orf_protein_sequence)
 names(protein_seqs) = paste0(unique_orf$orf_isoform_id, "|", unique_orf$gene_id, "|", unique_orf$gene_name)
@@ -2183,6 +2150,98 @@ writeXStringSet(protein_seqs, "../results/orf_calling/sample_")
 
 ```
 
+What is the agreement between transcript and protein annotation?
+Issue in the protein sqanti code
+I think it selects one transcript even if multiple transcripts match
+some duplication in gene names
+```{r}
+sqanti = read_tsv("~/megan/github/LRP2_lite/results/sqanti/sample_classification_filtered.txt")
+sqanti %>% filter(associated_gene == "ENSG00000157191.20")
+
+protein_classifications = read_tsv("~/megan/github/LRP2_lite/results/protein_sqanti/sample.sqanti_protein_classification.tsv") # 148,829
+protein_classifications %>% filter(tx_gene != pr_gene) # 1,717
+protein_classifications %>% filter(tx_gene == pr_gene)
+protein_classifications %>% separate_rows(pr_gene, sep = ",")
+protein_classifications %>% separate_rows(tx_gene, sep = ",")
+protein_classifications %>% filter(grepl(",", tx_gene))
+protein_classifications %>% filter(grepl(",", pr_gene))
+
+# add section in protein classification script
+
+message("\n--- STEP 5: Reconcile gene ids and names ---")
+
+gene_mapping = gencode_gtf %>% distinct(gene_id, gene_name)
+ensg_lookup  = setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+
+# Just do direct assignment - no functions at all
+protein_classifications$tx_gene_name = ensg_lookup[protein_classifications$tx_gene]
+protein_classifications$pr_gene_name = ensg_lookup[protein_classifications$pr_gene]
+
+# For the columns with commas, manually fix them (this is much faster than ifelse)
+has_comma_tx = which(grepl(",", protein_classifications$tx_gene))
+has_comma_pr = which(grepl(",", protein_classifications$pr_gene))
+
+message("Transcripts mapping to multiple genes at tx level: ", length(has_comma_tx))
+message("Transcripts mapping to multiple genes at pr level: ", length(has_comma_pr))
+
+for (i in has_comma_tx) {
+  ensgs = strsplit(protein_classifications$tx_gene[i], ",")[[1]]
+  protein_classifications$tx_gene_name[i] = paste(unique(ensg_lookup[ensgs]), collapse = ",")
+}
+
+for (i in has_comma_pr) {
+  ensgs = strsplit(protein_classifications$pr_gene[i], ",")[[1]]
+  protein_classifications$pr_gene_name[i] = paste(unique(ensg_lookup[ensgs]), collapse = ",")
+}
+
+# Reconciliation of gene ids
+matching = protein_classifications$tx_gene == protein_classifications$pr_gene
+protein_classifications$reconciled_gene_id = protein_classifications$pr_gene  
+protein_classifications$reconciled_gene_name = protein_classifications$pr_gene_name
+
+# Only need to reconcile non-matching rows
+non_matching = which(!matching)
+
+message("Rows that don't match and need reconciliation:", length(non_matching), "\n")
+
+for (i in non_matching) {
+  tx_ids  = strsplit(protein_classifications$tx_gene[i], ",")[[1]]
+  pr_ids  = strsplit(protein_classifications$pr_gene[i], ",")[[1]]
+  
+  tx_name = strsplit(protein_classifications$tx_gene_name[i], ",")[[1]]
+  pr_name = strsplit(protein_classifications$pr_gene_name[i], ",")[[1]]
+  
+  match_id   = intersect(tx_ids, pr_ids)
+  match_name = intersect(tx_name, pr_name)
+  
+  if (length(match_id) > 0) {
+    protein_classifications$reconciled_gene_id[i] = match_id[1]
+  } else {
+    protein_classifications$reconciled_gene_id[i] = pr_ids[1]
+  }
+  
+  if (length(match_name) > 0) {
+    protein_classifications$reconciled_gene_name[i] = match_name[1]
+  } else {
+    protein_classifications$reconciled_gene_name[i] = pr_name[1]
+  }
+}
+
+# check examples- check na
+protein_classifications %>% 
+  filter(grepl(",", tx_gene)) %>%
+  select(tx_gene, pr_gene, tx_gene_name, pr_gene_name, reconciled_gene_id, reconciled_gene_name)
+
+protein_classifications %>% 
+  filter(grepl(",", pr_gene)) %>%
+  select(tx_gene, pr_gene, tx_gene_name, pr_gene_name, reconciled_gene_id, reconciled_gene_name)
+
+
+
+read_tsv("~/megan/github/LRP2_lite/results/protein_sqanti/sample_protein_classification.tsv")
+
+
+```
 
 
 

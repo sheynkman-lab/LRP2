@@ -23,8 +23,8 @@ export SPECIES="human"
 # Environment
 # =============================================================================
 
-export LRP2_ENV_NAME="LRP2_update"
-export LRP2_ENV_FILE="environments/LRP2_update.conda_env.yml"
+export LRP2_ENV_NAME="sqanti3"
+export LRP2_ENV_FILE="environments/SQANTI3.conda_env.yml"
 
 # =============================================================================
 # Module: 01_Isoseq

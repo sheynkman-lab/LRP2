@@ -19,7 +19,8 @@
 
 suppressPackageStartupMessages({
   library(GenomicRanges)
-  library(txdbmaker)
+  library(GenomicFeatures)
+  library(Biostrings)
   library(tidyverse)
   library(magrittr)
   library(rtracklayer)
@@ -301,10 +302,6 @@ sqanti_class %<>% mutate(
 
 utr_output = sqanti_class %>%
   full_join(utr_results, by = "isoform_id")
-
-# write out intermediate file for troubleshooting
-#write_tsv(utr_output, paste0("../results/protein_sqanti/", basename, "_5utr_classification.tsv"))
-
 
 # 5' UTR summary statistics
 message("\n--- 5'UTR Classification complete! ---")
@@ -591,16 +588,18 @@ protein_classifications = utr_output %>%
            fill = "right", 
            remove = FALSE)
 
+write_tsv(protein_classifications, file.path(protein_sqanti_dir, paste0(basename, "_protein_classification.tsv")))
+
 message("\n--- Protein classification complete! ---")
 message("\nBy classification base:")
-message(sprintf("  pFPM: %d", sum(pb_classifications$protein_classification_base == "pFPM", na.rm = TRUE)))
-message(sprintf("  pIPM: %d", sum(pb_classifications$protein_classification_base == "pIPM", na.rm = TRUE)))
-message(sprintf("  pNIC: %d", sum(pb_classifications$protein_classification_base == "pNIC", na.rm = TRUE)))
-message(sprintf("  pNNC: %d", sum(pb_classifications$protein_classification_base == "pNNC", na.rm = TRUE)))
-message(sprintf("  intergenic: %d", sum(pb_classifications$protein_classification_base == "intergenic", na.rm = TRUE)))
-message(sprintf("  genic: %d", sum(pb_classifications$protein_classification_base == "genic", na.rm = TRUE)))
-message(sprintf("  antisense: %d", sum(pb_classifications$protein_classification_base == "antisense", na.rm = TRUE)))
-message(sprintf("  fusion: %d", sum(pb_classifications$protein_classification_base == "fusion", na.rm = TRUE)))
-message(sprintf("  orphan: %d", sum(grepl("orphan", pb_classifications$protein_classification_base), na.rm = TRUE)))
+message(sprintf("  pFPM: %d", sum(protein_classifications$protein_classification_base == "pFPM", na.rm = TRUE)))
+message(sprintf("  pIPM: %d", sum(protein_classifications$protein_classification_base == "pIPM", na.rm = TRUE)))
+message(sprintf("  pNIC: %d", sum(protein_classifications$protein_classification_base == "pNIC", na.rm = TRUE)))
+message(sprintf("  pNNC: %d", sum(protein_classifications$protein_classification_base == "pNNC", na.rm = TRUE)))
+message(sprintf("  intergenic: %d", sum(protein_classifications$protein_classification_base == "intergenic", na.rm = TRUE)))
+message(sprintf("  genic: %d", sum(protein_classifications$protein_classification_base == "genic", na.rm = TRUE)))
+message(sprintf("  antisense: %d", sum(protein_classifications$protein_classification_base == "antisense", na.rm = TRUE)))
+message(sprintf("  fusion: %d", sum(protein_classifications$protein_classification_base == "fusion", na.rm = TRUE)))
+message(sprintf("  orphan: %d", sum(grepl("orphan", protein_classifications$protein_classification_base), na.rm = TRUE)))
 
 message("\nAnalysis complete!")
