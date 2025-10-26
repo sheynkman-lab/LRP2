@@ -1,0 +1,2 @@
+filepath  name  group
+/home/cwp5au/datasets/jurkat_zenodo5234651/jurkat_chr22.flnc.bam  jurkat  WT

@@ -55,17 +55,16 @@ gencode_gtf <- Sys.getenv("GENCODE_GTF_FILE")
 # Check required files
 # =============================================================================
 
-classification_file <- paste0(dir, "/", basename, "_classification.txt")
+classification_file = paste0(dir, "/", basename, "_classification.txt")
+sqanti_gtf          = paste0(dir, "/", basename, "_corrected.gtf")
+sqanti_fasta        = paste0(dir, "/", basename, "_corrected.fasta")
+
 stopifnot("File not found" = file.exists(classification_file))
-
-sqanti_gtf <- paste0(dir, "/", basename, "_corrected.gtf")
 stopifnot("File not found" = file.exists(sqanti_gtf))
-
-sqanti_fasta <- paste0(dir, "/", basename, "_corrected.fasta")
 stopifnot("File not found" = file.exists(sqanti_fasta))
 
 # Create additional output directory
-dropout_dir <- file.path(dir, "dropout")
+dropout_dir = file.path(dir, "dropout")
 dir.create(dropout_dir, recursive = TRUE, showWarnings = FALSE)
 
 # =============================================================================
@@ -105,9 +104,11 @@ save_filtered_gtf <- function(gtf_file, keep_ids, output_file) {
 # Load and merge inputs
 # =============================================================================
 
+message("\n Starting filtering of SQANTI output...")
+
 # Gencode gtf used to select protein coding genes and add column of readable gene name
-gencode    <- import(gencode_gtf, format = "gtf")
-gencode_df <- as.data.table(gencode)
+gencode    = import(gencode_gtf, format = "gtf")
+gencode_df = as.data.table(gencode)
 
 gencode_df %<>% 
   filter(type == "transcript") %>% 
@@ -118,7 +119,7 @@ gencode_gene = gencode_df %>%
   distinct()
 
 # SQANTI classification file- keep only isoforms with ENS gene IDs
-sqanti_df_full <- read_tsv(classification_file, show_col_types = FALSE) %>%
+sqanti_df_full = read_tsv(classification_file, show_col_types = FALSE) %>%
   filter(!is.na(associated_gene), str_starts(associated_gene, "ENS"))
 
 sqanti_df_full %<>% 
@@ -131,26 +132,26 @@ sqanti_df_full %<>%
 # =============================================================================
 
 # Initialize dropout tracking
-original_ids <- sqanti_df_full$isoform
-dropout_tracker <- list()
+original_ids    = sqanti_df_full$isoform
+dropout_tracker = list()
 
 # Keep only transcripts of protein coding genes
 sqanti_df = sqanti_df_full
 if (filter_protein_coding) {
-  ids <- sqanti_df$isoform
+  ids = sqanti_df$isoform
   sqanti_df %<>% 
     filter(gene_type == "protein_coding")
   
-  kept_ids    <- sqanti_df$isoform
-  dropped_ids <- setdiff(ids, kept_ids)
-  dropout_tracker[["not_protein_coding"]] <- dropped_ids
+  kept_ids    = sqanti_df$isoform
+  dropped_ids = setdiff(ids, kept_ids)
+  dropout_tracker[["not_protein_coding"]] = dropped_ids
   
   message("Protein coding filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
 }
 
 # Filter based on downstream polyA sequence to remove internal priming
 if (filter_internal_priming) {
-  ids <- sqanti_df$isoform
+  ids = sqanti_df$isoform
   
   # keep all isoforms below threshold
   keep1 = sqanti_df %>% 
@@ -168,27 +169,27 @@ if (filter_internal_priming) {
   sqanti_df = bind_rows(keep1, keep2) %>% 
     distinct()
   
-  kept_ids    <- sqanti_df$isoform
-  dropped_ids <- setdiff(ids, kept_ids)
-  dropout_tracker[["internal_priming"]] <- dropped_ids
+  kept_ids    = sqanti_df$isoform
+  dropped_ids = setdiff(ids, kept_ids)
+  dropout_tracker[["internal_priming"]] = dropped_ids
   
   message("Internal priming filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
 }
 
 # Filter out template switching, keep RTS_stage = FALSE (no RTS)
 if (filter_RTS) {
-  ids <- sqanti_df$isoform
+  ids = sqanti_df$isoform
   
   # Find column positions
-  ratio_tss_pos <- which(colnames(sqanti_df) == "ratio_TSS")
-  gene_type_pos <- which(colnames(sqanti_df) == "gene_type")
+  ratio_tss_pos = which(colnames(sqanti_df) == "ratio_TSS")
+  gene_type_pos = which(colnames(sqanti_df) == "gene_type")
   
   # Get columns between them (if any exist) and sum
   if (gene_type_pos - ratio_tss_pos > 1) {
-    count_cols           <- (ratio_tss_pos + 1):(gene_type_pos - 1)
-    sqanti_df$avg_counts <- rowMeans(sqanti_df[, count_cols], na.rm = TRUE)
+    count_cols           = (ratio_tss_pos + 1):(gene_type_pos - 1)
+    sqanti_df$avg_counts = rowMeans(sqanti_df[, count_cols], na.rm = TRUE)
   } else {
-    sqanti_df$avg_counts <- NA  # No columns in between
+    sqanti_df$avg_counts = NA  # No columns in between
   }
   
   # filtering considerations
@@ -199,26 +200,26 @@ if (filter_RTS) {
       (RTS_stage == TRUE & all_canonical == TRUE & avg_counts > 3)
       )
   
-  kept_ids    <- sqanti_df$isoform
-  dropped_ids <- setdiff(ids, kept_ids)
-  dropout_tracker[["Template_switching_artifact"]] <- dropped_ids
+  kept_ids    = sqanti_df$isoform
+  dropped_ids = setdiff(ids, kept_ids)
+  dropout_tracker[["Template_switching_artifact"]] = dropped_ids
   
   message("Template switching filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
 }
 
 # Apply structural category filter
-allowed_categories <- STRUCTURAL_CATEGORIES[[structural_level]]
-ids                <- sqanti_df$isoform
+allowed_categories = STRUCTURAL_CATEGORIES[[structural_level]]
+ids                = sqanti_df$isoform
 sqanti_df %<>% 
   filter(structural_category %in% allowed_categories)
 
-kept_ids    <- sqanti_df$isoform
-dropped_ids <- setdiff(ids, kept_ids)
-dropout_tracker[["structural_category_filtered"]] <- dropped_ids
+kept_ids    = sqanti_df$isoform
+dropped_ids = setdiff(ids, kept_ids)
+dropout_tracker[["structural_category_filtered"]] = dropped_ids
 message("Structural category filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
 
 # Calculate final results
-all_dropout_ids <- setdiff(original_ids, kept_ids)
+all_dropout_ids = setdiff(original_ids, kept_ids)
 
 message(paste0("Final: ", length(kept_ids), " kept, ", length(all_dropout_ids), " dropped"))
 
@@ -244,7 +245,7 @@ save_filtered_gtf(
 )
 
 # Create dropout reasons table
-dropout_reasons_df <- map_dfr(names(dropout_tracker), ~ {
+dropout_reasons_df = map_dfr(names(dropout_tracker), ~ {
   tibble(
     isoform        = dropout_tracker[[.x]], 
     dropout_reason = .x
@@ -279,7 +280,7 @@ cat("\nDropout breakdown:\n")
 
 # Print dropout breakdown
 for (reason in names(dropout_tracker)) {
-  count <- length(dropout_tracker[[reason]])
-  pct   <- round(100 * count / length(original_ids), 1)
+  count = length(dropout_tracker[[reason]])
+  pct   = round(100 * count / length(original_ids), 1)
   cat(paste0("  ", reason, ": ", count, " (", pct, "%)\n"))
 }

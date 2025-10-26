@@ -51,3 +51,5 @@ rsconnect/
 log_files/*
 
 results/*
+
+jurkat_test_results/*

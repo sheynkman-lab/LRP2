@@ -2167,6 +2167,9 @@ protein_classifications %>% filter(grepl(",", tx_gene))
 protein_classifications %>% filter(grepl(",", pr_gene))
 
 # add section in protein classification script
+protein_classifications = read_tsv("~/megan/github/LRP2_lite/results/protein_sqanti/sample_protein_classification.tsv")
+gencode_gtf_path = "/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf"
+gencode_gtf = import(gencode_gtf_path) %>% as.data.frame()
 
 message("\n--- STEP 5: Reconcile gene ids and names ---")
 
@@ -2236,10 +2239,158 @@ protein_classifications %>%
   filter(grepl(",", pr_gene)) %>%
   select(tx_gene, pr_gene, tx_gene_name, pr_gene_name, reconciled_gene_id, reconciled_gene_name)
 
+```
+Filtering SQANTI protein
+```{r}
+min_junctions_after_stop_codon = 0
+pclass_base_to_keep = c('pFPM', 'pNIC')
+sample_cds_fasta_path = "~/megan/github/LRP2_lite/results/orf_calling/sample_best_orfs_collapsed.fa"
 
 
-read_tsv("~/megan/github/LRP2_lite/results/protein_sqanti/sample_protein_classification.tsv")
+# Subclass lookup for short names, important for browser tracks
+subclass_lookup = c(
+  'known_nterm_novel_splice_known_cterm' = 'kn_ns_kc',
+  'known_nterm_known_splice_known_cterm' = 'kn_ks_kc',
+  'known_nterm_combo_splice_known_cterm' = 'kn_cs_kc',
+  'known_nterm_novel_splice_novel_cterm' = 'kn_ns_nc',
+  'known_nterm_combo_splice_novel_cterm' = 'kn_cs_nc',
+  'known_nterm_known_splice_novel_cterm' = 'kn_ks_nc',
+  'novel_nterm_known_splice_known_cterm' = 'nn_ks_kc',
+  'novel_nterm_known_splice_novel_cterm' = 'nn_ks_nc',
+  'novel_nterm_novel_splice_known_cterm' = 'nn_ns_kc',
+  'novel_nterm_combo_splice_novel_cterm' = 'nn_cs_nc',
+  'novel_nterm_combo_splice_known_cterm' = 'nn_cs_kc',
+  'novel_nterm_novel_splice_novel_cterm' = 'nn_ns_nc',
+  'combo_nterm_cterm'   = 'combo',
+  'nterm_truncation'    = 'ntrunc',
+  'multi-exon'          = 'multi',
+  'mono-exon'           = 'mono'
+)
 
+full_protein = protein_classifications %>%
+  filter(!is.na(protein_classification)) %>%
+  mutate(
+    filter_status = case_when(
+      
+      # Check 1: Filter if high NMD signal (applies to ALL)
+      num_junc_after_stop_codon > min_junctions_after_stop_codon ~ "NMD",
+      
+      # Check 2: Filter if problematic patterns
+      grepl('intergenic|antisense|fusion|orphan|genic', protein_classification) ~ "atypical",
+      
+      # Check 3: Filter if NOT in keep base classification list
+      !(protein_classification_base %in% pclass_base_to_keep) ~ "pc_base",
+      
+      # Keep everything else
+      TRUE ~ "keep"
+    ),
+    
+    # abbreviate
+    psubclass_short = subclass_lookup[protein_classification_subset]
+
+  )
+
+# Output full table with filter status
+full_protein %<>%
+  dplyr::select(isoform_id, tx_gene, pr_gene, reconciled_gene_id, reconciled_gene_name, num_junc_after_stop_codon, num_5utr_exons,
+         tclass = tx_cat, pclass = protein_classification_base, psubclass = protein_classification_subset, psubclass_short, filter_status)
+  
+write_tsv(full_protein, file.path(protein_sqanti_dir, paste0(basename, "_protein_classification_all.tsv")))
+
+# Output filtered text file
+filtered_protein = full_protein %>% filter(filter_status == "keep")
+write_tsv(filtered_protein, file.path(protein_sqanti_dir, paste0(basename, "_protein_high_confidence.txt")))
+
+# Output filtered gtf 
+gtf          = import(sample_cds_gtf_path)
+gtf_filtered = gtf[gtf$transcript_id %in% filtered_protein$isoform_id]
+gtf_meta     = as.data.frame(mcols(gtf_filtered)) # pull metadata
+
+new_meta = filtered_protein %>% 
+  mutate(transcript_id = paste(reconciled_gene_name, isoform_id, pclass, sep = "|")) %>%
+  select(isoform_id, gene_id = reconciled_gene_id, gene_name = reconciled_gene_name, transcript_id)
+
+updated_meta = gtf_meta %>% 
+  select(source, type, score, phase, isoform_id = transcript_id, ORF_id) %>%
+  left_join(new_meta, by = "isoform_id") %>%
+  select(-ORF_id, everything(), ORF_id)
+
+mcols(gtf_filtered) = updated_meta
+export(gtf_filtered, file.path(protein_sqanti_dir, paste0(basename, "_protein_high_confidence.gtf")), format="gtf")
+
+# Output filtered fasta, and adjust header pb|PB.1001.26|fullname GN=MYCBP
+fa = readDNAStringSet(sample_cds_fasta_path)
+
+filtered_fa_seqs = data.frame(
+  header   = names(fa),
+  sequence = as.character(fa),
+  length   = width(fa),
+  row.names = NULL
+) %>%
+  separate(header,
+           into = c("isoform_id", "old_gene_id", "old_gene_name"),
+           sep = "\\|") %>%
+  separate_rows(isoform_id, sep = ",") %>%
+  select(isoform_id, sequence, length) %>%
+  distinct() %>%
+  filter(isoform_id %in% filtered_protein$isoform_id)
+
+# combine with reconciled naming, update orf ids post filtering
+fasta_out = filtered_fa_seqs %>% 
+  left_join(select(filtered_protein, isoform_id, reconciled_gene_id, reconciled_gene_name)) %>%
+  group_by(sequence, length) %>%
+  arrange(isoform_id) %>%
+  summarize(orf_isoform_id = paste(isoform_id, collapse = ","), gene_name = paste(unique(reconciled_gene_name), collapse = ",")) %>%
+  ungroup()
+
+protein_seqs        = AAStringSet(fasta_out$sequence)
+names(protein_seqs) = paste0(fasta_out$orf_isoform_id, "|", fasta_out$gene_name)
+writeXStringSet(protein_seqs, file.path(protein_sqanti_dir, paste0(basename, "_protein_high_confidence.fa")))
+
+```
+
+
+
+
+```{r}
+
+
+# testing
+test %>% group_by(protein_classification_base, filter_status) %>% tally()
+test %>% group_by(protein_classification_subset) %>% tally()
+
+protein_classifications %>% filter(protein_classification_base == "pIPM") %>% arrange(num_junc_after_stop_codon)
+protein_classifications %>% filter(num_junc_after_stop_codon > min_junctions_after_stop_codon) %>%
+  group_by(protein_classification_base) %>% tally()
+
+protein_classifications %>% filter(protein_classification_base == "pFPM" & num_junc_after_stop_codon > min_junctions_after_stop_codon)
+full_protein %>% filter(is.na(protein_classification_subset))
+full_protein %>% filter(is_nmd == FALSE) %>% group_by(num_junc_after_stop_codon) %>% tally()
+full_protein %>% filter(filter_status == "NMD" & is_nmd == TRUE) # 25562
+
+# numbers are off because of AA sequences mapping to different genes?
+fasta_out
+test = fa[keep_seqs]
+data.frame(header = names(test), sequence = as.character(test), row.names = NULL) %>%
+  group_by(sequence) %>% tally() %>% arrange(desc(n))
+data.frame(header = names(test), sequence = as.character(test), row.names = NULL) %>% 
+  filter(sequence == "MSGRGKGGKGGKGGAKRHRKVRDNGTKARRARRGGVKRSGYTRGVKVNVRDAVTYTHAKRKTVTAMDVVYAKRGRTYGGG")
+
+```
+
+
+
+Jurkat testing
+```{r}
+og_gtf = import("~/datasets/jurkat_zenodo5234651/jurkat_chr22.collapsed.gff")
+gtf = import("../jurkat_test_results/pacbio_isoseq/jurkat_chr22_merged.collapsed.gff")
+og_gtf %>% as.data.frame() %>% filter(type == "transcript") %>% arrange(start, end)
+gtf %>% as.data.frame() %>% filter(type == "transcript") %>% arrange(start, end)
+
+
+sqanti = read_tsv("../jurkat_test_results/sqanti/jurkat_chr22_classification.txt")
+
+sample = read_tsv("../results/sqanti/sample_classification.txt")
 
 ```
 
