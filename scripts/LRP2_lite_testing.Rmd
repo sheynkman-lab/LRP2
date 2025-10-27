@@ -2240,6 +2240,7 @@ protein_classifications %>%
   select(tx_gene, pr_gene, tx_gene_name, pr_gene_name, reconciled_gene_id, reconciled_gene_name)
 
 ```
+
 Filtering SQANTI protein
 ```{r}
 min_junctions_after_stop_codon = 0
@@ -2395,6 +2396,45 @@ sample = read_tsv("../results/sqanti/sample_classification.txt")
 ```
 
 
+```{r}
+metadata      = fread(metadata_path)
+sample_lookup = setNames(metadata$name, metadata$bam_id)
+
+classification_file = "~/megan/github/LRP2_lite/results/sqanti_transcript/sample_classification.txt"
+sqanti_df = read_tsv(classification_file, show_col_types = FALSE)
+
+colnames(sqanti_df) = sub("^FL\\.", "", colnames(sqanti_df))
+colnames(sqanti_df) = ifelse(colnames(sqanti_df) %in% names(sample_lookup),
+                           paste0(sample_lookup[colnames(sqanti_df)], "_counts"),
+                           colnames(sqanti_df))
+
+counts_cols = grep("_counts$", colnames(sqanti_df), value = TRUE)
+sqanti_df %<>%
+  mutate(across(all_of(counts_cols), 
+                ~ (.x / sum(.x)) * 1e6,
+                .names = "{gsub('_counts', '_cpm', .col)}"))
+
+sqanti_df_full = sqanti_df %>%
+  filter(!is.na(associated_gene), str_starts(associated_gene, "ENS"))
+
+sqanti_df_full %<>% 
+  left_join(gencode_gene, by = "associated_gene") %>% 
+  left_join(gencode_df, by = c("associated_gene", "associated_transcript", "gene_type", "gene_name"))
+
+# combine with hashids, and selct tpm columns
+hashids = read_tsv(mapping_file)
+
+sqanti_ids = sqanti_df_full %>% 
+  select(isoform_id = isoform, ensg_gene_id = associated_gene, gene_name, enst_transcript_id = associated_transcript, transcript_name, gene_type, protein_id, ends_with("_counts"), ends_with("_cpm"))
+
+all_ids = hashids %>% select(isoform_id = transcript_id, hash_id) %>%
+  inner_join(sqanti_ids, by = "isoform_id") 
+all_ids %>% distinct(isoform_id)
+all_ids %>% distinct(ensg_gene_id, hash_id)
+
+write_tsv(all_ids, "~/megan/github/LRP2_lite/results/sqanti_transcript/sample_all_hashids_with_cpm.txt")
+
+```
 
 
 

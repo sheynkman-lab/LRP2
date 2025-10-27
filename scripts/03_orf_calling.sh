@@ -55,7 +55,7 @@ esac
 cpat.py \
    -x $HEXAMER_INPUT \
    -d $MODEL_INPUT \
-   -g ${OUTPUT_DIR}/sqanti/${OUTPUT_BASE_NAME}_corrected_filtered.fasta \
+   -g ${OUTPUT_DIR}/sqanti_transcript/${OUTPUT_BASE_NAME}_corrected_filtered.fasta \
    --min-orf=$MIN_ORF \
    --top-orf=$TOP_ORF \
    -o ${OUTPUT_DIR}/orf_calling/${OUTPUT_BASE_NAME}_cpat \

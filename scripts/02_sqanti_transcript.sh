@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=02_sqanti
+#SBATCH --job-name=02_sqanti_transcript
 #SBATCH --cpus-per-task=8 #number of cores to use
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -20,7 +20,7 @@ module load gcc/11.4.0
 module load openmpi/4.1.4
 module load miniforge/24.3.0-py3.11
 
-mkdir -p ${OUTPUT_DIR}/sqanti
+mkdir -p ${OUTPUT_DIR}/sqanti_transcript
 
 # Check if environment exists, create if needed. This can take awhile.
 if ! conda info --envs | grep -q "$LRP2_ENV_NAME"; then
@@ -59,7 +59,7 @@ python $SQANTI_PATH/sqanti3_qc.py \
     --force_id_ignore \
     --skipORF \
     --output $OUTPUT_BASE_NAME \
-    --dir ${OUTPUT_DIR}/sqanti \
+    --dir ${OUTPUT_DIR}/sqanti_transcript \
     --cpus $THREADS \
     --report both \
     --fl_count ${OUTPUT_DIR}/pacbio_isoseq/${OUTPUT_BASE_NAME}.collapsed.flnc_count.txt \

@@ -35,12 +35,12 @@ export R_LIBS_USER=""
 R -e ".libPaths()"
 
 # Step 1: Run SQANTI Protein
-# python scripts/sqanti3_protein_input_full_gtf.py \
-#   ${OUTPUT_DIR}/orf_calling/${OUTPUT_BASE_NAME}_corrected_filtered_CDS.gtf \
-#   ${OUTPUT_DIR}/orf_calling/${OUTPUT_BASE_NAME}_best_orfs_mapped.tsv \
-#   $GENCODE_GTF_FILE \
-#   -d ${OUTPUT_DIR}/protein_sqanti \
-#   -p $OUTPUT_BASE_NAME
+python scripts/sqanti3_protein_input_full_gtf.py \
+  ${OUTPUT_DIR}/orf_calling/${OUTPUT_BASE_NAME}_corrected_filtered_CDS.gtf \
+  ${OUTPUT_DIR}/orf_calling/${OUTPUT_BASE_NAME}_best_orfs_mapped.tsv \
+  $GENCODE_GTF_FILE \
+  -d ${OUTPUT_DIR}/protein_sqanti \
+  -p $OUTPUT_BASE_NAME
 
 # Step 2: Custom script to further classify 5'UTRs and protein based on SQANTI protein
 Rscript scripts/04_protein_classification.R

@@ -24,7 +24,7 @@ suppressPackageStartupMessages({
 # =============================================================================
 
 basename         <- Sys.getenv("OUTPUT_BASE_NAME")
-sqanti_dir       <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti") 
+sqanti_dir       <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti_transcript") 
 cpat_dir         <- file.path(Sys.getenv("OUTPUT_DIR"), "orf_calling") 
 gencode_gtf_path <- Sys.getenv("GENCODE_GTF_FILE")
 coding_threshold <- as.numeric(Sys.getenv("CPAT_CODING_THRESHOLD", "0.364"))
