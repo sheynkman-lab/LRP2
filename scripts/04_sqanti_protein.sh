@@ -7,8 +7,6 @@
 #SBATCH --time=12:00:00 #amount of time for the whole job
 #SBATCH --partition=standard #the queue/partition to run on
 #SBATCH --output=log_files/%x-%j.log
-#SBATCH --mail-type=END,FAIL
-#SBATCH --mail-user=cwp5au@virginia.edu
 
 set -e
 source config/lrp2_config.sh

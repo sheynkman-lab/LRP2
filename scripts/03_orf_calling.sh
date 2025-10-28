@@ -8,11 +8,9 @@
 #SBATCH --mem=16G
 #SBATCH --partition=standard #the queue/partition to run on
 #SBATCH --output=log_files/%x-%j.log
-#SBATCH --mail-type=END,FAIL
-#SBATCH --mail-user=cwp5au@virginia.edu #your email address to receive notifications
 
 set -e
-source config/lrp2_jurkat_test_config.sh
+source config/lrp2_config.sh
 THREADS=1 # should match above
 
 module purge

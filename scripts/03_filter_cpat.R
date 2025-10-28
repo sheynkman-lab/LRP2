@@ -235,30 +235,34 @@ write_gtf_with_cds <- function(sample_gtf, all_cds_exons, gene_mapping) {
   # selecting type individually in case custom gtfs have more type columns- want to reset attributes column
   sample_gtf %<>% 
     select(isoform_id = transcript_id, everything()) %>%
-    left_join(gene_mapping %>% select(isoform_id, gencode_gene_id = gene_id, gene_name, orf_isoform_id), by = "isoform_id")
+    left_join(gene_mapping %>% select(isoform_id, gencode_gene_id = gene_id, any_of("gene_name"), orf_isoform_id), by = "isoform_id")
   
   # Create transcript lines (one per transcript)
   transcript_lines = sample_gtf %>%
     filter(type == "transcript") %>%
-    select(seqnames, type, start, end, strand, source, isoform_id, gencode_gene_id, gene_name, orf_isoform_id)
+    select(seqnames, type, start, end, strand, source, isoform_id, gencode_gene_id, any_of("gene_name"), orf_isoform_id)
   
   # Create exon lines
   exon_lines = sample_gtf %>%
     filter(type == "exon") %>%
-    select(seqnames, type, start, end, strand, source, isoform_id, gencode_gene_id, gene_name, orf_isoform_id)
+    select(seqnames, type, start, end, strand, source, isoform_id, gencode_gene_id, any_of("gene_name"), orf_isoform_id)
   
   # Create CDS lines
   cds_lines = all_cds_exons %>%
     select(-orf_isoform_id) %>%
-    left_join(gene_mapping %>% select(isoform_id, gencode_gene_id = gene_id, gene_name, orf_isoform_id), by = "isoform_id") %>%
+    left_join(gene_mapping %>% select(isoform_id, gencode_gene_id = gene_id, any_of("gene_name"), orf_isoform_id), by = "isoform_id") %>%
     mutate(type = "CDS", source = sample_gtf$source[1]) %>%
-    select(seqnames, type, start = new_start, end = new_end, strand, source, isoform_id, gencode_gene_id, gene_name, orf_isoform_id)
+    select(seqnames, type, start = new_start, end = new_end, strand, source, isoform_id, gencode_gene_id, any_of("gene_name"), orf_isoform_id)
   
   # combine types and add attribute column
   updated_gtf = bind_rows(transcript_lines, exon_lines, cds_lines) %>%
     arrange(isoform_id, start) %>%
     mutate(
-      attributes = paste0('gene_id "', gencode_gene_id, '"; transcript_id "', isoform_id, '"; gene_name "', gene_name, '"; ORF_id "', orf_isoform_id, '";'),
+      attributes = if ("gene_name" %in% colnames(.)) {
+        paste0('gene_id "', gencode_gene_id, '"; transcript_id "', isoform_id, '"; gene_name "', gene_name, '"; ORF_id "', orf_isoform_id, '";')
+      } else {
+        paste0('gene_id "', gencode_gene_id, '"; transcript_id "', isoform_id, '"; ORF_id "', orf_isoform_id, '";')
+      },
       score = ".", 
       frame = "."
     ) %>%
@@ -296,7 +300,11 @@ full_fasta = tibble(
 # SQANTI classification
 classification = read_tsv(classification_file, show_col_types = FALSE)
 gene_mapping = classification %>% 
-  select(isoform_id = isoform, structural_category, gene_id = associated_gene, transcript_id = associated_transcript, gene_name, transcript_name)
+  select(isoform_id = isoform, 
+         structural_category, 
+         gene_id = associated_gene, 
+         transcript_id = associated_transcript, 
+         any_of(c("gene_name", "transcript_name")))
 
 # === STEP 2: Get dataframe of exons from gtf ===
 message("\n--- STEP 2: Extracting exons from sample gtf ---")
@@ -344,11 +352,18 @@ best_orfs %<>% left_join(orf_groups, by = "isoform_id")
 
 write_tsv(best_orfs, file.path(cpat_dir, paste0(basename, "_best_orfs_mapped.tsv")))
 
-unique_orf = best_orfs %>% 
-  distinct(gene_id, gene_name, orf_isoform_id, orf_protein_sequence)
+if ("gene_name" %in% colnames(best_orfs)) {
+  unique_orf = best_orfs %>% distinct(gene_id, gene_name, orf_isoform_id, orf_protein_sequence)
+} else {
+  unique_orf = best_orfs %>% distinct(gene_id, orf_isoform_id, orf_protein_sequence)
+}
 
 protein_seqs        = AAStringSet(unique_orf$orf_protein_sequence)
-names(protein_seqs) = paste0(unique_orf$orf_isoform_id, "|", unique_orf$gene_id, "|", unique_orf$gene_name)
+names(protein_seqs) = if ("gene_name" %in% colnames(unique_orf)) {
+  paste0(unique_orf$orf_isoform_id, "|", unique_orf$gene_id, "|", unique_orf$gene_name)
+} else {
+  paste0(unique_orf$orf_isoform_id, "|", unique_orf$gene_id)
+}
 writeXStringSet(protein_seqs, file.path(cpat_dir, paste0(basename, "_best_orfs_collapsed.fa")))
 
 # === STEP 6: Write updated gtfs considering best ORFs ===

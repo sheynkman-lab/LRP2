@@ -1494,7 +1494,7 @@ protein %>% filter(tx_cat == "novel_not_in_catalog") %>% group_by(pr_splice_cat)
 ```
 
 
-5'UTR code
+5'UTR code and protein classification
 ```{r}
 # AML test
 gencode_gtf_path = "/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf"
@@ -2388,11 +2388,27 @@ gtf = import("../jurkat_test_results/pacbio_isoseq/jurkat_chr22_merged.collapsed
 og_gtf %>% as.data.frame() %>% filter(type == "transcript") %>% arrange(start, end)
 gtf %>% as.data.frame() %>% filter(type == "transcript") %>% arrange(start, end)
 
-
-sqanti = read_tsv("../jurkat_test_results/sqanti/jurkat_chr22_classification.txt")
-
 sample = read_tsv("../results/sqanti/sample_classification.txt")
 
+
+og_sqanti = read_tsv("~/datasets/jurkat_zenodo5234651/jurkat_chr22_classification.txt")
+
+sqanti = read_tsv("../jurkat_test_results/sqanti/jurkat_chr22_classification.txt") #diff_to_TSS, diff_to_TTS, diff_to_gene_TSS signs are all flipped
+
+og_sqanti
+sqanti %>% arrange(isoform)
+
+# orf calling
+new = read_tsv("../jurkat_test_results/orf_calling/jurkat_chr22_cpat.ORF_prob.tsv")
+old = read_tsv("~/datasets/jurkat_zenodo5234651/jurkat_chr22.ORF_prob.tsv")
+all.equal(new, old) # for cpat results, this is expected
+
+new = read_tsv("../jurkat_test_results/orf_calling/jurkat_chr22_best_orfs_mapped.tsv")
+old = read_tsv("~/datasets/jurkat_zenodo5234651/jurkat_chr22_best_orf.tsv")
+new %>% select(-ID) %>% arrange(isoform_id)
+old %>% arrange(pb_acc)
+
+PB.1.14
 ```
 
 
@@ -2436,6 +2452,14 @@ write_tsv(all_ids, "~/megan/github/LRP2_lite/results/sqanti_transcript/sample_al
 
 ```
 
+```{r}
+sample_cds_fasta_path  <- "../results/orf_calling/sample_best_orfs_collapsed.fa"
+
+readDNAStringSet(sample_cds_fasta_path)
+readAAStringSet(sample_cds_fasta_path)
+
+
+```
 
 
 

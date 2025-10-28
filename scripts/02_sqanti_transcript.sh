@@ -8,11 +8,9 @@
 #SBATCH --mem=32G
 #SBATCH --partition=standard #the queue/partition to run on
 #SBATCH --output=log_files/%x-%j.log
-#SBATCH --mail-type=END,FAIL
-#SBATCH --mail-user=cwp5au@virginia.edu #your email address to receive notifications
 
 set -e
-source config/lrp2_jurkat_test_config.sh
+source config/lrp2_config.sh
 THREADS=8 # should match above
 
 module purge
@@ -40,8 +38,7 @@ R -e ".libPaths()"
 case $GTF_SOURCE in
     "lrp_isoseq")
         echo "Using LRP Isoseq generated GTF..."
-        #LRS_GTF="${OUTPUT_DIR}/pacbio_isoseq/${OUTPUT_BASE_NAME}_merged.collapsed.gff"
-        LRS_GTF="${OUTPUT_DIR}/pacbio_isoseq/${OUTPUT_BASE_NAME}.collapsed.gff"
+        LRS_GTF="${OUTPUT_DIR}/pacbio_isoseq/${OUTPUT_BASE_NAME}_merged.collapsed.gff"
         ;;
     "custom")
         echo "Using custom GTF: $CUSTOM_GTF_PATH"
@@ -52,7 +49,6 @@ esac
 export PYTHONPATH=$PYTHONPATH:/project/sheynkman/programs/SQANTI3-5.5/src/utilities/cupcake/
 export PYTHONPATH=$PYTHONPATH:/project/sheynkman/programs/SQANTI3-5.5/src/utilities/cupcake/sequence/
 
-##--fl_count ${OUTPUT_DIR}/pacbio_isoseq/${OUTPUT_BASE_NAME}_merged.collapsed.flnc_count.txt
 
 # Step 1: Run SQANTI3 on long read gtf
 python $SQANTI_PATH/sqanti3_qc.py \
@@ -62,7 +58,7 @@ python $SQANTI_PATH/sqanti3_qc.py \
     --dir ${OUTPUT_DIR}/sqanti_transcript \
     --cpus $THREADS \
     --report both \
-    --fl_count ${OUTPUT_DIR}/pacbio_isoseq/${OUTPUT_BASE_NAME}.collapsed.flnc_count.txt \
+    --fl_count ${OUTPUT_DIR}/pacbio_isoseq/${OUTPUT_BASE_NAME}_merged.collapsed.flnc_count.txt \
     --isoforms $LRS_GTF \
     --refGTF $GENCODE_GTF_FILE \
     --refFasta $GENCODE_GENOME_FA

@@ -29,16 +29,15 @@ suppressPackageStartupMessages({
 # Get environment variables for filtering parameters
 # =============================================================================
 
+dir                     <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti_transcript")
+basename                <- Sys.getenv("OUTPUT_BASE_NAME")
+gencode_gtf             <- Sys.getenv("GENCODE_GTF_FILE")
+metadata_path           <- Sys.getenv("SAMPLE_METADATA")
 filter_protein_coding   <- as.logical(Sys.getenv("PROTEIN_CODING_FILTER", "TRUE"))
 filter_internal_priming <- as.logical(Sys.getenv("INTERNAL_PRIMING_FILTER", "TRUE"))
 filter_RTS              <- as.logical(Sys.getenv("TEMPLATE_SWITCHING_FILTER", "TRUE"))
 percent_polyA_threshold <- as.numeric(Sys.getenv("PERCENT_POLYA_THRESHOLD", "60"))
 structural_level        <- Sys.getenv("STRUCTURE_FILTER", "strict")
-
-basename      <- Sys.getenv("OUTPUT_BASE_NAME")
-dir           <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti_transcript") 
-gencode_gtf   <- Sys.getenv("GENCODE_GTF_FILE")
-metadata_path <- Sys.getenv("SAMPLE_METADATA")
 
 # =============================================================================
 # Check required files
@@ -368,7 +367,11 @@ save_filtered_gtf(
   file.path(dir, paste0(basename, "_corrected_filtered.gtf"))
 )
 
-# Create dropout reasons table
+# Filtered hashid and cpm table
+all_ids %>% filter(isoform_id %in% sqanti_df$isoform) %>%
+  write_tsv(file.path(dir, paste0(basename, "_hashids_with_cpm_filtered.txt")))
+
+# Create dropout reasons table and write dropout files
 dropout_reasons_df = map_dfr(names(dropout_tracker), ~ {
   tibble(
     isoform        = dropout_tracker[[.x]], 
@@ -379,7 +382,6 @@ dropout_reasons_df = map_dfr(names(dropout_tracker), ~ {
 dropout_reasons_df %<>% 
   left_join(sqanti_df_full)
 
-# Write out dropout files
 write_tsv(dropout_reasons_df, file.path(dropout_dir, paste0(basename, "_dropout_transcripts.tsv")))
 
 save_filtered_fasta(

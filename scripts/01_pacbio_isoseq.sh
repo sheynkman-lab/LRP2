@@ -4,15 +4,13 @@
 #SBATCH --cpus-per-task=8          
 #SBATCH --nodes=1                   
 #SBATCH --ntasks-per-node=1         
-#SBATCH --mem=32G           
+#SBATCH --mem=128G           
 #SBATCH --time=12:00:00             
 #SBATCH --partition=standard #the queue/partition to run on
 #SBATCH --output=log_files/%x-%j.log
-#SBATCH --mail-type=BEGIN,END,FAIL
-#SBATCH --mail-user=cwp5au@virginia.edu
 
 set -e
-source config/lrp2_jurkat_test_config.sh
+source config/lrp2_config.sh
 THREADS=8 # should match above
 
 module purge

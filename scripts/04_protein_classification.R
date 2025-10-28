@@ -749,7 +749,7 @@ mcols(gtf_filtered) = updated_meta
 export(gtf_filtered, file.path(protein_sqanti_dir, paste0(basename, "_protein_high_confidence.gtf")), format="gtf")
 
 # Output filtered fasta, and adjust header pb|PB.1001.26|fullname GN=MYCBP
-fa = readDNAStringSet(sample_cds_fasta_path)
+fa = readAAStringSet(sample_cds_fasta_path)
 
 filtered_fa_seqs = data.frame(
   header   = names(fa),
