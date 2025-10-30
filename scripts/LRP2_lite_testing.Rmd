@@ -2462,6 +2462,26 @@ readAAStringSet(sample_cds_fasta_path)
 ```
 
 
+```{r}
+
+filtered_protein = read_tsv("../results/protein_sqanti/sample_protein_high_confidence.txt")
+fa = readAAStringSet("../results/orf_calling/sample_best_orfs_collapsed.fa")
+cpms = read_tsv("~/megan/github/LRP2_lite/results/sqanti_transcript/sample_hashids_with_cpm_filtered.txt")
+
+# update orf ids post filtering and summarize cpm
+filtered_fa_seqs %>%
+  group_by(sequence, length) %>%
+  arrange(isoform_id) %>%
+  summarize(orf_isoform_id = paste(isoform_id, collapse = ","), 
+            gene_id = paste(unique(reconciled_gene_id), collapse = ","),
+            gene_name = paste(unique(reconciled_gene_name), collapse = ","),
+            hash_id = paste(hash_id, collapse = ","),
+            across(ends_with("_counts"), sum),
+            across(ends_with("_cpm"), sum)) %>%
+  ungroup()
+
+
+```
 
 
 

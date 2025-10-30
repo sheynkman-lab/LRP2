@@ -33,14 +33,16 @@ suppressPackageStartupMessages({
 # Get environment variables and check required files
 # =============================================================================
 
-basename           <- Sys.getenv("OUTPUT_BASE_NAME")
-cpat_dir           <- file.path(Sys.getenv("OUTPUT_DIR"), "orf_calling") 
-protein_sqanti_dir <- file.path(Sys.getenv("OUTPUT_DIR"), "protein_sqanti") 
-gencode_gtf_path   <- Sys.getenv("GENCODE_GTF_FILE")
+basename                        <- Sys.getenv("OUTPUT_BASE_NAME")
+sqanti_transcript_dir           <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti_transcript")
+cpat_dir                        <- file.path(Sys.getenv("OUTPUT_DIR"), "orf_calling") 
+protein_sqanti_dir              <- file.path(Sys.getenv("OUTPUT_DIR"), "protein_sqanti") 
+gencode_gtf_path                <- Sys.getenv("GENCODE_GTF_FILE")
 
 sample_cds_gtf_path    <- file.path(cpat_dir, paste0(basename, "_corrected_filtered_CDS.gtf"))
 sample_cds_fasta_path  <- file.path(cpat_dir, paste0(basename, "_best_orfs_collapsed.fa"))
 protein_sqanti_path    <- file.path(protein_sqanti_dir, paste0(basename, ".sqanti_protein_classification.tsv"))
+cpm_file_path          <- file.path(sqanti_transcript_dir, paste0(basename, "_hashids_with_cpm_filtered.txt"))
 
 min_junctions_after_stop_codon <- as.numeric(Sys.getenv("MIN_JUNCTIONS_AFTER_STOP_CODON", "0"))
 pclass_base_to_keep            <- strsplit(Sys.getenv("PROTEIN_CLASS_KEEP"), ",")[[1]]
@@ -765,13 +767,28 @@ filtered_fa_seqs = data.frame(
   distinct() %>%
   filter(isoform_id %in% filtered_protein$isoform_id)
 
-# combine with reconciled naming, update orf ids post filtering
-fasta_out = filtered_fa_seqs %>% 
-  left_join(select(filtered_protein, isoform_id, reconciled_gene_id, reconciled_gene_name)) %>%
+# combine with reconciled naming
+filtered_fa_seqs %<>% 
+  left_join(select(filtered_protein, isoform_id, reconciled_gene_id, reconciled_gene_name))
+  
+# create collapsed cpm table
+cpms = read_tsv(cpm_file_path)
+filtered_fa_seqs %<>% left_join(cpms, by = "isoform_id")
+
+# update orf ids post filtering and summarize cpm
+fasta_out = filtered_fa_seqs %>%
   group_by(sequence, length) %>%
   arrange(isoform_id) %>%
-  summarize(orf_isoform_id = paste(isoform_id, collapse = ","), gene_name = paste(unique(reconciled_gene_name), collapse = ",")) %>%
+  summarize(orf_isoform_id = paste(isoform_id, collapse = ","), 
+            gene_id = paste(unique(reconciled_gene_id), collapse = ","),
+            gene_name = paste(unique(reconciled_gene_name), collapse = ","),
+            hash_id = paste(hash_id, collapse = ","),
+            across(ends_with("_counts"), sum),
+            across(ends_with("_cpm"), sum)) %>%
   ungroup()
+
+fasta_out %>% select(orf_isoform_id, hash_id, gene_id, gene_name, ends_with("_counts"), ends_with("_cpm")) %>%
+  write_tsv(file.path(protein_sqanti_dir, paste0(basename, "_hashids_with_cpm_ORF.txt")))
 
 protein_seqs        = AAStringSet(fasta_out$sequence)
 names(protein_seqs) = paste0(fasta_out$orf_isoform_id, "|", fasta_out$gene_name)
