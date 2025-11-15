@@ -1,5 +1,5 @@
-filepath  name  group
-/project/gblab/projects/eAML/scratch/rawData/E3999/E3999_LongReadSequencing/E3999_LongRead_2025Feb/r84286_20250215_005500_1_D01/653/NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam NBM15 NBM
-/project/gblab/projects/eAML/scratch/rawData/E3999/E3999_LongReadSequencing/E3999_LongRead_2025Feb/r84286_20250215_005500_1_D01/653/NBM24_LRRseq.IsoSeqX_bc08_5p--IsoSeqX_3p.flnc.bam NBM24 NBM
-/project/gblab/projects/eAML/scratch/rawData/E3999/E3999_LongReadSequencing/E3999_LongRead_2025Feb/r84286_20250215_005500_1_D01/653/14867_LRRseq.IsoSeqX_bc01_5p--IsoSeqX_3p.flnc.bam AML14867  AML
-/project/gblab/projects/eAML/scratch/rawData/E3999/E3999_LongReadSequencing/E3999_LongRead_2025Feb/r84286_20250215_005500_1_D01/653/16581_LRRseq.IsoSeqX_bc04_5p--IsoSeqX_3p.flnc.bam AML16581  AML
+filepath  bam_id name  group
+/project/gblab/projects/eAML/scratch/rawData/E3999/E3999_LongReadSequencing/E3999_LongRead_2025Feb/r84286_20250215_005500_1_D01/653/NBM15_LRRseq.IsoSeqX_bc07_5p--IsoSeqX_3p.flnc.bam BioSample_7 NBM15 NBM
+/project/gblab/projects/eAML/scratch/rawData/E3999/E3999_LongReadSequencing/E3999_LongRead_2025Feb/r84286_20250215_005500_1_D01/653/NBM24_LRRseq.IsoSeqX_bc08_5p--IsoSeqX_3p.flnc.bam BioSample_8 NBM24 NBM
+/project/gblab/projects/eAML/scratch/rawData/E3999/E3999_LongReadSequencing/E3999_LongRead_2025Feb/r84286_20250215_005500_1_D01/653/14867_LRRseq.IsoSeqX_bc01_5p--IsoSeqX_3p.flnc.bam BioSample_1 AML14867  AML
+/project/gblab/projects/eAML/scratch/rawData/E3999/E3999_LongReadSequencing/E3999_LongRead_2025Feb/r84286_20250215_005500_1_D01/653/16581_LRRseq.IsoSeqX_bc04_5p--IsoSeqX_3p.flnc.bam BioSample_4 AML16581  AML

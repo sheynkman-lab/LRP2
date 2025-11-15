@@ -1,4 +1,4 @@
-name: LRP2
+name: LRP2_update
 channels:
   - conda-forge
   - bioconda
@@ -6,7 +6,7 @@ channels:
 dependencies:
   # Core tools with specific versions
   - python>=3.10,<=3.11
-  - r-base=4.3
+  - r-base=4.4
   - perl=5.32.1
   
   # Python packages
@@ -20,6 +20,8 @@ dependencies:
   - bx-python=0.11.0
   - pybedtools=0.10.0
   - pytest=7.4.4
+  - seaborn=0.13.2
+  - scikit-learn=1.5.2
   
   # Bioinformatics tools
   - bcbio-gff=0.7.1
@@ -28,7 +30,7 @@ dependencies:
   - minimap2=2.28
   - gmap=2024.11.20
   - star=2.7.11b
-  - kallisto=0.48.0
+  - kallisto
   - gffread=0.12.7
   - seqtk=1.4
   - desalt=1.5.6
@@ -36,15 +38,10 @@ dependencies:
   - argcomplete=3.4.0
   - gtftools=0.9.0
   - jinja2=3.1.4
-  - seaborn=0.13.2
-  - scikit-learn=1.5.2
   
   # R packages
   - r-tidyverse
   - r-data.table
-  - r-dt
-  - r-devtools
-  - r-e1071
   - r-ggplotify
   - r-gridbase
   - r-gridextra
@@ -65,13 +62,12 @@ dependencies:
   - bioconductor-noiseq
   - bioconductor-biobase
   - bioconductor-biocgenerics
-  - bioconductor-busparse=
   - bioconductor-genomicranges
   - bioconductor-txdbmaker
   - bioconductor-genomicfeatures
   
   # System dependencies (required by R packages)
-  - openssl 
+  - openssl
   - pandoc
   
   # Pip packages
@@ -95,3 +91,6 @@ dependencies:
     - zipp==3.21.0
     - TD2==1.0.6
     - cpat==3.0.4
+    
+variables:
+  - R_LIBS_USER: ""

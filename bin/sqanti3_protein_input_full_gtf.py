@@ -1475,8 +1475,10 @@ if __name__ == "__main__":
                 'pr_cterm_gene_diff': pr.tts_gene_diff,
                 'tx_transcripts': ','.join(tx.transcripts),
                 'pr_transcripts': ','.join(pr.transcripts),
-                'tx_gene': ','.join(tx.genes),
-                'pr_gene': ','.join(pr.genes),
+                #'tx_gene': ','.join(tx.genes), # fix bug of duplication
+                #'pr_gene': ','.join(pr.genes),
+                'tx_gene': ','.join(list(dict.fromkeys(tx.genes))),
+                'pr_gene': ','.join(list(dict.fromkeys(pr.genes))),
                 'tx_num_exons': tx.num_exons,
                 'pr_num_exons': pr.num_exons,
                 'is_nmd': tx.is_NMD * 1,
@@ -1491,13 +1493,13 @@ if __name__ == "__main__":
     f.close()
     print(f"Output written to: {output_filename}")
 
-# # remove intermediate files
-# os.remove(args.isoform_gff)
-# os.remove(args.cds_isoform_gff)
-# os.remove(args.annotation_gtf)
-# os.remove(args.cds_annotation_gtf)
-# 
-# # Also remove genePred files if desired
-# os.remove(os.path.join(args.output_dir, "refAnnotation_" + args.output_prefix + ".genePred"))
-# os.remove(os.path.splitext(args.isoform_gff)[0] + ".genePred")
-# os.remove(os.path.splitext(args.cds_isoform_gff)[0] + ".genePred")
+# remove intermediate files
+os.remove(args.isoform_gff)
+os.remove(args.cds_isoform_gff)
+os.remove(args.annotation_gtf)
+os.remove(args.cds_annotation_gtf)
+
+# Also remove genePred files if desired
+os.remove(os.path.join(args.output_dir, "refAnnotation_" + args.output_prefix + ".genePred"))
+os.remove(os.path.splitext(args.isoform_gff)[0] + ".genePred")
+os.remove(os.path.splitext(args.cds_isoform_gff)[0] + ".genePred")

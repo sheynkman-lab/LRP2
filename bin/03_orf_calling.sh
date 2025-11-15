@@ -8,8 +8,6 @@
 #SBATCH --mem=16G
 #SBATCH --partition=standard #the queue/partition to run on
 #SBATCH --output=log_files/%x-%j.log
-#SBATCH --mail-type=END,FAIL
-#SBATCH --mail-user=cwp5au@virginia.edu #your email address to receive notifications
 
 set -e
 source config/lrp2_config.sh
@@ -55,11 +53,13 @@ esac
 cpat.py \
    -x $HEXAMER_INPUT \
    -d $MODEL_INPUT \
-   -g ${OUTPUT_DIR}/sqanti/${OUTPUT_BASE_NAME}_corrected_filtered.fasta \
+   -g ${OUTPUT_DIR}/sqanti_transcript/${OUTPUT_BASE_NAME}_corrected_filtered.fasta \
    --min-orf=$MIN_ORF \
    --top-orf=$TOP_ORF \
    -o ${OUTPUT_DIR}/orf_calling/${OUTPUT_BASE_NAME}_cpat \
    2> ${OUTPUT_DIR}/orf_calling/${OUTPUT_BASE_NAME}_cpat.error
+
+rm CPAT_run_info.log
 
 # Step 2: Filter CPAT output to call best ORF 
 Rscript scripts/03_filter_cpat.R
