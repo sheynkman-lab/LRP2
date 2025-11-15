@@ -84,25 +84,46 @@ workflow PIPELINE_INITIALISATION {
     // Create channel from input file provided through params.input
     //
 
-    Channel
-        .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
-        .map {
-            meta, fastq_1, fastq_2 ->
-                if (!fastq_2) {
-                    return [ meta.id, meta + [ single_end:true ], [ fastq_1 ] ]
-                } else {
-                    return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ] ]
-                }
-        }
-        .groupTuple()
-        .map { samplesheet ->
-            validateInputSamplesheet(samplesheet)
-        }
-        .map {
-            meta, fastqs ->
-                return [ meta, fastqs.flatten() ]
-        }
-        .set { ch_samplesheet }
+    // Determine input type based on file content
+    def input_type = detectInputType(params.input)
+
+    if (input_type == "bam") {
+        Channel
+            .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input_bam.json"))
+            .map {
+                meta, bam, condition, replicate ->
+                    return [ meta.id, meta + [ condition: condition, replicate: replicate ], [ bam ] ]
+            }
+            .groupTuple()
+            .map { samplesheet ->
+                validateInputBamSamplesheet(samplesheet)
+            }
+            .map {
+                meta, bams ->
+                    return [ meta, bams.flatten() ]
+            }
+            .set { ch_samplesheet }
+    } else {
+        Channel
+            .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
+            .map {
+                meta, fastq_1, fastq_2 ->
+                    if (!fastq_2) {
+                        return [ meta.id, meta + [ single_end:true ], [ fastq_1 ] ]
+                    } else {
+                        return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ] ]
+                    }
+            }
+            .groupTuple()
+            .map { samplesheet ->
+                validateInputSamplesheet(samplesheet)
+            }
+            .map {
+                meta, fastqs ->
+                    return [ meta, fastqs.flatten() ]
+            }
+            .set { ch_samplesheet }
+    }
 
     emit:
     samplesheet = ch_samplesheet
@@ -170,7 +191,7 @@ def validateInputParameters() {
 }
 
 //
-// Validate channels from input samplesheet
+// Validate channels from input samplesheet (FastQ)
 //
 def validateInputSamplesheet(input) {
     def (metas, fastqs) = input[1..2]
@@ -182,6 +203,43 @@ def validateInputSamplesheet(input) {
     }
 
     return [ metas[0], fastqs ]
+}
+
+//
+// Validate channels from input samplesheet (BAM)
+//
+def validateInputBamSamplesheet(input) {
+    def (sample_id, metas, bams) = input
+
+    // Check that multiple BAMs for the same sample have consistent condition and replicate labels
+    def conditions = metas.collect{ meta -> meta.condition }.unique()
+    def replicates = metas.collect{ meta -> meta.replicate }.unique()
+
+    if (conditions.size() != 1) {
+        error("Please check input samplesheet -> Multiple BAMs for the same sample must have the same condition: ${sample_id}")
+    }
+
+    if (replicates.size() != 1) {
+        error("Please check input samplesheet -> Multiple BAMs for the same sample must have the same replicate label: ${sample_id}")
+    }
+
+    return [ metas[0], bams ]
+}
+
+//
+// Detect input type based on samplesheet headers
+//
+def detectInputType(input_file) {
+    def file = new File(input_file)
+    def firstLine = file.readLines()[0]
+
+    if (firstLine.contains("bam") && firstLine.contains("condition")) {
+        return "bam"
+    } else if (firstLine.contains("fastq")) {
+        return "fastq"
+    } else {
+        error("Could not determine input type from samplesheet headers. Expected either 'bam' or 'fastq' columns.")
+    }
 }
 //
 // Get attribute from genome config file e.g. fasta
