@@ -16,7 +16,7 @@
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
-                    "schema": "assets/schema_input.json",
+                    "schema": "assets/schema_input_bam.json",
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to comma-separated file containing information about the samples in the experiment.",
@@ -127,6 +127,32 @@
                     "description": "Institutional config URL link.",
                     "hidden": true,
                     "fa_icon": "fas fa-users-cog"
+                }
+            }
+        },
+        "isoseq_collapse_options": {
+            "title": "Iso-Seq collapse options",
+            "type": "object",
+            "fa_icon": "fas fa-compress",
+            "description": "Options for the Iso-Seq collapse module.",
+            "properties": {
+                "max_fuzzy_junction": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Maximum allowable difference in junction positions to consider two isoforms identical.",
+                    "fa_icon": "fas fa-code-branch"
+                },
+                "max_5p_diff": {
+                    "type": "integer",
+                    "default": 100,
+                    "description": "Maximum allowable base-pair difference at 5' end.",
+                    "fa_icon": "fas fa-arrow-left"
+                },
+                "max_3p_diff": {
+                    "type": "integer",
+                    "default": 200,
+                    "description": "Maximum allowable base-pair difference at 3' end.",
+                    "fa_icon": "fas fa-arrow-right"
                 }
             }
         },
@@ -248,6 +274,9 @@
             "$ref": "#/$defs/reference_genome_options"
         },
         {
+            "$ref": "#/$defs/isoseq_collapse_options"
+        },
+        {
             "$ref": "#/$defs/institutional_config_options"
         },
         {
@@ -255,3 +284,4 @@
         }
     ]
 }
+

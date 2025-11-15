@@ -1,0 +1,36 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/sheynkmanlab/lrp2/master/assets/schema_input_bam.json",
+    "title": "sheynkmanlab/lrp2 pipeline - params.input schema (BAM input)",
+    "description": "Schema for the file provided with params.input (PacBio BAM files)",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "sample_name": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "Sample name must be provided and cannot contain spaces",
+                "meta": ["id"]
+            },
+            "bam": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.bam$",
+                "errorMessage": "BAM file must be provided, cannot contain spaces and must have extension '.bam'"
+            },
+            "condition": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "Condition must be provided and cannot contain spaces"
+            },
+            "replicate": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "Replicate label must be provided and cannot contain spaces"
+            }
+        },
+        "required": ["sample_name", "bam", "condition", "replicate"]
+    }
+}
