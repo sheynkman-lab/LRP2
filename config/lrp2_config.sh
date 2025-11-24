@@ -74,4 +74,12 @@ export TOP_ORF=50 # CPAT recommends 100
 export MIN_JUNCTIONS_AFTER_STOP_CODON=0 # parameter to identify NMD
 export PROTEIN_CLASS_KEEP="FPM,NPC,NPE" # options are FPM,IPM,NPC,NPE, default only removes incomplete protein match (IPM)
 
+# =============================================================================
+# Module: 05_mulitsample_analysis
+# =============================================================================
+
+export CONTROL_GROUP="NBM"
+export EXPERIMENTAL_GROUP="AML"
+
+
 
