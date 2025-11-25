@@ -2911,17 +2911,96 @@ write_tsv(dpu_summary, file.path(multisample_analysis_dir, paste0(basename, "_DU
 
 ```
 
-conda create -n differential_analysis -c conda-forge -c bioconda \
-  r-base=4.3.3 \
-  bioconductor-edger \
-  bioconductor-drimseq \
-  r-tidyverse \
-  r-data.table \
-  r-matrixstats
+Long read leafcutter
+- input gtf and count file (sqanti transcript)
+- gtf to psl function
+- psl coords function
+- isoform to junction
+- minicutter
+- Give sub isoform counts to diff splicing code, might need to tweak naming (could use hashing)
 
-conda activate differential_analysis
+839763 sample_corrected.psl
+```{r}
+# test updated gtf to psl
+new_psl = gtf_to_psl("/home/cwp5au/megan/github/LRP2_lite/results/sqanti_transcript/sample_corrected.gtf")
+
+old_psl = fread("/home/cwp5au/megan/github/LRP2_lite/results/sqanti_transcript/sample_corrected.psl")
+
+new = as.data.frame(new_psl)
+old = as.data.frame(old_psl)
+identical(old, new)
+all.equal(old, new)
+
+colnames(old) <- NULL
+colnames(new) <- NULL
+all.equal(old, new, check.attributes = FALSE) # TRUE
+identical(as.matrix(old), as.matrix(new)) # TRUE
+```
+
+Data wrangling for leafcutter
+```{r}
+psl = gtf_to_psl("/home/cwp5au/megan/github/LRP2_lite/results/sqanti_transcript/sample_corrected_filtered.gtf")
+write_tsv(psl, "/home/cwp5au/megan/github/LRP2_lite/results/sqanti_transcript/sample_corrected_filtered.psl", col_names = FALSE)
+coords = psl_to_coords("/home/cwp5au/megan/github/LRP2_lite/results/sqanti_transcript/sample_corrected_filtered.psl")
+
+intron_coords = coords$intron_coords
+
+count_file_path = "../results/sqanti_transcript/sample_hashids_with_cpm_filtered.txt"
+
+counts = fread(count_file_path) %>% 
+  select(trans_id = isoform_id, ends_with("_counts"), ends_with("_cpm"))
+
+isoform_to_junction <- function(intron_coords, counts){
+  
+  # reshape to long to handle multiple samples
+  counts_long = counts %>%
+    pivot_longer(
+    cols = -trans_id,
+    names_to = c("sample", ".value"),
+    names_pattern = "(.+)_(counts|cpm)"
+  ) %>%
+  replace_na(list(counts = 0, cpm = 0))
+  
+  # join isoform->junction map, then aggregate to junction per sample
+  jc = intron_coords %>% left_join(counts_long, by = "trans_id") %>% 
+    group_by(junc_id, chr, intron_start, intron_end, gene_id, strand, sample) %>%
+    dplyr::summarise(isoforms = paste0(unique(trans_id), collapse = ","), 
+                     lr_junc_count = sum(counts, na.rm = TRUE),
+                     lr_junc_cpm   = sum(cpm, na.rm = TRUE),
+                     .groups = "drop") %>%
+    dplyr::arrange(chr, intron_start, junc_id, sample)
+  
+  return(jc)
+  
+}
+
+lr_junctions = isoform_to_junction(intron_coords, counts)
+
+# get single counts per junction
+lr_junctions_collapsed = lr_junctions %>% 
+  group_by(chr, intron_start, intron_end, junc_id, strand) %>%
+  summarize(readcount = sum(lr_junc_count, na.rm = TRUE)) %>%
+  ungroup() %>%
+  relocate(strand, .after = last_col())
+
+clusters = minicutter(juncs = lr_junctions_collapsed, plot_summary = TRUE, min_usage_ratio = 0.01)
+splicing_clusters = clusters %>% 
+  group_by(cluster_idx) %>%
+  filter(n() > 1) %>%
+  ungroup()
+
+splicing_clusters %>% left_join(lr_junctions) # to get isoforms column
+splicing_clusters %>% filter(cluster_idx == "6407") %>% 
+  left_join(lr_junctions, by = c("name" = "junc_id")) %>%
+  distinct(name, readcount, isoforms) # wider ad=nd the collapse junctions based on isoform
 
 
+# checking
+intron_coords %>% distinct(junc_id) # 204,605
+lr_junctions %>% filter(junc_id == "chr1_1013576_1013984")
+lr_junctions_collapsed %>% filter(junc_id == "chr1_1013576_1013984")
+
+```
 
 
 

@@ -34,7 +34,8 @@ metadata_file_path       <- Sys.getenv("SAMPLE_METADATA")
 control_group      <- as.character(Sys.getenv("CONTROL_GROUP"))
 experimental_group <- as.character(Sys.getenv("EXPERIMENTAL_GROUP"))
 
-stopifnot("Count file not found" = file.exists(count_file_path))
+stopifnot("Transcript count file not found" = file.exists(count_file_path))
+stopifnot("ORF count file not found" = file.exists(orf_count_file_path))
 stopifnot("Sample sheet not found" = file.exists(metadata_file_path))
 
 # =============================================================================
