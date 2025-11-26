@@ -17,6 +17,8 @@ module load gcc/11.4.0
 module load openmpi/4.1.4
 module load R/4.5.0
 
+mkdir -p ${OUTPUT_DIR}/multisample_analysis
+
 #export R_LIBS_USER="" 
 R -e ".libPaths()"
 export R_LIBS_USER="/sfs/gpfs/tardis/home/cwp5au/R/goolf/4.5:$R_LIBS_USER"

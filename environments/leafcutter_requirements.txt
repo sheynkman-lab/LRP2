@@ -1,0 +1,9 @@
+tqdm
+torch
+scipy>=1.11
+pandas
+matplotlib
+seaborn
+scikit-learn
+jupyterlab
+pyro-ppl

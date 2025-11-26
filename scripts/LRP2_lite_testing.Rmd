@@ -2939,13 +2939,17 @@ identical(as.matrix(old), as.matrix(new)) # TRUE
 
 Data wrangling for leafcutter
 ```{r}
+transcript_gtf = "/home/cwp5au/megan/github/LRP2_lite/results/sqanti_transcript/sample_corrected_filtered.gtf"
 psl = gtf_to_psl("/home/cwp5au/megan/github/LRP2_lite/results/sqanti_transcript/sample_corrected_filtered.gtf")
-write_tsv(psl, "/home/cwp5au/megan/github/LRP2_lite/results/sqanti_transcript/sample_corrected_filtered.psl", col_names = FALSE)
+#write_tsv(psl, "/home/cwp5au/megan/github/LRP2_lite/results/sqanti_transcript/sample_corrected_filtered.psl", col_names = FALSE)
+fread("/home/cwp5au/megan/github/LRP2_lite/results/sqanti_transcript/sample_corrected_filtered.psl")
 coords = psl_to_coords("/home/cwp5au/megan/github/LRP2_lite/results/sqanti_transcript/sample_corrected_filtered.psl")
+metadata_file_path = "../config/sample_metadata.txt"
+count_file_path = "../results/sqanti_transcript/sample_hashids_with_cpm_filtered.txt"
+
 
 intron_coords = coords$intron_coords
 
-count_file_path = "../results/sqanti_transcript/sample_hashids_with_cpm_filtered.txt"
 
 counts = fread(count_file_path) %>% 
   select(trans_id = isoform_id, ends_with("_counts"), ends_with("_cpm"))
@@ -2984,17 +2988,79 @@ lr_junctions_collapsed = lr_junctions %>%
   relocate(strand, .after = last_col())
 
 clusters = minicutter(juncs = lr_junctions_collapsed, plot_summary = TRUE, min_usage_ratio = 0.01)
-splicing_clusters = clusters %>% 
+as_clusters = clusters %>% 
+  select(chr = chrom, start, end, junc_id = name, cluster_idx, strand) %>%
   group_by(cluster_idx) %>%
   filter(n() > 1) %>%
   ungroup()
 
-splicing_clusters %>% left_join(lr_junctions) # to get isoforms column
-splicing_clusters %>% filter(cluster_idx == "6407") %>% 
-  left_join(lr_junctions, by = c("name" = "junc_id")) %>%
-  distinct(name, readcount, isoforms) # wider ad=nd the collapse junctions based on isoform
+# format lr junctions for overlap
+junc_to_iso = lr_junctions %>% distinct(junc_id, isoforms)
+
+# overlap clusters to get isoform mapping
+# as_clusters %>% 
+#   left_join(junc_to_iso, by = c("junc_id")) %>%
+#   separate_rows(isoforms, sep = ",") %>%
+#   group_by(chr, cluster_idx, isoforms, strand) %>%
+#   arrange(start) %>%
+#   summarise(blocknumber = n(), 
+#             blockstarts = paste0(unique(start), collapse = ","),
+#             blockends = paste0(unique(end), collapse = ",")) %>%
+#   ungroup()
+
+# need to sum per sample per subisoform, this gets tricky
+# filter(cluster_idx == "6407")
+by_isoform = as_clusters %>%
+  left_join(junc_to_iso, by = c("junc_id")) %>%
+  separate_rows(isoforms, sep = ",") %>%
+  group_by(chr, cluster_idx, isoforms, strand) %>%
+  arrange(start, end) %>%
+  summarise(intron_starts = paste0(unique(start), collapse = ","),
+            intron_ends = paste0(unique(end), collapse = ",")) %>%
+  ungroup() 
+
+# include counts here to sum
+by_isoform %<>% 
+  left_join(select(counts, -ends_with("_cpm")), by = c("isoforms" = "trans_id"))
+
+subisoform = by_isoform %>%
+  group_by(chr, cluster_idx, strand, intron_starts, intron_ends) %>%
+  summarise(isoforms = paste0(unique(isoforms), collapse = ","),
+            across(ends_with("_counts"), sum),
+            .groups = "drop") %>%
+  mutate(subisoform_id = paste0(chr, ":", intron_starts, ":", intron_ends, ":clu_", cluster_idx)) %>%
+  relocate((subisoform_id))
+
+write_tsv(subisoform, file = file.path(multisample_analysis_dir, paste0(basename, "_lr_leafcutter_subisoform_clusters.txt")), col_names = TRUE)
+
+# write out space delimited file with row names for diff splicing script
+out = subisoform %>%
+  select(subisoform_id, ends_with("_counts")) %>%
+  rename_with(~gsub("_counts$", "", .), ends_with("_counts")) %>%
+  column_to_rownames("subisoform_id")
+
+write.table(out, 
+            file = gzfile(file.path(multisample_analysis_dir, paste0(basename, "_lr_leafcutter_perind_numers.counts.gz"))),
+            sep = " ",
+            row.names = TRUE,
+            col.names = TRUE,
+            quote = FALSE)
+
+# create the group text file required for ds (use sample sheet)
+sample_metadata = as.data.frame(fread(metadata_file_path, header = TRUE))
+sample_metadata %>% select(name, group) %>%
+  write_tsv(file.path(multisample_analysis_dir, paste0(basename, "_groups_file.txt")), col_names = FALSE)
 
 
+
+
+```
+
+
+
+
+
+```{r}
 # checking
 intron_coords %>% distinct(junc_id) # 204,605
 lr_junctions %>% filter(junc_id == "chr1_1013576_1013984")

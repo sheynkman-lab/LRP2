@@ -23,14 +23,11 @@ suppressPackageStartupMessages({
 
 basename                 <- Sys.getenv("OUTPUT_BASE_NAME")
 sqanti_transcript_dir    <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti_transcript")
-multisample_analysis_dir <- file.path(Sys.getenv("OUTPUT_DIR"), "multisample_analysis")
+leafcutter_analysis_dir  <- file.path(Sys.getenv("OUTPUT_DIR"), "multisample_analysis", "lr_leafcutter")
 
 count_file_path          <- file.path(sqanti_transcript_dir, paste0(basename, "_hashids_with_cpm_filtered.txt"))
 transcript_gtf           <- file.path(sqanti_transcript_dir, paste0(basename, "_corrected_filtered.gtf"))
 metadata_file_path       <- Sys.getenv("SAMPLE_METADATA")
-
-control_group      <- as.character(Sys.getenv("CONTROL_GROUP"))
-experimental_group <- as.character(Sys.getenv("EXPERIMENTAL_GROUP"))
 
 stopifnot("Count file not found" = file.exists(count_file_path))
 stopifnot("GTF file not found" = file.exists(transcript_gtf))
@@ -122,7 +119,6 @@ gtf_to_psl = function(gtf_file_path){
 
 }
 
-
 # psl to exon and intron centric tables- also from Isoviz
 psl_to_coords <- function(psl_file_path){
   
@@ -181,30 +177,22 @@ psl_to_coords <- function(psl_file_path){
 }
 
 # get junction level counts from long read- need to be able to use this with multiple samples
-isoform_to_junction_counts <- function(intron_coords, counts){
+isoform_to_junction <- function(intron_coords, counts){
   
   # reshape to long to handle multiple samples
-  counts_long = counts %>% rename(trans_id = 1) %>%
-    pivot_longer(cols = -trans_id, names_to = "sample", values_to = "read_count") %>%
-    mutate(read_count = as.numeric(read_count)) %>% replace_na(list(read_count = 0))
-  
-  # cpm per sample
-  counts_long %>% group_by(sample) %>% dplyr::summarise(total_reads = sum(read_count), .groups = "drop") %>%
-    print()
-  
-  counts_long %<>% group_by(sample) %>%
-    dplyr::mutate(cpm = 1e6 * read_count / pmax(sum(read_count), 1)) %>%
-    ungroup()
+  counts_long = counts %>%
+    pivot_longer(
+      cols = -trans_id,
+      names_to = c("sample", ".value"),
+      names_pattern = "(.+)_(counts|cpm)"
+    ) %>%
+    replace_na(list(counts = 0, cpm = 0))
   
   # join isoform->junction map, then aggregate to junction per sample
-  df <- intron_coords %>% left_join(counts_long, by = "trans_id")
-  #intron_coords %>% distinct(trans_id) # 451,783 
-  #counts_long %>% distinct(trans_id) # 483,457 
-  
-  jc <- df %>%
+  jc = intron_coords %>% left_join(counts_long, by = "trans_id") %>% 
     group_by(junc_id, chr, intron_start, intron_end, gene_id, strand, sample) %>%
     dplyr::summarise(isoforms = paste0(unique(trans_id), collapse = ","), 
-                     lr_junc_count = sum(read_count, na.rm = TRUE),
+                     lr_junc_count = sum(counts, na.rm = TRUE),
                      lr_junc_cpm   = sum(cpm, na.rm = TRUE),
                      .groups = "drop") %>%
     dplyr::arrange(chr, intron_start, junc_id, sample)
@@ -297,3 +285,85 @@ minicutter = function(juncs, plot_summary = TRUE, min_usage_ratio = 0.01) {
   
   return(juncs_recluster)
 }
+
+# ==================================================================================
+# Main
+# ==================================================================================
+
+# Create and output psl
+psl_base = tools::file_path_sans_ext(basename(transcript_gtf))
+psl_path = file.path(leafcutter_analysis_dir, paste0(psl_base, ".psl"))
+gtf_to_psl(transcript_gtf) %>%
+  write_tsv(psl_path, col_names = FALSE)
+
+coords        = psl_to_coords(psl_path)
+intron_coords = coords$intron_coords
+exon_coords   = coords$exon_coords
+
+write_tsv(intron_coords, file.path(leafcutter_analysis_dir, paste0(psl_base, "_intron_coords.txt")))
+write_tsv(exon_coords, file.path(leafcutter_analysis_dir, paste0(psl_base, "_exon_coords.txt")))
+
+# Collapse long read counts to junctions
+counts = fread(count_file_path) %>% 
+  select(trans_id = isoform_id, ends_with("_counts"), ends_with("_cpm"))
+
+lr_junctions = isoform_to_junction(intron_coords, counts)
+
+# get single counts per junction- sum across samples and get in format for minicutter
+lr_junctions_collapsed = lr_junctions %>% 
+  group_by(chr, intron_start, intron_end, junc_id, strand) %>%
+  summarize(readcount = sum(lr_junc_count, na.rm = TRUE)) %>%
+  ungroup() %>%
+  relocate(strand, .after = last_col())
+
+# Run minicutter and select non-constitutive junctions
+clusters = minicutter(juncs = lr_junctions_collapsed, plot_summary = TRUE, min_usage_ratio = 0.01)
+as_clusters = clusters %>% 
+  select(chr = chrom, start, end, junc_id = name, cluster_idx, strand) %>%
+  group_by(cluster_idx) %>%
+  filter(n() > 1) %>%
+  ungroup()
+
+# Overlap junctions/clusters with isoforms
+# filter(cluster_idx == "6407") to test
+junc_to_iso = lr_junctions %>% distinct(junc_id, isoforms)
+by_isoform = as_clusters %>%
+  left_join(junc_to_iso, by = c("junc_id")) %>%
+  separate_rows(isoforms, sep = ",") %>%
+  group_by(chr, cluster_idx, isoforms, strand) %>%
+  arrange(start, end) %>%
+  summarise(intron_starts = paste0(unique(start), collapse = ","),
+            intron_ends = paste0(unique(end), collapse = ",")) %>%
+  ungroup() 
+
+# Need to sum per sample per subisoform
+by_isoform %<>% 
+  left_join(select(counts, -ends_with("_cpm")), by = c("isoforms" = "trans_id"))
+
+subisoform = by_isoform %>%
+  group_by(chr, cluster_idx, strand, intron_starts, intron_ends) %>%
+  summarise(isoforms = paste0(unique(isoforms), collapse = ","),
+            across(ends_with("_counts"), sum),
+            .groups = "drop") %>%
+  mutate(subisoform_id = paste0(chr, ":", intron_starts, ":", intron_ends, ":clu_", cluster_idx)) %>%
+  relocate((subisoform_id))
+
+write_tsv(subisoform, file = file.path(leafcutter_analysis_dir, paste0(basename, "_lr_leafcutter_subisoform_clusters.txt")), col_names = TRUE)
+
+# write out space delimited file with row names for diff splicing script
+out = subisoform %>%
+  select(subisoform_id, ends_with("_counts")) %>%
+  rename_with(~gsub("_counts$", "", .), ends_with("_counts")) %>%
+  column_to_rownames("subisoform_id")
+
+write.table(out, 
+            file = gzfile(file.path(leafcutter_analysis_dir, paste0(basename, "_lr_leafcutter_perind_numers.counts.gz"))),
+            sep = " ",
+            row.names = TRUE,
+            col.names = TRUE,
+            quote = FALSE)
+
+# create the group text file required for ds (use sample sheet)
+sample_metadata = as.data.frame(fread(metadata_file_path, header = TRUE))
+sample_metadata %>% select(name, group) %>%
+  write_tsv(file.path(leafcutter_analysis_dir, paste0(basename, "_groups_file.txt")), col_names = FALSE)
