@@ -14,14 +14,14 @@ process FILTER_SQANTI {
     path hashlib_script
 
     output:
-    tuple val(meta), path("sqanti_transcript/custom_filtered/*_sqanti_transcript_classification_filtered.txt"), emit: classification_filtered
-    tuple val(meta), path("sqanti_transcript/custom_filtered/*_sqanti_transcript_corrected_filtered.gtf"), emit: corrected_gtf_filtered
-    tuple val(meta), path("sqanti_transcript/custom_filtered/*_sqanti_transcript_corrected_filtered.fasta"), emit: corrected_fasta_filtered
-    tuple val(meta), path("sqanti_transcript/custom_filtered/*_sqanti_transcript_hashids_with_cpm_filtered.txt"), emit: hashids_filtered
-    tuple val(meta), path("sqanti_transcript/custom_filtered/*_sqanti_transcript_all_hashids_with_cpm.txt"), emit: hashids_all
-    tuple val(meta), path("sqanti_transcript/custom_filtered/*_sqanti_transcript_dropout_transcripts.tsv"), emit: dropout_transcripts
-    tuple val(meta), path("sqanti_transcript/custom_filtered/*_sqanti_transcript_corrected_dropout.fasta"), emit: corrected_dropout_fasta
-    tuple val(meta), path("sqanti_transcript/custom_filtered/*_sqanti_transcript_corrected_dropout.gtf"), emit: corrected_dropout_gtf
+    tuple val(meta), path("*_sqanti_transcript_classification_filtered.txt"), emit: classification_filtered
+    tuple val(meta), path("*_sqanti_transcript_corrected_filtered.gtf"), emit: corrected_gtf_filtered
+    tuple val(meta), path("*_sqanti_transcript_corrected_filtered.fasta"), emit: corrected_fasta_filtered
+    tuple val(meta), path("*_sqanti_transcript_hashids_with_cpm_filtered.txt"), emit: hashids_filtered
+    tuple val(meta), path("*_sqanti_transcript_all_hashids_with_cpm.txt"), emit: hashids_all
+    tuple val(meta), path("*_sqanti_transcript_dropout_transcripts.tsv"), emit: dropout_transcripts
+    tuple val(meta), path("*_sqanti_transcript_corrected_dropout.fasta"), emit: corrected_dropout_fasta
+    tuple val(meta), path("*_sqanti_transcript_corrected_dropout.gtf"), emit: corrected_dropout_gtf
     path "versions.yml", emit: versions
 
     when:
@@ -37,16 +37,14 @@ process FILTER_SQANTI {
     def structure_filter = task.ext.structure_filter ?: params.structure_filter
 
     """
-    mkdir -p sqanti_transcript/custom_filtered
-
-    # Link/copy the SQANTI_QC output files to the sqanti_transcript/custom_filtered directory (where the R script will look for them based on OUTPUT_DIR)
-    ln -s \$(pwd)/$classification_file sqanti_transcript/custom_filtered/${prefix}_sqanti_transcript_classification.txt
-    ln -s \$(pwd)/$corrected_gtf sqanti_transcript/custom_filtered/${prefix}_sqanti_transcript_corrected.gtf
-    ln -s \$(pwd)/$corrected_fasta sqanti_transcript/custom_filtered/${prefix}_sqanti_transcript_corrected.fasta
+    # Link the SQANTI_QC output files to the working directory with expected naming
+    ln -s \$(pwd)/$classification_file ${prefix}_sqanti_transcript_classification.txt
+    ln -s \$(pwd)/$corrected_gtf ${prefix}_sqanti_transcript_corrected.gtf
+    ln -s \$(pwd)/$corrected_fasta ${prefix}_sqanti_transcript_corrected.fasta
 
     # Export environment variables expected by the R script
-    # OUTPUT_DIR is where the R script will output files (becomes parent of custom_filtered directory)
-    export OUTPUT_DIR=sqanti_transcript/custom_filtered
+    # OUTPUT_DIR must be the current working directory where symlinks and outputs are
+    export OUTPUT_DIR=.
     export OUTPUT_BASE_NAME=$prefix
     export GENCODE_GTF_FILE=\$(pwd)/$reference_gtf
     export SAMPLE_METADATA=\$(pwd)/$sample_metadata
@@ -72,16 +70,14 @@ process FILTER_SQANTI {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    mkdir -p sqanti_transcript/custom_filtered
-
-    touch sqanti_transcript/custom_filtered/${prefix}_sqanti_transcript_classification_filtered.txt
-    touch sqanti_transcript/custom_filtered/${prefix}_sqanti_transcript_corrected_filtered.gtf
-    touch sqanti_transcript/custom_filtered/${prefix}_sqanti_transcript_corrected_filtered.fasta
-    touch sqanti_transcript/custom_filtered/${prefix}_sqanti_transcript_hashids_with_cpm_filtered.txt
-    touch sqanti_transcript/custom_filtered/${prefix}_sqanti_transcript_all_hashids_with_cpm.txt
-    touch sqanti_transcript/custom_filtered/${prefix}_sqanti_transcript_dropout_transcripts.tsv
-    touch sqanti_transcript/custom_filtered/${prefix}_sqanti_transcript_corrected_dropout.fasta
-    touch sqanti_transcript/custom_filtered/${prefix}_sqanti_transcript_corrected_dropout.gtf
+    touch ${prefix}_sqanti_transcript_classification_filtered.txt
+    touch ${prefix}_sqanti_transcript_corrected_filtered.gtf
+    touch ${prefix}_sqanti_transcript_corrected_filtered.fasta
+    touch ${prefix}_sqanti_transcript_hashids_with_cpm_filtered.txt
+    touch ${prefix}_sqanti_transcript_all_hashids_with_cpm.txt
+    touch ${prefix}_sqanti_transcript_dropout_transcripts.tsv
+    touch ${prefix}_sqanti_transcript_corrected_dropout.fasta
+    touch ${prefix}_sqanti_transcript_corrected_dropout.gtf
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
