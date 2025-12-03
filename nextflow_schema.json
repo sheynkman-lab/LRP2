@@ -156,6 +156,93 @@
                 }
             }
         },
+        "sqanti_transcript_options": {
+            "title": "SQANTI3 transcript QC and filtering options",
+            "type": "object",
+            "fa_icon": "fas fa-filter",
+            "description": "Options for the SQANTI3 QC and filtering modules.",
+            "properties": {
+                "gencode_gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to GENCODE reference GTF file.",
+                    "help_text": "Path to the GENCODE GTF file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "gencode_fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to GENCODE reference FASTA file.",
+                    "help_text": "Path to the GENCODE FASTA file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "sample_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to sample metadata CSV file.",
+                    "help_text": "Sample metadata file used for SQANTI3 filtering.",
+                    "fa_icon": "fas fa-file-csv"
+                },
+                "filter_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to SQANTI filtering R script.",
+                    "help_text": "R script used to filter SQANTI3 QC output.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "hashlib_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to hashlib ID generator Python script.",
+                    "help_text": "Python script used to generate hash IDs for transcripts.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "sqanti_path": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "default": "/project/sheynkman/programs/SQANTI3-5.5/src/utilities/cupcake/",
+                    "description": "Path to SQANTI3 installation directory.",
+                    "help_text": "Path to the SQANTI3 cupcake utilities directory.",
+                    "fa_icon": "fas fa-folder"
+                },
+                "protein_coding_filter": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Filter to keep only protein-coding genes.",
+                    "fa_icon": "fas fa-check"
+                },
+                "internal_priming_filter": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Filter to remove internal priming artifacts.",
+                    "fa_icon": "fas fa-check"
+                },
+                "template_switching_filter": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Filter to remove template switching artifacts.",
+                    "fa_icon": "fas fa-check"
+                },
+                "percent_polya_threshold": {
+                    "type": "integer",
+                    "default": 60,
+                    "description": "Threshold for polyA percentage downstream of TTS.",
+                    "fa_icon": "fas fa-percent"
+                },
+                "structure_filter": {
+                    "type": "string",
+                    "default": "strict",
+                    "description": "Structural category filter level.",
+                    "fa_icon": "fas fa-filter",
+                    "enum": ["strict", "all"]
+                }
+            }
+        },
         "generic_options": {
             "title": "Generic options",
             "type": "object",
@@ -275,6 +362,9 @@
         },
         {
             "$ref": "#/$defs/isoseq_collapse_options"
+        },
+        {
+            "$ref": "#/$defs/sqanti_transcript_options"
         },
         {
             "$ref": "#/$defs/institutional_config_options"

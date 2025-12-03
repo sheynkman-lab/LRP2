@@ -29,8 +29,9 @@ suppressPackageStartupMessages({
 # Get environment variables for filtering parameters
 # =============================================================================
 
-dir                     <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti_transcript")
-basename                <- Sys.getenv("OUTPUT_BASE_NAME")
+dir                     <- Sys.getenv("OUTPUT_DIR")
+basename_prefix         <- Sys.getenv("OUTPUT_BASE_NAME")
+basename                <- paste0(basename_prefix, "_sqanti_transcript")
 gencode_gtf             <- Sys.getenv("GENCODE_GTF_FILE")
 metadata_path           <- Sys.getenv("SAMPLE_METADATA")
 filter_protein_coding   <- as.logical(Sys.getenv("PROTEIN_CODING_FILTER", "TRUE"))
@@ -51,9 +52,9 @@ stopifnot("File not found" = file.exists(classification_file))
 stopifnot("File not found" = file.exists(sqanti_gtf))
 stopifnot("File not found" = file.exists(sqanti_fasta))
 
-# Create additional output directory
-dropout_dir = file.path(dir, "dropout")
-dir.create(dropout_dir, recursive = TRUE, showWarnings = FALSE)
+# Create output directory
+dir.create(dir, recursive = TRUE, showWarnings = FALSE)
+dropout_dir = dir
 
 # =============================================================================
 # Helper functions
@@ -183,23 +184,54 @@ convert_gtf_to_psl(gtf_input_path  = sqanti_gtf,
 
 # Run python script for hash ids- generates mapping file with transcript_id and hash_id
 mapping_file = file.path(dir, paste0(basename, "_hashids_mapping.txt"))
-system2("python", args = c("scripts/hashlib_id_generator.py", sqanti_psl, mapping_file))
+# Set path to the hashing function Python script from environment for proper usage in module container
+python_script = Sys.getenv("HASHLIB_SCRIPT", "hashlib_id_generator.py")
+system2("python", args = c(python_script, sqanti_psl, mapping_file))
 
 # =============================================================================
 # Combine sqanti associated gene_ids with gencode ids and hash ids, include counts
 # =============================================================================
 
 # Gencode gtf used to select protein coding genes and add column of readable gene name
-gencode_gtf = "/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf"
+# Use the environment variable passed from Nextflow, not hardcoded path
+gencode_gtf = Sys.getenv("GENCODE_GTF_FILE")
+if (gencode_gtf == "") {
+  stop("GENCODE_GTF_FILE environment variable not set")
+}
 gencode    = import(gencode_gtf, format = "gtf")
 gencode_df = as.data.frame(gencode)
 
-gencode_df %<>% 
-  filter(type == "transcript") %>% 
-  select(associated_gene = gene_id, gene_type, gene_name, associated_transcript = transcript_id, transcript_name, protein_id)
+# Filter for transcript entries
+gencode_df %<>% filter(type == "transcript")
 
-gencode_gene = gencode_df %>% 
-  select(associated_gene, gene_type, gene_name) %>% 
+# Rename columns based on what's available, handling gene_type/gene_biotype variations
+gencode_df %<>%
+  rename(
+    associated_gene = gene_id,
+    associated_transcript = transcript_id
+  )
+
+# Handle gene_type vs gene_biotype naming
+if ("gene_biotype" %in% colnames(gencode_df) && !("gene_type" %in% colnames(gencode_df))) {
+  gencode_df %<>% rename(gene_type = gene_biotype)
+}
+
+# Select only the columns we need, using only those that exist
+select_cols <- c("associated_gene", "associated_transcript")
+if ("gene_type" %in% colnames(gencode_df)) select_cols <- c(select_cols, "gene_type")
+if ("gene_name" %in% colnames(gencode_df)) select_cols <- c(select_cols, "gene_name")
+if ("transcript_name" %in% colnames(gencode_df)) select_cols <- c(select_cols, "transcript_name")
+if ("protein_id" %in% colnames(gencode_df)) select_cols <- c(select_cols, "protein_id")
+
+gencode_df %<>% select(all_of(select_cols))
+
+# Select columns for gencode_gene, handling missing columns
+gencode_gene_cols <- c("associated_gene")
+if ("gene_type" %in% colnames(gencode_df)) gencode_gene_cols <- c(gencode_gene_cols, "gene_type")
+if ("gene_name" %in% colnames(gencode_df)) gencode_gene_cols <- c(gencode_gene_cols, "gene_name")
+
+gencode_gene = gencode_df %>%
+  select(all_of(gencode_gene_cols)) %>%
   distinct()
 
 # Metatable to add specific sample ids
@@ -207,7 +239,7 @@ metadata      = fread(metadata_path)
 sample_lookup = setNames(metadata$name, metadata$bam_id)
 
 # SQANTI classification file- add sample names, calculate cpm on all transcripts before filtering
-classification_file = "~/megan/github/LRP2_lite/results/sqanti_transcript/sample_classification.txt"
+classification_file = file.path(dir, paste0(basename, "_classification.txt"))
 sqanti_df = read_tsv(classification_file, show_col_types = FALSE)
 
 colnames(sqanti_df) = sub("^FL\\.", "", colnames(sqanti_df))
@@ -221,19 +253,51 @@ sqanti_df %<>%
                 ~ (.x / sum(.x)) * 1e6,
                 .names = "{gsub('_counts', '_cpm', .col)}"))
 
-# Keep only isoforms with ENS gene IDs
-sqanti_df_full = sqanti_df %>%
-  filter(!is.na(associated_gene), str_starts(associated_gene, "ENS"))
+# Keep only isoforms with ENS gene IDs (if available, otherwise we keep all)
+ens_genes <- sum(str_starts(sqanti_df$associated_gene, "ENS"), na.rm = TRUE)
+if (ens_genes > 0) {
+  sqanti_df_full = sqanti_df %>%
+    filter(!is.na(associated_gene), str_starts(associated_gene, "ENS"))
+} else {
+  sqanti_df_full = sqanti_df %>%
+    filter(!is.na(associated_gene))
+}
 
-sqanti_df_full %<>% 
-  left_join(gencode_gene, by = "associated_gene") %>% 
-  left_join(gencode_df, by = c("associated_gene", "associated_transcript", "gene_type", "gene_name"))
+# Build join columns dynamically based on what exists in gencode_gene
+join_cols_1 <- "associated_gene"
+
+# Left join with gencode_gene (has at least associated_gene)
+sqanti_df_full %<>%
+  left_join(gencode_gene, by = join_cols_1)
+
+# Build join columns for second join with gencode_df
+join_cols_2 <- c("associated_gene", "associated_transcript")
+if ("gene_type" %in% colnames(gencode_df)) {
+  join_cols_2 <- c(join_cols_2, "gene_type")
+}
+if ("gene_name" %in% colnames(gencode_df)) {
+  join_cols_2 <- c(join_cols_2, "gene_name")
+}
+
+# Second join only if we have columns beyond the basics
+if (length(join_cols_2) > 2) {
+  sqanti_df_full %<>%
+    left_join(gencode_df, by = join_cols_2)
+}
 
 # combine with hashids, and selct cpm columns
 hashids = read_tsv(mapping_file)
 
-sqanti_ids = sqanti_df_full %>% 
-  select(isoform_id = isoform, ensg_gene_id = associated_gene, gene_name, enst_transcript_id = associated_transcript, transcript_name, gene_type, protein_id, ends_with("_counts"), ends_with("_cpm"))
+# Build select columns dynamically based on what exists in sqanti_df_full
+select_cols_final <- c("isoform_id" = "isoform", "ensg_gene_id" = "associated_gene", "enst_transcript_id" = "associated_transcript")
+
+if ("gene_name" %in% colnames(sqanti_df_full)) select_cols_final <- c(select_cols_final, "gene_name" = "gene_name")
+if ("transcript_name" %in% colnames(sqanti_df_full)) select_cols_final <- c(select_cols_final, "transcript_name" = "transcript_name")
+if ("gene_type" %in% colnames(sqanti_df_full)) select_cols_final <- c(select_cols_final, "gene_type" = "gene_type")
+if ("protein_id" %in% colnames(sqanti_df_full)) select_cols_final <- c(select_cols_final, "protein_id" = "protein_id")
+
+sqanti_ids = sqanti_df_full %>%
+  select(all_of(select_cols_final), ends_with("_counts"), ends_with("_cpm"))
 
 all_ids = hashids %>% select(isoform_id = transcript_id, hash_id) %>%
   inner_join(sqanti_ids, by = "isoform_id") 
@@ -253,78 +317,80 @@ dropout_tracker = list()
 # Keep only transcripts of protein coding genes
 sqanti_df = sqanti_df_full
 if (filter_protein_coding) {
-  ids = sqanti_df$isoform
-  sqanti_df %<>% 
-    filter(gene_type == "protein_coding")
-  
-  kept_ids    = sqanti_df$isoform
-  dropped_ids = setdiff(ids, kept_ids)
-  dropout_tracker[["not_protein_coding"]] = dropped_ids
-  
-  message("Protein coding filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
+  if ("gene_type" %in% colnames(sqanti_df)) {
+    ids = sqanti_df$isoform
+    sqanti_df %<>%
+      filter(gene_type == "protein_coding")
+
+    kept_ids    = sqanti_df$isoform
+    dropped_ids = setdiff(ids, kept_ids)
+    dropout_tracker[["not_protein_coding"]] = dropped_ids
+
+    message("Protein coding filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
+  }
 }
 
 # Filter based on downstream polyA sequence to remove internal priming
 if (filter_internal_priming) {
   ids = sqanti_df$isoform
-  
+
   # keep all isoforms below threshold
-  keep1 = sqanti_df %>% 
+  keep1 = sqanti_df %>%
     filter(perc_A_downstream_TTS <= percent_polyA_threshold)
-  
+
   # Get downstream sequence for FSM above threshold
   protected_seqs = sqanti_df %>%
     filter(perc_A_downstream_TTS > percent_polyA_threshold, structural_category == "full-splice_match") %>%
     distinct(associated_gene, seq_A_downstream_TTS)
-  
+
   # Keep high polyA isoforms that share sequence with FSM transcript
-  keep2 = sqanti_df %>% 
+  keep2 = sqanti_df %>%
     inner_join(protected_seqs, by = c("associated_gene", "seq_A_downstream_TTS"))
-  
-  sqanti_df = bind_rows(keep1, keep2) %>% 
+
+  sqanti_df = bind_rows(keep1, keep2) %>%
     distinct()
-  
+
   kept_ids    = sqanti_df$isoform
   dropped_ids = setdiff(ids, kept_ids)
   dropout_tracker[["internal_priming"]] = dropped_ids
-  
+
   message("Internal priming filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
 }
 
 # Filter out template switching, keep RTS_stage = FALSE (no RTS)
 if (filter_RTS) {
   ids = sqanti_df$isoform
-  
+
   # Find column positions
   ratio_tss_pos = which(colnames(sqanti_df) == "ratio_TSS")
   gene_type_pos = which(colnames(sqanti_df) == "gene_type")
-  
+
   # Get columns between them (if any exist) and sum
-  if (gene_type_pos - ratio_tss_pos > 1) {
+  if (length(ratio_tss_pos) > 0 && length(gene_type_pos) > 0 && gene_type_pos - ratio_tss_pos > 1) {
     count_cols           = (ratio_tss_pos + 1):(gene_type_pos - 1)
     sqanti_df$avg_counts = rowMeans(sqanti_df[, count_cols], na.rm = TRUE)
   } else {
     sqanti_df$avg_counts = NA  # No columns in between
   }
-  
+
   # filtering considerations
-  sqanti_df %<>% 
+  sqanti_df %<>%
     filter(
       structural_category == "full-splice_match" |
-      RTS_stage == FALSE | 
+      RTS_stage == FALSE |
       (RTS_stage == TRUE & all_canonical == TRUE & avg_counts > 3)
       )
-  
+
   kept_ids    = sqanti_df$isoform
   dropped_ids = setdiff(ids, kept_ids)
   dropout_tracker[["Template_switching_artifact"]] = dropped_ids
-  
+
   message("Template switching filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
 }
 
 # Apply structural category filter
 STRUCTURAL_CATEGORIES <- list(
-  strict = c("novel_not_in_catalog", "novel_in_catalog", 
+  strict = c("novel_not_in_catalog", "novel_in_catalog",
              "incomplete-splice_match", "full-splice_match"),
   all    = c("antisense", "novel_not_in_catalog", "novel_in_catalog",
              "incomplete-splice_match", "full-splice_match", "genic",
@@ -333,7 +399,7 @@ STRUCTURAL_CATEGORIES <- list(
 
 allowed_categories = STRUCTURAL_CATEGORIES[[structural_level]]
 ids                = sqanti_df$isoform
-sqanti_df %<>% 
+sqanti_df %<>%
   filter(structural_category %in% allowed_categories)
 
 kept_ids    = sqanti_df$isoform
@@ -374,25 +440,25 @@ all_ids %>% filter(isoform_id %in% sqanti_df$isoform) %>%
 # Create dropout reasons table and write dropout files
 dropout_reasons_df = map_dfr(names(dropout_tracker), ~ {
   tibble(
-    isoform        = dropout_tracker[[.x]], 
+    isoform        = dropout_tracker[[.x]],
     dropout_reason = .x
     )
 })
 
-dropout_reasons_df %<>% 
+dropout_reasons_df %<>%
   left_join(sqanti_df_full)
 
 write_tsv(dropout_reasons_df, file.path(dropout_dir, paste0(basename, "_dropout_transcripts.tsv")))
 
 save_filtered_fasta(
-  sqanti_fasta, 
-  all_dropout_ids, 
+  sqanti_fasta,
+  all_dropout_ids,
   file.path(dropout_dir, paste0(basename, "_corrected_dropout.fasta"))
 )
 
 save_filtered_gtf(
-  sqanti_gtf, 
-  all_dropout_ids, 
+  sqanti_gtf,
+  all_dropout_ids,
   file.path(dropout_dir, paste0(basename, "_corrected_dropout.gtf"))
 )
 
