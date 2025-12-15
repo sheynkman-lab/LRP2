@@ -190,7 +190,6 @@ system2("python", args = c("scripts/hashlib_id_generator.py", sqanti_psl, mappin
 # =============================================================================
 
 # Gencode gtf used to select protein coding genes and add column of readable gene name
-gencode_gtf = "/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf"
 gencode    = import(gencode_gtf, format = "gtf")
 gencode_df = as.data.frame(gencode)
 
@@ -207,7 +206,6 @@ metadata      = fread(metadata_path)
 sample_lookup = setNames(metadata$name, metadata$bam_id)
 
 # SQANTI classification file- add sample names, calculate cpm on all transcripts before filtering
-classification_file = "~/megan/github/LRP2_lite/results/sqanti_transcript/sample_classification.txt"
 sqanti_df = read_tsv(classification_file, show_col_types = FALSE)
 
 colnames(sqanti_df) = sub("^FL\\.", "", colnames(sqanti_df))

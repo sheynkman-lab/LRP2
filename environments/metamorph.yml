@@ -1,0 +1,29 @@
+name: metamorph
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - _libgcc_mutex=0.1=conda_forge
+  - _openmp_mutex=4.5=2_gnu
+  - c-ares=1.28.1=hd590300_0
+  - ca-certificates=2024.2.2=hbcca054_0
+  - dotnet-runtime=6.0.28=hb8a3ed7_0
+  - icu=73.2=h59595ed_0
+  - keyutils=1.6.1=h166bdaf_0
+  - krb5=1.21.2=h659d440_0
+  - libcurl=8.7.1=hca28451_0
+  - libedit=3.1.20191231=he28a2e2_2
+  - libev=4.33=hd590300_2
+  - libgcc-ng=13.2.0=h77fa898_7
+  - libgomp=13.2.0=h77fa898_7
+  - libnghttp2=1.58.0=h47da74e_1
+  - libssh2=1.11.0=h0841786_0
+  - libstdcxx-ng=13.2.0=hc0a3c3a_7
+  - liburcu=0.13.2=h166bdaf_0
+  - libzlib=1.2.13=hd590300_5
+  - lttng-ust=2.13.4=hfdfcbd3_0
+  - metamorpheus=1.0.5=hd5efafc_0
+  - ncurses=6.5=h59595ed_0
+  - openssl=3.3.0=hd590300_0
+  - zstd=1.5.6=ha6fb4c9_0
+prefix: /home/yqy3cu/.conda/envs/metamorph
