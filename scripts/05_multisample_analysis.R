@@ -18,6 +18,8 @@ suppressPackageStartupMessages({
   library(tidyverse)
 })
 
+options(scipen = 999)
+
 # =============================================================================
 # Get environment variables and check required files
 # =============================================================================
@@ -327,32 +329,36 @@ dtu_tx_results = results(d, level = "feature") %>%
                 adj_pvalue_transcript = adj_pvalue)
 
 # Get proportions from DRIMSeq and calculate means and deltas
-props = proportions(d)
+transript_usage_table = transcript_cpms %>% 
+  group_by(ensg_gene_id, gene_name) %>%
+  mutate(across(ends_with("_cpm"), 
+                ~ . / sum(., na.rm = TRUE),
+                .names = "{.col}_prop")) %>%
+  ungroup() %>%
+  rename_with(~ str_replace(., "_cpm_prop$", "_prop"), ends_with("_cpm_prop"))
+
+props = proportions(d) # these are calculated per group not per sample
 
 props_long = props %>%
   pivot_longer(cols = -c(gene_id, feature_id), 
                names_to = "sample_id", 
                values_to = "proportion") %>%
-  left_join(sample_table, by = "sample_id")
+  left_join(sample_table, by = "sample_id") %>% 
+  distinct(gene_id, feature_id, proportion, group)
 
-mean_props = props_long %>%
-  group_by(gene_id, feature_id, group) %>%
-  summarise(mean_proportion = mean(proportion, na.rm = TRUE), .groups = "drop") %>%
+group_props = props_long %>%
   pivot_wider(names_from = group, 
-              values_from = mean_proportion,
-              names_prefix = "mean_prop_") %>%
-  mutate(delta_proportion = .data[[paste0("mean_prop_", levels(group)[2])]] - 
-           .data[[paste0("mean_prop_", levels(group)[1])]])
+              values_from = proportion,
+              names_prefix = "group_prop_") %>%
+  mutate(delta_proportion = .data[[paste0("group_prop_", levels(group)[2])]] - 
+           .data[[paste0("group_prop_", levels(group)[1])]])
 
 dtu_summary = dtu_tx_results %>%
   left_join(dtu_gene_results, by = "gene_id") %>%
-  left_join(props, by = c("gene_id", "isoform_id" = "feature_id")) %>%
-  rename_with(~paste0(., "_prop"), .cols = all_of(sample_names)) %>%
-  left_join(mean_props, by = c("gene_id", "isoform_id" = "feature_id")) %>%
-  left_join(transcript_cpms, by = c("gene_id" = "ensg_gene_id", "isoform_id")) %>%
-  select(isoform_id, enst_transcript_id, transcript_name, lr_transcript, pvalue_transcript, adj_pvalue_transcript, ends_with("_cpm"), ends_with("_prop"), starts_with("mean_prop_"), delta_proportion,
-         gene_id, gene_name, lr_gene, df_gene, pvalue_gene, adj_pvalue_gene, hash_id)
-
+  left_join(group_props, by = c("gene_id", "isoform_id" = "feature_id")) %>%
+  left_join(transript_usage_table, by = c("gene_id" = "ensg_gene_id", "isoform_id")) %>%
+  select(isoform_id, enst_transcript_id, transcript_name, hash_id, lr_transcript, pvalue_transcript, adj_pvalue_transcript, ends_with("_cpm"), ends_with("_prop"), starts_with("group_prop_"), delta_proportion,
+         gene_id, gene_name, lr_gene, df_gene, pvalue_gene, adj_pvalue_gene)
 # Summary
 cat(sprintf("Genes with DTU (adj_pvalue < 0.05): %d\n", 
             sum(dtu_gene_results$adj_pvalue_gene < 0.05, na.rm = TRUE)))
@@ -419,31 +425,36 @@ dpu_orf_results = results(d_orf, level = "feature") %>%
                 adj_pvalue_orf = adj_pvalue)
 
 # Get proportions from DRIMSeq and calculate means and deltas
+orf_usage_table = orf_cpms %>% 
+  group_by(gene_id, gene_name) %>%
+  mutate(across(ends_with("_cpm"), 
+                ~ . / sum(., na.rm = TRUE),
+                .names = "{.col}_prop")) %>%
+  ungroup() %>%
+  rename_with(~ str_replace(., "_cpm_prop$", "_prop"), ends_with("_cpm_prop"))
+
 props_orf = proportions(d_orf)
 
 props_orf_long = props_orf %>%
   pivot_longer(cols = -c(gene_id, feature_id), 
                names_to = "sample_id", 
                values_to = "proportion") %>%
-  left_join(sample_table, by = "sample_id")
+  left_join(sample_table, by = "sample_id") %>% 
+  distinct(gene_id, feature_id, proportion, group)
 
-mean_orf_props = props_orf_long %>%
-  group_by(gene_id, feature_id, group) %>%
-  summarise(mean_proportion = mean(proportion, na.rm = TRUE), .groups = "drop") %>%
+group_orf_props = props_orf_long %>%
   pivot_wider(names_from = group, 
-              values_from = mean_proportion,
-              names_prefix = "mean_prop_") %>%
-  mutate(delta_proportion = .data[[paste0("mean_prop_", levels(group)[2])]] - 
-           .data[[paste0("mean_prop_", levels(group)[1])]])
+              values_from = proportion,
+              names_prefix = "group_prop_") %>%
+  mutate(delta_proportion = .data[[paste0("group_prop_", levels(group)[2])]] - 
+           .data[[paste0("group_prop_", levels(group)[1])]])
 
 dpu_summary = dpu_orf_results %>%
   left_join(dpu_gene_results, by = "gene_id") %>%
-  left_join(props_orf, by = c("gene_id", "orf_isoform_id" = "feature_id")) %>%
-  rename_with(~paste0(., "_prop"), .cols = all_of(sample_names)) %>%
-  left_join(mean_orf_props, by = c("gene_id", "orf_isoform_id" = "feature_id")) %>%
-  left_join(orf_cpms, by = c("gene_id", "orf_isoform_id")) %>%
-  select(orf_isoform_id, lr_orf, pvalue_orf, adj_pvalue_orf, ends_with("_cpm"), ends_with("_prop"), starts_with("mean_prop_"), delta_proportion,
-         gene_id, gene_name, lr_gene, df_gene, pvalue_gene, adj_pvalue_gene, hash_id)
+  left_join(group_orf_props, by = c("gene_id", "orf_isoform_id" = "feature_id")) %>%
+  left_join(orf_usage_table, by = c("gene_id", "orf_isoform_id")) %>%
+  select(orf_isoform_id, hash_id, lr_orf, pvalue_orf, adj_pvalue_orf, ends_with("_cpm"), ends_with("_prop"), starts_with("group_prop_"), delta_proportion,
+         gene_id, gene_name, lr_gene, df_gene, pvalue_gene, adj_pvalue_gene)
 
 # Summary
 cat(sprintf("Genes with DPU (adj_pvalue < 0.05): %d\n", 

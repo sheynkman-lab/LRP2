@@ -15,21 +15,34 @@ suppressPackageStartupMessages({
   library(rtracklayer)
   library(Matrix) 
   library(igraph)
+  library(optparse)
 })
+
+options(scipen = 999)
 
 # =============================================================================
 # Get environment variables and check required files
 # =============================================================================
 
 basename                 <- Sys.getenv("OUTPUT_BASE_NAME")
-sqanti_transcript_dir    <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti_transcript")
+#sqanti_transcript_dir   <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti_transcript")
+#sqanti_protein_dir      <- file.path(Sys.getenv("OUTPUT_DIR"), "protein_sqanti")
 leafcutter_analysis_dir  <- file.path(Sys.getenv("OUTPUT_DIR"), "multisample_analysis", "lr_leafcutter")
-
-count_file_path          <- file.path(sqanti_transcript_dir, paste0(basename, "_hashids_with_cpm_filtered.txt"))
-transcript_gtf           <- file.path(sqanti_transcript_dir, paste0(basename, "_corrected_filtered.gtf"))
 metadata_file_path       <- Sys.getenv("SAMPLE_METADATA")
 
-stopifnot("Count file not found" = file.exists(count_file_path))
+option_list <- list(
+  make_option(c("--gtf"), type = "character", default = NULL, help = "GTF path"),
+  make_option(c("--counts"), type = "character", default = NULL, help = "Count matrix path"),
+  make_option(c("--mode"), type = "character", default = "exon", help = "CDS or exon")
+)
+
+opt <- parse_args(OptionParser(option_list = option_list))
+
+transcript_gtf <- opt$gtf
+count_file     <- opt$counts 
+mode           <- opt$mode
+
+stopifnot("Count file not found" = file.exists(count_file))
 stopifnot("GTF file not found" = file.exists(transcript_gtf))
 stopifnot("Sample sheet not found" = file.exists(metadata_file_path))
 
@@ -39,17 +52,15 @@ stopifnot("Sample sheet not found" = file.exists(metadata_file_path))
 # =============================================================================
 
 # gtf to psl- originally adapted from FLAIR
-gtf_to_psl = function(gtf_file_path){
-  
-  options(scipen = 999)
+gtf_to_psl = function(gtf_file_path, gtf_filter = "exon"){
   
   # Read the GTF file 
-  message("Importing gtf...")
+  message(paste0("Importing gtf and filtering by type = " , gtf_filter, "..."))
   gtf_data = import(gtf_file_path, format = "gtf") %>%
     as.data.table()
   
   exons_df = gtf_data %>% 
-    filter(type == "exon") %>%
+    filter(type == gtf_filter) %>%
     transmute(
       chrom = as.character(seqnames),
       start = as.numeric(start) - 1,
@@ -121,8 +132,6 @@ gtf_to_psl = function(gtf_file_path){
 
 # psl to exon and intron centric tables- also from Isoviz
 psl_to_coords <- function(psl_file_path){
-  
-  options(scipen = 999)
   
   # input and format psl, fread is essential to read in the columns appropriately
   psl = fread(psl_file_path, header = FALSE, sep = "\t")
@@ -293,7 +302,7 @@ minicutter = function(juncs, plot_summary = TRUE, min_usage_ratio = 0.01) {
 # Create and output psl
 psl_base = tools::file_path_sans_ext(basename(transcript_gtf))
 psl_path = file.path(leafcutter_analysis_dir, paste0(psl_base, ".psl"))
-gtf_to_psl(transcript_gtf) %>%
+gtf_to_psl(transcript_gtf, gtf_filter = mode) %>%
   write_tsv(psl_path, col_names = FALSE)
 
 coords        = psl_to_coords(psl_path)
@@ -304,8 +313,8 @@ write_tsv(intron_coords, file.path(leafcutter_analysis_dir, paste0(psl_base, "_i
 write_tsv(exon_coords, file.path(leafcutter_analysis_dir, paste0(psl_base, "_exon_coords.txt")))
 
 # Collapse long read counts to junctions
-counts = fread(count_file_path) %>% 
-  select(trans_id = isoform_id, ends_with("_counts"), ends_with("_cpm"))
+counts = fread(count_file) %>% 
+  select(trans_id = 1, ends_with("_counts"), ends_with("_cpm"))
 
 lr_junctions = isoform_to_junction(intron_coords, counts)
 
@@ -325,7 +334,6 @@ as_clusters = clusters %>%
   ungroup()
 
 # Overlap junctions/clusters with isoforms
-# filter(cluster_idx == "6407") to test
 junc_to_iso = lr_junctions %>% distinct(junc_id, isoforms)
 by_isoform = as_clusters %>%
   left_join(junc_to_iso, by = c("junc_id")) %>%

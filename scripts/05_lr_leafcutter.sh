@@ -27,12 +27,15 @@ export R_LIBS_USER="/sfs/gpfs/tardis/home/cwp5au/R/goolf/4.5:$R_LIBS_USER"
 R -e ".libPaths()"
 
 # Step 1: Run long read leafcutter clustering (minicutter)
-#Rscript scripts/05_lr_leafcutter.R
+Rscript scripts/05_lr_leafcutter.R \
+  --gtf ${OUTPUT_DIR}/sqanti_transcript/${OUTPUT_BASE_NAME}_corrected_filtered.gtf
+  --counts ${OUTPUT_DIR}/sqanti_transcript/${OUTPUT_BASE_NAME}_hashids_with_cpm_filtered.txt
+  --mode exon
 
 # Step 2: Differential splicing
-#python -m venv environments/leafcutter_env
+python -m venv environments/leafcutter_env
 source environments/leafcutter_env/bin/activate
-#pip install -r environments/leafcutter_requirements.txt
+pip install -r environments/leafcutter_requirements.txt
 
 python scripts/leafcutter_ds.py \
   -0 $CONTROL_GROUP \
