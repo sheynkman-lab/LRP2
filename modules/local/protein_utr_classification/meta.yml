@@ -1,0 +1,79 @@
+name: protein_utr_classification
+description: Classify proteins based on 5'UTR structure and filter by protein classification
+keywords:
+  - protein
+  - classification
+  - 5utr
+  - proteomics
+  - filtering
+tools:
+  - r-base:
+      description: R statistical computing environment
+      homepage: https://www.r-project.org/
+      documentation: https://cran.r-project.org/manuals.html
+      tool_dev_url: https://svn.r-project.org/R/
+      licence: ["GPL v2", "GPL v3"]
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - protein_classification:
+      type: file
+      description: SQANTI3 protein classification results
+      pattern: "*.sqanti_protein_classification.tsv"
+  - cds_gtf:
+      type: file
+      description: CDS coordinates in GTF format
+      pattern: "*.gtf"
+  - corrected_fasta:
+      type: file
+      description: SQANTI corrected transcript sequences
+      pattern: "*.fasta"
+  - hashids_cpm:
+      type: file
+      description: Hash IDs with CPM values
+      pattern: "*_hashids_with_cpm_filtered.txt"
+  - reference_gtf:
+      type: file
+      description: GENCODE reference GTF file
+      pattern: "*.gtf"
+  - protein_class_script:
+      type: file
+      description: R script for protein and 5'UTR classification
+      pattern: "*.R"
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+  - protein_all_isoforms:
+      type: file
+      description: All protein isoforms with 5'UTR and protein classifications
+      pattern: "*_protein_all_isoforms.txt"
+  - protein_high_confidence:
+      type: file
+      description: High confidence protein isoforms after filtering
+      pattern: "*_protein_high_confidence.txt"
+  - protein_gtf:
+      type: file
+      description: High confidence protein isoforms in GTF format
+      pattern: "*_protein_high_confidence.gtf"
+  - protein_fasta:
+      type: file
+      description: High confidence protein sequences in FASTA format
+      pattern: "*_protein_high_confidence.fa"
+  - hashids_orf:
+      type: file
+      description: Hash IDs with CPM values for ORFs
+      pattern: "*_hashids_with_cpm_ORF.txt"
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

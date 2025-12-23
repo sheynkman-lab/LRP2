@@ -1,0 +1,58 @@
+name: cpat_orf
+description: Predict open reading frames (ORFs) using CPAT
+keywords:
+  - orf
+  - cpat
+  - coding potential
+  - proteomics
+tools:
+  - cpat:
+      description: Coding Potential Assessment Tool
+      homepage: https://github.com/liguowang/cpat
+      documentation: https://cpat.readthedocs.io/
+      tool_dev_url: https://github.com/liguowang/cpat
+      licence: ["GPL v2"]
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - corrected_fasta:
+      type: file
+      description: SQANTI corrected transcript sequences in FASTA format
+      pattern: "*.{fasta,fa}"
+  - hexamer_file:
+      type: file
+      description: Species-specific hexamer frequency table for CPAT
+      pattern: "*.tsv"
+  - logit_model:
+      type: file
+      description: Species-specific logit model for CPAT
+      pattern: "*.RData"
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+  - orf_prob:
+      type: file
+      description: CPAT ORF probability table
+      pattern: "*_cpat.ORF_prob.tsv"
+  - orf_seqs:
+      type: file
+      description: CPAT predicted ORF sequences in FASTA format
+      pattern: "*_cpat.ORF_seqs.fa"
+  - error_log:
+      type: file
+      description: CPAT error log
+      pattern: "*_cpat.error"
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

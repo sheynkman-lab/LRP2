@@ -287,9 +287,22 @@ def reference_parser(args, genome_chroms):
     # else:
     ## gtf to genePred
     if not args.genename:
-        subprocess.call([GTF2GENEPRED_PROG, args.annotation, referenceFiles, '-genePredExt', '-allErrors', '-ignoreGroupsWithoutExons'])
+        ret_code = subprocess.call([GTF2GENEPRED_PROG, args.annotation, referenceFiles, '-genePredExt', '-allErrors', '-ignoreGroupsWithoutExons'])
     else:
-        subprocess.call([GTF2GENEPRED_PROG, args.annotation, referenceFiles, '-genePredExt', '-allErrors', '-ignoreGroupsWithoutExons', '-geneNameAsName2'])
+        ret_code = subprocess.call([GTF2GENEPRED_PROG, args.annotation, referenceFiles, '-genePredExt', '-allErrors', '-ignoreGroupsWithoutExons', '-geneNameAsName2'])
+
+    # Check gtfToGenePred succeeded
+    if ret_code != 0:
+        print(f"ERROR: gtfToGenePred failed with return code {ret_code}", file=sys.stderr)
+        print(f"Command: {GTF2GENEPRED_PROG} {args.annotation} {referenceFiles}", file=sys.stderr)
+        print(f"Input GTF: {args.annotation}", file=sys.stderr)
+        sys.exit(1)
+
+    # Verify gtfToGenePred output file was created
+    if not os.path.exists(referenceFiles):
+        print(f"ERROR: gtfToGenePred did not create output file: {referenceFiles}", file=sys.stderr)
+        print(f"Input GTF: {args.annotation}", file=sys.stderr)
+        sys.exit(1)
 
     ## parse reference annotation
     # 1. ignore all miRNAs (< 200 bp)
@@ -1261,8 +1274,22 @@ def process_gtf(infile, prefix):
                     transcripts[tid] = (chrom, source, score, strand, frame, attrs.strip())
             elif feature == "exon":
                 exon_coords[tid].append((start, end))
+                # If no explicit transcript line, infer transcript metadata from first exon
+                if tid not in transcripts:
+                    if tid.startswith("PB."):
+                        attrs_pb_stripped = re.sub(r'(transcript_id ")[^"]*\|(PB\.\d+\.\d+)\|[^"]*', r'\1\2', attrs)
+                        transcripts[tid] = (chrom, source, score, strand, frame, attrs_pb_stripped)
+                    else:
+                        transcripts[tid] = (chrom, source, score, strand, frame, attrs.strip())
             elif feature == "CDS":
                 cds_coords[tid].append((start, end))
+                # If no explicit transcript line and no exon yet, infer from first CDS
+                if tid not in transcripts:
+                    if tid.startswith("PB."):
+                        attrs_pb_stripped = re.sub(r'(transcript_id ")[^"]*\|(PB\.\d+\.\d+)\|[^"]*', r'\1\2', attrs)
+                        transcripts[tid] = (chrom, source, score, strand, frame, attrs_pb_stripped)
+                    else:
+                        transcripts[tid] = (chrom, source, score, strand, frame, attrs.strip())
 
     def write_output(outfile, feature_map, feature_name):
         with open(outfile, "w") as out:

@@ -6,6 +6,7 @@
 include { ISOSEQ_CLUSTER         } from '../modules/nf-core/isoseq/cluster/main'
 include { PACBIO_ISOSEQ          } from '../subworkflows/local/pacbio_isoseq'
 include { SQANTI_TRANSCRIPT      } from '../subworkflows/local/sqanti_transcript'
+include { PREDICTED_PROTEOME     } from '../subworkflows/local/predicted_proteome'
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -53,6 +54,31 @@ workflow LRP2 {
         file(params.hashlib_script)
     )
     ch_versions = ch_versions.mix(SQANTI_TRANSCRIPT.out.versions)
+
+    //
+    // SUBWORKFLOW: Run predicted proteome analysis (ORF calling, CPAT filtering, protein classification)
+    //
+    // Determine species-specific CPAT files
+    def hexamer_file = params.species == 'human' ?
+        file(params.human_hexamer) : file(params.mouse_hexamer)
+    def logit_model = params.species == 'human' ?
+        file(params.human_logit_model) : file(params.mouse_logit_model)
+
+    PREDICTED_PROTEOME (
+        SQANTI_TRANSCRIPT.out.corrected_fasta_filtered
+            .join(SQANTI_TRANSCRIPT.out.corrected_gtf_filtered, by: 0)
+            .join(SQANTI_TRANSCRIPT.out.classification_filtered, by: 0)
+            .join(SQANTI_TRANSCRIPT.out.hashids_filtered, by: 0)
+            .map { meta, fasta, gtf, classification, hashids ->
+                [meta, fasta, gtf, classification, hashids] },
+        file(params.gencode_gtf),
+        hexamer_file,
+        logit_model,
+        file(params.filter_cpat_script),
+        file(params.sqanti_protein_script),
+        file(params.protein_class_script)
+    )
+    ch_versions = ch_versions.mix(PREDICTED_PROTEOME.out.versions)
 
     //
     // Collate and save software versions

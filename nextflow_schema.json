@@ -243,6 +243,102 @@
                 }
             }
         },
+        "predicted_proteome_options": {
+            "title": "Predicted proteome options",
+            "type": "object",
+            "fa_icon": "fas fa-dna",
+            "description": "Options for CPAT ORF calling and protein classification.",
+            "properties": {
+                "species": {
+                    "type": "string",
+                    "default": "human",
+                    "description": "Species for CPAT model selection (human or mouse).",
+                    "fa_icon": "fas fa-fish",
+                    "enum": ["human", "mouse"]
+                },
+                "human_hexamer": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to human hexamer table for CPAT.",
+                    "help_text": "Hexamer table used by CPAT for ORF prediction in human samples.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "human_logit_model": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to human logit model for CPAT.",
+                    "help_text": "Logit model used by CPAT for ORF prediction in human samples.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "mouse_hexamer": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to mouse hexamer table for CPAT.",
+                    "help_text": "Hexamer table used by CPAT for ORF prediction in mouse samples.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "mouse_logit_model": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to mouse logit model for CPAT.",
+                    "help_text": "Logit model used by CPAT for ORF prediction in mouse samples.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "min_orf": {
+                    "type": "integer",
+                    "default": 75,
+                    "description": "Minimum ORF length in nucleotides.",
+                    "fa_icon": "fas fa-ruler"
+                },
+                "top_orf": {
+                    "type": "integer",
+                    "default": 5,
+                    "description": "Number of top ORFs to retain per transcript.",
+                    "fa_icon": "fas fa-sort-numeric-down"
+                },
+                "filter_cpat_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to CPAT filtering R script.",
+                    "help_text": "R script used to filter CPAT output and call best ORFs.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "sqanti_protein_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to SQANTI protein classification Python script.",
+                    "help_text": "Python script used for SQANTI3 protein classification.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "protein_class_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to protein classification R script.",
+                    "help_text": "R script used for 5'UTR and protein classification.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "protein_class_keep": {
+                    "type": "string",
+                    "default": "FPM,IPM,NPC,NPE",
+                    "description": "Comma-separated list of protein classifications to keep.",
+                    "help_text": "Protein classification categories to retain (e.g., FPM,IPM,NPC,NPE).",
+                    "fa_icon": "fas fa-filter"
+                },
+                "min_junctions_after_stop_codon": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Minimum number of junctions after stop codon for filtering.",
+                    "fa_icon": "fas fa-filter"
+                }
+            }
+        },
         "generic_options": {
             "title": "Generic options",
             "type": "object",
@@ -365,6 +461,9 @@
         },
         {
             "$ref": "#/$defs/sqanti_transcript_options"
+        },
+        {
+            "$ref": "#/$defs/predicted_proteome_options"
         },
         {
             "$ref": "#/$defs/institutional_config_options"

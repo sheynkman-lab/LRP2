@@ -1,0 +1,13 @@
+name: protein_utr_classification
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - conda-forge::r-base=4.3.0
+  - bioconda::bioconductor-genomicranges
+  - bioconda::bioconductor-genomicfeatures
+  - bioconda::bioconductor-biostrings
+  - bioconda::bioconductor-rtracklayer
+  - conda-forge::r-tidyverse
+  - conda-forge::r-magrittr

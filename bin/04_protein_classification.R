@@ -63,15 +63,22 @@ stopifnot("Protein classification file not found" = file.exists(protein_sqanti_p
 #' @param gc_chains Character vector: GENCODE junction chains for this gene
 #' @return Character: "perfect_subset", "known_protruding", or "novel"
 classify_multiexonic_utr = function(tss, strand, junc_chain, gc_chains) {
-  if (is.na(tss) || junc_chain == "" || length(gc_chains) == 0) return("novel")
-  
+  # Check for NA or invalid inputs
+  if (is.na(tss) || is.na(strand) || is.na(junc_chain) || is.na(gc_chains)) return("novel")
+  if (junc_chain == "" || length(gc_chains) == 0) return("novel")
+
   # Split the concatenated chains
   gc_chains = str_split(gc_chains, "\\|\\|\\|")[[1]]
-  
+
   status = "novel"
-  
+
   for (gc_chain in gc_chains) {
-    if (!str_detect(gc_chain, fixed(junc_chain))) next
+    # Check for NA values in gc_chain
+    if (is.na(gc_chain)) next
+
+    # Check if junction chain is detected
+    match_result = str_detect(gc_chain, fixed(junc_chain))
+    if (is.na(match_result) || !match_result) next
     
     # Junction chain matches - check if TSS protrudes beyond reference
     if (strand == "+") {
@@ -112,6 +119,16 @@ message("\n--- STEP 1: Processing GENCODE reference ---")
 
 # Load GENCODE GTF
 gencode_gtf = import(gencode_gtf_path) %>% as.data.frame()
+
+# Standardize column names - use transcript_id if transcript_name doesn't exist
+if (!"transcript_name" %in% colnames(gencode_gtf)) {
+  if ("transcript_id" %in% colnames(gencode_gtf)) {
+    message("Note: Using transcript_id as transcript_name (transcript_name column not found in GENCODE GTF)")
+    gencode_gtf$transcript_name <- gencode_gtf$transcript_id
+  } else {
+    stop("ERROR: Neither transcript_name nor transcript_id found in GENCODE GTF")
+  }
+}
 
 # Identify protein-coding transcripts (have CDS)
 pc_transcripts = gencode_gtf %>%
