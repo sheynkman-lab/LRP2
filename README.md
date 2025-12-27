@@ -65,8 +65,6 @@ Each row represents a PacBio Iso-Seq FLNC (Full-Length Non-Chimeric) BAM file. T
 - `condition`: Sample condition or group (optional, used for downstream analysis)
 - `replicate`: Replicate identifier (optional)
 
-> [!WARNING]
-> Please provide pipeline parameters via the CLI or Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration except for parameters.
 
 ### Running the Pipeline
 
@@ -150,6 +148,9 @@ For a complete list of parameters, run:
 ```bash
 nextflow run /path/to/LRP2_lite --help
 ```
+
+> [!WARNING]
+> Please provide pipeline parameters via the CLI as shown or using the Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration except for parameters.
 
 ## Sample Data
 
