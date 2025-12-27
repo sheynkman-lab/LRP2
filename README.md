@@ -28,10 +28,10 @@ The LRP2_Lite pipeline consists of three major stages:
 - Generate CPM-normalized hash IDs for protein mapping (**filter_sqanti**)
 
 ### 3. Protein Prediction and Classification (`03_predicted_proteome`)
-- Predict open reading frames (**CPAT**)
-- Filter and select best ORF predictions
-- Classify predicted proteins (**SQANTI Protein**)
-- Generate high-confidence protein sets with custom UTR classification
+- Predict open reading frames (**cpat_orf**)
+- Filter and select best ORF predictions (**filter_cpat**)
+- Classify predicted proteins (**sqanti_protein_classification**)
+- Generate high-confidence protein sets with custom UTR classification (**protein_utr_classification**)
 
 ### Key Features:
 - **Full isoform resolution**: Leverages PacBio long reads for complete transcript characterization
