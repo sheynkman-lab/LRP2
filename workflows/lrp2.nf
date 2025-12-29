@@ -3,9 +3,8 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { ISOSEQ_CLUSTER         } from '../modules/nf-core/isoseq/cluster/main'
 include { PACBIO_ISOSEQ          } from '../subworkflows/local/pacbio_isoseq'
-include { SQANTI_TRANSCRIPT      } from '../subworkflows/local/sqanti_transcript'
+include { TRANSCRIPTOME          } from '../subworkflows/local/transcriptome'
 include { PREDICTED_PROTEOME     } from '../subworkflows/local/predicted_proteome'
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -42,7 +41,7 @@ workflow LRP2 {
     // Note: samplesheet is used as sample_metadata if not explicitly provided
     sample_metadata_file = params.sample_metadata ?: params.input
 
-    SQANTI_TRANSCRIPT (
+    TRANSCRIPTOME (
         PACBIO_ISOSEQ.out.collapsed_gff
             .join(PACBIO_ISOSEQ.out.collapsed_count, by: 0)
             .map { meta, gff, count ->
@@ -53,7 +52,7 @@ workflow LRP2 {
         file(params.filter_script),
         file(params.hashlib_script)
     )
-    ch_versions = ch_versions.mix(SQANTI_TRANSCRIPT.out.versions)
+    ch_versions = ch_versions.mix(TRANSCRIPTOME.out.versions)
 
     //
     // SUBWORKFLOW: Run predicted proteome analysis (ORF calling, CPAT filtering, protein classification)
@@ -65,10 +64,10 @@ workflow LRP2 {
         file(params.human_logit_model) : file(params.mouse_logit_model)
 
     PREDICTED_PROTEOME (
-        SQANTI_TRANSCRIPT.out.corrected_fasta_filtered
-            .join(SQANTI_TRANSCRIPT.out.corrected_gtf_filtered, by: 0)
-            .join(SQANTI_TRANSCRIPT.out.classification_filtered, by: 0)
-            .join(SQANTI_TRANSCRIPT.out.hashids_filtered, by: 0)
+        TRANSCRIPTOME.out.corrected_fasta_filtered
+            .join(TRANSCRIPTOME.out.corrected_gtf_filtered, by: 0)
+            .join(TRANSCRIPTOME.out.classification_filtered, by: 0)
+            .join(TRANSCRIPTOME.out.hashids_filtered, by: 0)
             .map { meta, fasta, gtf, classification, hashids ->
                 [meta, fasta, gtf, classification, hashids] },
         file(params.gencode_gtf),

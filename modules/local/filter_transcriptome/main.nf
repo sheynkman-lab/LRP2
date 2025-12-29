@@ -1,4 +1,4 @@
-process FILTER_SQANTI {
+process FILTER_TRANSCRIPTOME {
     tag "$meta.id"
     label 'process_medium'
 
@@ -14,14 +14,14 @@ process FILTER_SQANTI {
     path hashlib_script
 
     output:
-    tuple val(meta), path("*_sqanti_transcript_classification_filtered.txt"), emit: classification_filtered
-    tuple val(meta), path("*_sqanti_transcript_corrected_filtered.gtf"), emit: corrected_gtf_filtered
-    tuple val(meta), path("*_sqanti_transcript_corrected_filtered.fasta"), emit: corrected_fasta_filtered
-    tuple val(meta), path("*_sqanti_transcript_hashids_with_cpm_filtered.txt"), emit: hashids_filtered
-    tuple val(meta), path("*_sqanti_transcript_all_hashids_with_cpm.txt"), emit: hashids_all
-    tuple val(meta), path("*_sqanti_transcript_dropout_transcripts.tsv"), emit: dropout_transcripts
-    tuple val(meta), path("*_sqanti_transcript_corrected_dropout.fasta"), emit: corrected_dropout_fasta
-    tuple val(meta), path("*_sqanti_transcript_corrected_dropout.gtf"), emit: corrected_dropout_gtf
+    tuple val(meta), path("*_transcriptome_classification_filtered.txt"), emit: classification_filtered
+    tuple val(meta), path("*_transcriptome_corrected_filtered.gtf"), emit: corrected_gtf_filtered
+    tuple val(meta), path("*_transcriptome_corrected_filtered.fasta"), emit: corrected_fasta_filtered
+    tuple val(meta), path("*_transcriptome_hashids_with_cpm_filtered.txt"), emit: hashids_filtered
+    tuple val(meta), path("*_transcriptome_all_hashids_with_cpm.txt"), emit: hashids_all
+    tuple val(meta), path("*_transcriptome_dropout_transcripts.tsv"), emit: dropout_transcripts
+    tuple val(meta), path("*_transcriptome_corrected_dropout.fasta"), emit: corrected_dropout_fasta
+    tuple val(meta), path("*_transcriptome_corrected_dropout.gtf"), emit: corrected_dropout_gtf
     path "versions.yml", emit: versions
 
     when:
@@ -38,9 +38,9 @@ process FILTER_SQANTI {
 
     """
     # Link the SQANTI_QC output files to the working directory with expected naming
-    ln -s \$(pwd)/$classification_file ${prefix}_sqanti_transcript_classification.txt
-    ln -s \$(pwd)/$corrected_gtf ${prefix}_sqanti_transcript_corrected.gtf
-    ln -s \$(pwd)/$corrected_fasta ${prefix}_sqanti_transcript_corrected.fasta
+    ln -s \$(pwd)/$classification_file ${prefix}_transcriptome_classification.txt
+    ln -s \$(pwd)/$corrected_gtf ${prefix}_transcriptome_corrected.gtf
+    ln -s \$(pwd)/$corrected_fasta ${prefix}_transcriptome_corrected.fasta
 
     # Export environment variables expected by the R script
     # OUTPUT_DIR must be the current working directory where symlinks and outputs are
@@ -70,14 +70,14 @@ process FILTER_SQANTI {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch ${prefix}_sqanti_transcript_classification_filtered.txt
-    touch ${prefix}_sqanti_transcript_corrected_filtered.gtf
-    touch ${prefix}_sqanti_transcript_corrected_filtered.fasta
-    touch ${prefix}_sqanti_transcript_hashids_with_cpm_filtered.txt
-    touch ${prefix}_sqanti_transcript_all_hashids_with_cpm.txt
-    touch ${prefix}_sqanti_transcript_dropout_transcripts.tsv
-    touch ${prefix}_sqanti_transcript_corrected_dropout.fasta
-    touch ${prefix}_sqanti_transcript_corrected_dropout.gtf
+    touch ${prefix}_transcriptome_classification_filtered.txt
+    touch ${prefix}_transcriptome_corrected_filtered.gtf
+    touch ${prefix}_transcriptome_corrected_filtered.fasta
+    touch ${prefix}_transcriptome_hashids_with_cpm_filtered.txt
+    touch ${prefix}_transcriptome_all_hashids_with_cpm.txt
+    touch ${prefix}_transcriptome_dropout_transcripts.tsv
+    touch ${prefix}_transcriptome_corrected_dropout.fasta
+    touch ${prefix}_transcriptome_corrected_dropout.gtf
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

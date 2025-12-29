@@ -18,14 +18,14 @@ The LRP2_Lite pipeline consists of three major stages:
 - Align consensus isoforms to reference genome (**pbmm2**)
 - Collapse redundant isoforms based on alignment (**isoseq collapse**)
 
-### 2. Transcript Quality Control and Filtering (`02_sqanti_transcript`)
+### 2. Transcript Quality Control and Filtering (`02_transcriptome`)
 - Perform comprehensive quality control and classification (**sqanti_qc**)
-- Filter transcripts (**filter_sqanti**) by:
+- Filter transcripts (**filter_transcriptome**) by:
   - Protein-coding status
   - Internal priming artifacts
   - Template switching artifacts
   - Structural categories
-- Generate CPM-normalized hash IDs for protein mapping (**filter_sqanti**)
+- Generate CPM-normalized hash IDs for protein mapping (**filter_transcriptome**)
 
 ### 3. Protein Prediction and Classification (`03_predicted_proteome`)
 - Predict open reading frames (**cpat_orf**)
@@ -200,7 +200,7 @@ The pipeline generates comprehensive outputs organized in three main directories
 │   ├── isoseq_cluster/        # Clustered consensus reads
 │   ├── isoseq_align/          # Aligned consensus isoforms
 │   └── isoseq_collapse/       # Collapsed isoform GFF files
-├── 02_sqanti_transcript/      # Transcript QC and filtering
+├── 02_transcriptome/          # Transcript QC and filtering
 │   ├── sqanti_qc/             # SQANTI3 classification reports
 │   └── custom_filtered/       # Filtered transcript sets
 ├── 03_predicted_proteome/     # Protein predictions

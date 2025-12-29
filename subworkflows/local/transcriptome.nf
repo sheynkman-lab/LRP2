@@ -4,14 +4,14 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { SQANTI_QC              } from '../../modules/local/sqanti_qc/main'
-include { FILTER_SQANTI          } from '../../modules/local/filter_sqanti/main'
+include { FILTER_TRANSCRIPTOME   } from '../../modules/local/filter_transcriptome/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     SUBWORKFLOW DEFINITION
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-workflow SQANTI_TRANSCRIPT {
+workflow TRANSCRIPTOME {
     take:
     ch_samples                  // channel: [meta, [collapsed_gff, flnc_counts]]
     reference_gtf               // path: reference GENCODE GTF
@@ -36,7 +36,7 @@ workflow SQANTI_TRANSCRIPT {
     //
     // MODULE: Filter SQANTI3 output
     //
-    FILTER_SQANTI (
+    FILTER_TRANSCRIPTOME (
         SQANTI_QC.out.classification
             .join(SQANTI_QC.out.corrected_gtf, by: 0)
             .join(SQANTI_QC.out.corrected_fasta, by: 0)
@@ -48,7 +48,7 @@ workflow SQANTI_TRANSCRIPT {
         filter_script,
         hashlib_script
     )
-    ch_versions = ch_versions.mix(FILTER_SQANTI.out.versions)
+    ch_versions = ch_versions.mix(FILTER_TRANSCRIPTOME.out.versions)
 
     emit:
     classification          = SQANTI_QC.out.classification                    // [meta, *_classification.txt]
@@ -56,14 +56,14 @@ workflow SQANTI_TRANSCRIPT {
     corrected_fasta         = SQANTI_QC.out.corrected_fasta                   // [meta, *_corrected.fasta]
     junctions               = SQANTI_QC.out.junctions                         // [meta, *_junctions.txt]
 
-    classification_filtered = FILTER_SQANTI.out.classification_filtered       // [meta, *_classification_filtered.txt]
-    corrected_gtf_filtered  = FILTER_SQANTI.out.corrected_gtf_filtered        // [meta, *_corrected_filtered.gtf]
-    corrected_fasta_filtered= FILTER_SQANTI.out.corrected_fasta_filtered      // [meta, *_corrected_filtered.fasta]
-    hashids_filtered        = FILTER_SQANTI.out.hashids_filtered              // [meta, *_hashids_with_cpm_filtered.txt]
-    hashids_all             = FILTER_SQANTI.out.hashids_all                   // [meta, *_all_hashids_with_cpm.txt]
-    dropout_transcripts     = FILTER_SQANTI.out.dropout_transcripts           // [meta, dropout/*_dropout_transcripts.tsv]
-    corrected_dropout_fasta = FILTER_SQANTI.out.corrected_dropout_fasta       // [meta, dropout/*_corrected_dropout.fasta]
-    corrected_dropout_gtf   = FILTER_SQANTI.out.corrected_dropout_gtf         // [meta, dropout/*_corrected_dropout.gtf]
+    classification_filtered = FILTER_TRANSCRIPTOME.out.classification_filtered       // [meta, *_classification_filtered.txt]
+    corrected_gtf_filtered  = FILTER_TRANSCRIPTOME.out.corrected_gtf_filtered        // [meta, *_corrected_filtered.gtf]
+    corrected_fasta_filtered= FILTER_TRANSCRIPTOME.out.corrected_fasta_filtered      // [meta, *_corrected_filtered.fasta]
+    hashids_filtered        = FILTER_TRANSCRIPTOME.out.hashids_filtered              // [meta, *_hashids_with_cpm_filtered.txt]
+    hashids_all             = FILTER_TRANSCRIPTOME.out.hashids_all                   // [meta, *_all_hashids_with_cpm.txt]
+    dropout_transcripts     = FILTER_TRANSCRIPTOME.out.dropout_transcripts           // [meta, dropout/*_dropout_transcripts.tsv]
+    corrected_dropout_fasta = FILTER_TRANSCRIPTOME.out.corrected_dropout_fasta       // [meta, dropout/*_corrected_dropout.fasta]
+    corrected_dropout_gtf   = FILTER_TRANSCRIPTOME.out.corrected_dropout_gtf         // [meta, dropout/*_corrected_dropout.gtf]
 
     versions                = ch_versions.unique().collectFile(name: 'versions.yml')
 }
