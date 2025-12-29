@@ -31,7 +31,7 @@ suppressPackageStartupMessages({
 
 dir                     <- Sys.getenv("OUTPUT_DIR")
 basename_prefix         <- Sys.getenv("OUTPUT_BASE_NAME")
-basename                <- paste0(basename_prefix, "_sqanti_transcript")
+basename                <- paste0(basename_prefix, "_transcriptome")
 gencode_gtf             <- Sys.getenv("GENCODE_GTF_FILE")
 metadata_path           <- Sys.getenv("SAMPLE_METADATA")
 filter_protein_coding   <- as.logical(Sys.getenv("PROTEIN_CODING_FILTER", "TRUE"))
