@@ -19,6 +19,8 @@ suppressPackageStartupMessages({
   library(magrittr)
 })
 
+options(scipen = 999)
+
 # =============================================================================
 # Get environment variables and check required files
 # =============================================================================

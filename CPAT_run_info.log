@@ -1,8 +1,0 @@
-2025-10-16 11:13:11 [INFO]  Running CPAT version 3.0.4...
-2025-10-16 11:13:11 [INFO]  Start codons used: [ATG]
-2025-10-16 11:13:11 [INFO]  Stop codons used: [TAG,TAA,TGA]
-2025-10-16 11:13:11 [INFO]  Reading external_data/Human_Hexamer.tsv
-2025-10-16 11:13:11 [INFO]  Checking format of "/home/cwp5au/megan/github/LRP2_lite/results/sqanti/sample_corrected_filtered.fasta"
-2025-10-16 11:13:11 [INFO]  Input gene file is in FASTA format
-2025-10-16 11:13:11 [INFO]  Searching for ORFs ...
-2025-10-16 11:13:25 [WARNING]  No ORFs found for PB.1233.65

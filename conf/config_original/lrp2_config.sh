@@ -73,4 +73,8 @@ export TOP_ORF=50 # CPAT recommends 100
 
 export MIN_JUNCTIONS_AFTER_STOP_CODON=0 # parameter to identify NMD
 export PROTEIN_CLASS_KEEP="FPM,NPC,NPE" # options are FPM,IPM,NPC,NPE, default only removes incomplete protein match (IPM)
+<<<<<<< HEAD:conf/config_original/lrp2_config.sh
+=======
+
+>>>>>>> main:config/lrp2_config.sh
 
