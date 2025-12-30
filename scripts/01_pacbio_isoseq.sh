@@ -44,7 +44,7 @@ pbmm2 align --preset ISOSEQ --sort -j $THREADS --log-level INFO \
 
 # Step 4: Collapse
 echo "Collapsing reads at $(date)..."
-isoseq collapse --max-fuzzy-junction $MAX_FUZZY_JUNCTION --max-5p-diff $MAX_5P_DIFF --max-3p-diff $MAX_3P_DIFF \
+isoseq collapse --log-level INFO --do-not-collapse-extra-5exons --max-fuzzy-junction $MAX_FUZZY_JUNCTION --max-5p-diff $MAX_5P_DIFF --max-3p-diff $MAX_3P_DIFF \
     ${OUTPUT_DIR}/pacbio_isoseq/${OUTPUT_BASE_NAME}_merged.aligned.bam \
     ${OUTPUT_DIR}/pacbio_isoseq/${OUTPUT_BASE_NAME}_merged.flnc.bam \
     ${OUTPUT_DIR}/pacbio_isoseq/${OUTPUT_BASE_NAME}_merged.collapsed.gff
