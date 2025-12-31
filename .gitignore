@@ -55,3 +55,9 @@ results/*
 jurkat_test_results/*
 
 environments/leafcutter_env/*
+
+.nextflow.log
+.nextflow.log.1
+.nextflow/
+sample_data/*
+work/*
