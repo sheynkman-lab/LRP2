@@ -88,20 +88,41 @@ workflow PIPELINE_INITIALISATION {
     def input_type = detectInputType(params.input)
 
     if (input_type == "bam") {
+        // Collect all BAMs from the samplesheet and merge them together: process as a Groovy list first, then create the channel
+        def samplesheet_list = samplesheetToList(params.input, "${projectDir}/assets/schema_input_bam.json")
+        // Expected structure: [meta, bam, bam_id, condition, replicate]
+        def bams = samplesheet_list.collect { row -> row[1] }  // bam files
+
+        def ids = samplesheet_list.collect { row ->
+            // First check if bam_id is in meta
+            if (row[0].containsKey('bam_id')) {
+                return row[0].bam_id
+            }
+            // Otherwise get from index 2 if available
+            if (row.size() > 2) {
+                return row[2]
+            }
+            // Fallback to meta.id
+            return row[0].id
+        }
+
+        def conditions = samplesheet_list.collect { row ->
+            row.size() > 3 ? row[row.size() - 2] : 'unknown'
+        }
+        def replicates = samplesheet_list.collect { row ->
+            row.size() > 3 ? row[row.size() - 1] : 'unknown'
+        }
+
+        // Create a single meta map for the merged dataset
+        def meta = [
+            id: params.dataset_name,
+            bam_ids: ids,
+            conditions: conditions,
+            replicates: replicates
+        ]
+
         Channel
-            .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input_bam.json"))
-            .map {
-                meta, bam, condition, replicate ->
-                    return [ meta.id, meta + [ condition: condition, replicate: replicate ], [ bam ] ]
-            }
-            .groupTuple()
-            .map { samplesheet ->
-                validateInputBamSamplesheet(samplesheet)
-            }
-            .map {
-                meta, bams ->
-                    return [ meta, bams.flatten() ]
-            }
+            .of([meta, bams])
             .set { ch_samplesheet }
     } else {
         Channel
@@ -206,25 +227,9 @@ def validateInputSamplesheet(input) {
 }
 
 //
-// Validate channels from input samplesheet (BAM)
+// Note: BAM samplesheet validation is now minimal since all BAMs are merged together
+// The bam_id field must match the name in the BAM header for count matrix generation
 //
-def validateInputBamSamplesheet(input) {
-    def (sample_id, metas, bams) = input
-
-    // Check that multiple BAMs for the same sample have consistent condition and replicate labels
-    def conditions = metas.collect{ meta -> meta.condition }.unique()
-    def replicates = metas.collect{ meta -> meta.replicate }.unique()
-
-    if (conditions.size() != 1) {
-        error("Please check input samplesheet -> Multiple BAMs for the same sample must have the same condition: ${sample_id}")
-    }
-
-    if (replicates.size() != 1) {
-        error("Please check input samplesheet -> Multiple BAMs for the same sample must have the same replicate label: ${sample_id}")
-    }
-
-    return [ metas[0], bams ]
-}
 
 //
 // Detect input type based on samplesheet headers

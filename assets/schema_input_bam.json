@@ -20,6 +20,11 @@
                 "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.bam$",
                 "errorMessage": "BAM file must be provided, cannot contain spaces and must have extension '.bam'"
             },
+            "bam_id": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "BAM ID must be provided and cannot contain spaces. This should match the name in the BAM header (e.g., BioSample_1)"
+            },
             "condition": {
                 "type": "string",
                 "pattern": "^\\S+$",
@@ -31,6 +36,6 @@
                 "errorMessage": "Replicate label must be provided and cannot contain spaces"
             }
         },
-        "required": ["sample_name", "bam", "condition", "replicate"]
+        "required": ["sample_name", "bam", "bam_id", "condition", "replicate"]
     }
 }

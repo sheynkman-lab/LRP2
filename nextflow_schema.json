@@ -20,8 +20,15 @@
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to comma-separated file containing information about the samples in the experiment.",
-                    "help_text": "You will need to create a design file with information about the samples in your experiment before running the pipeline. Use this parameter to specify its location. It has to be a comma-separated file with 3 columns, and a header row.",
+                    "help_text": "You will need to create a design file with information about the BAM files. Required columns: 'sample_name', 'bam', 'bam_id', 'condition', 'replicate'. The 'bam_id' must match the name in the BAM header (e.g., BioSample_1). All BAMs will be merged together at the start of the pipeline.",
                     "fa_icon": "fas fa-file-csv"
+                },
+                "dataset_name": {
+                    "type": "string",
+                    "default": "merged_dataset",
+                    "description": "Name for the merged dataset.",
+                    "help_text": "This name will be used as a prefix for all output files. It should be a descriptive name for your project or experiment.",
+                    "fa_icon": "fas fa-tag"
                 },
                 "outdir": {
                     "type": "string",

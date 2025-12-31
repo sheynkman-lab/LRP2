@@ -1,3 +1,3 @@
-sample_name,bam,condition,replicate
-pacbio_rbfox2_control_chr22,LRP2_lite/sample_data/230801_pacbio_rbfox2_control_chr22.flnc.bam,control,rep1
-pacbio_rbfox2_RB-G5_chr22,LRP2_lite/sample_data/230801_pacbio_rbfox2_RB-G5_chr22.flnc.bam,treatment,rep1
+sample_name,bam,bam_id,condition,replicate
+pacbio_rbfox2_control_chr22,LRP2_lite/sample_data/230801_pacbio_rbfox2_control_chr22.flnc.bam,BioSample_1,control,rep1
+pacbio_rbfox2_RB-G5_chr22,LRP2_lite/sample_data/230801_pacbio_rbfox2_RB-G5_chr22.flnc.bam,BioSample_1,treatment,rep1
