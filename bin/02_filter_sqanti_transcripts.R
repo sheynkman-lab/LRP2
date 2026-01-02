@@ -236,6 +236,15 @@ gencode_gene = gencode_df %>%
 
 # Metatable to add specific sample ids
 metadata      = fread(metadata_path)
+
+# Handle both 'name' and 'sample_name' column names
+if ("sample_name" %in% colnames(metadata) && !("name" %in% colnames(metadata))) {
+  metadata$name = metadata$sample_name
+}
+if (!("name" %in% colnames(metadata)) || !("bam_id" %in% colnames(metadata))) {
+  stop("Metadata file must contain both 'bam_id', and either 'name' or 'sample_name' columns. Please ensure these columns exist before rerunning.")
+}
+
 sample_lookup = setNames(metadata$name, metadata$bam_id)
 
 # SQANTI classification file- add sample names, calculate cpm on all transcripts before filtering
