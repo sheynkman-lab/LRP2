@@ -25,6 +25,8 @@ suppressPackageStartupMessages({
   library(magrittr)
 })
 
+options(scipen = 999)
+
 # =============================================================================
 # Get environment variables for filtering parameters
 # =============================================================================
@@ -37,7 +39,8 @@ filter_protein_coding   <- as.logical(Sys.getenv("PROTEIN_CODING_FILTER", "TRUE"
 filter_internal_priming <- as.logical(Sys.getenv("INTERNAL_PRIMING_FILTER", "TRUE"))
 filter_RTS              <- as.logical(Sys.getenv("TEMPLATE_SWITCHING_FILTER", "TRUE"))
 percent_polyA_threshold <- as.numeric(Sys.getenv("PERCENT_POLYA_THRESHOLD", "60"))
-structural_level        <- Sys.getenv("STRUCTURE_FILTER", "strict")
+tclass_to_keep          <- Sys.getenv("TRANSCRIPT_CLASS_KEEP", "FSM,NIC,NNC")
+#structural_level       <- Sys.getenv("STRUCTURE_FILTER", "strict")
 
 # =============================================================================
 # Check required files
@@ -67,9 +70,6 @@ convert_gtf_to_psl = function(gtf_input_path, psl_output_file){
   # Read the GTF file 
   gr     = import(gtf_input_path, format = "gtf")
   gtf_df = as.data.frame(gr)
-  
-  # Set options to avoid scientific notation
-  options(scipen = 999)
   
   # keep only the following columns 
   gtf_df %<>% 
@@ -321,20 +321,47 @@ if (filter_RTS) {
 }
 
 # Apply structural category filter
-STRUCTURAL_CATEGORIES <- list(
-  strict = c("novel_not_in_catalog", "novel_in_catalog", 
-             "incomplete-splice_match", "full-splice_match"),
-  all    = c("antisense", "novel_not_in_catalog", "novel_in_catalog",
-             "incomplete-splice_match", "full-splice_match", "genic",
-             "intergenic", "fusion", "genic_intron")
-)
+# STRUCTURAL_CATEGORIES <- list(
+#   strict = c("novel_not_in_catalog", "novel_in_catalog", 
+#              "incomplete-splice_match", "full-splice_match"),
+#   all    = c("antisense", "novel_not_in_catalog", "novel_in_catalog",
+#              "incomplete-splice_match", "full-splice_match", "genic",
+#              "intergenic", "fusion", "genic_intron")
+# )
 
-allowed_categories = STRUCTURAL_CATEGORIES[[structural_level]]
-ids                = sqanti_df$isoform
-sqanti_df %<>% 
-  filter(structural_category %in% allowed_categories)
-
-kept_ids    = sqanti_df$isoform
+if (toupper(tclass_to_keep) == "ALL") {
+  # Keep everything - no filtering
+  ids      = sqanti_df$isoform
+  kept_ids = sqanti_df$isoform
+  message("No structural category filtering applied")
+  
+} else {
+  # track ids before filtering
+  ids = sqanti_df$isoform
+  
+  # Parse comma-separated list
+  tclass_list = strsplit(tclass_to_keep, ",")[[1]] %>% 
+    trimws()
+  
+  category_map <- c(
+    "FSM" = "full-splice_match",
+    "ISM" = "incomplete-splice_match", 
+    "NIC" = "novel_in_catalog",
+    "NNC" = "novel_not_in_catalog"
+  )
+  
+  allowed_categories = tclass_list %>%
+    map_chr(~category_map[.x] %||% .x)
+  
+  message("Filtering to categories: ", paste(allowed_categories, collapse = ", "))
+  
+  sqanti_df %<>% 
+    filter(structural_category %in% allowed_categories)
+  
+  kept_ids = sqanti_df$isoform
+}
+  
+#allowed_categories = STRUCTURAL_CATEGORIES[[structural_level]]
 dropped_ids = setdiff(ids, kept_ids)
 dropout_tracker[["structural_category_filtered"]] = dropped_ids
 message("Structural category filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
