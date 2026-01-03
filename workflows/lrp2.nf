@@ -6,6 +6,7 @@
 include { PACBIO_ISOSEQ          } from '../subworkflows/local/pacbio_isoseq'
 include { TRANSCRIPTOME          } from '../subworkflows/local/transcriptome'
 include { PREDICTED_PROTEOME     } from '../subworkflows/local/predicted_proteome'
+include { MULTISAMPLE_ANALYSIS   } from '../subworkflows/local/multisample_analysis'
 include { paramsSummaryMap       } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -78,6 +79,32 @@ workflow LRP2 {
         file(params.protein_class_script)
     )
     ch_versions = ch_versions.mix(PREDICTED_PROTEOME.out.versions)
+
+    // //
+    // // SUBWORKFLOW: Run differential analysis (optional)
+    // //
+    if (params.run_differential_analysis) {
+         // Prepare transcript channel with GTF and counts
+         ch_transcripts = TRANSCRIPTOME.out.corrected_gtf_filtered
+             .join(TRANSCRIPTOME.out.hashids_filtered, by: 0)
+
+         // Prepare ORF counts channel
+         ch_orfs = PREDICTED_PROTEOME.out.hashids_orf
+
+         MULTISAMPLE_ANALYSIS (
+             ch_transcripts,
+             ch_orfs,
+             file(sample_metadata_file),
+             file(params.lr_leafcutter_script),
+             file(params.multisample_script),
+             params.control_group,
+             params.experimental_group,
+             params.min_samples_per_intron,
+             params.min_samples_per_group,
+             params.min_usage_ratio
+         )
+         ch_versions = ch_versions.mix(MULTISAMPLE_ANALYSIS.out.versions)
+     }
 
     //
     // Collate and save software versions

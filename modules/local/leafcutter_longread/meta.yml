@@ -1,0 +1,96 @@
+name: "leafcutter_longread"
+description: Perform long-read leafcutter clustering using minicutter and differential splicing analysis
+keywords:
+  - alternative splicing
+  - differential splicing
+  - long-read sequencing
+  - junction clustering
+  - leafcutter
+tools:
+  - custom:
+      description: Long-read adapted leafcutter using minicutter for junction clustering
+      homepage: https://github.com/davidaknowles/leafcutter
+      documentation: https://davidaknowles.github.io/leafcutter/
+      licence: ["GPL v3"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - filtered_gtf:
+      type: file
+      description: Filtered transcript GTF file from TRANSCRIPTOME subworkflow
+      pattern: "*.gtf"
+  - transcript_counts:
+      type: file
+      description: Transcript-level count matrix with CPM values
+      pattern: "*_hashids_with_cpm_filtered.txt"
+  - sample_metadata:
+      type: file
+      description: Sample metadata CSV with 'name' and 'group' columns
+      pattern: "*.csv"
+  - lr_leafcutter_script:
+      type: file
+      description: R script for long-read leafcutter analysis
+      pattern: "*.R"
+  - control_group:
+      type: string
+      description: Name of the control/reference group from sample metadata
+  - min_samples_per_intron:
+      type: integer
+      description: Minimum number of samples required per intron for differential splicing
+  - min_samples_per_group:
+      type: integer
+      description: Minimum number of samples required per group for differential splicing
+  - min_usage_ratio:
+      type: float
+      description: Minimum junction usage ratio threshold for filtering
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - psl:
+      type: file
+      description: PSL format conversion of GTF for junction analysis
+      pattern: "*_transcriptome_corrected_filtered.psl"
+  - intron_coords:
+      type: file
+      description: Intron coordinates extracted from PSL
+      pattern: "*_transcriptome_corrected_filtered_intron_coords.txt"
+  - exon_coords:
+      type: file
+      description: Exon coordinates extracted from PSL
+      pattern: "*_transcriptome_corrected_filtered_exon_coords.txt"
+  - subisoform_clusters:
+      type: file
+      description: Subisoform clusters with junction patterns and counts
+      pattern: "*_lr_leafcutter_subisoform_clusters.txt"
+  - counts_matrix:
+      type: file
+      description: Count matrix for leafcutter differential splicing analysis
+      pattern: "*_lr_leafcutter_perind_numers.counts.gz"
+  - groups_file:
+      type: file
+      description: Sample-to-group mapping file for differential splicing
+      pattern: "*_groups_file.txt"
+  - cluster_significance:
+      type: file
+      description: Differential splicing results per cluster (optional)
+      pattern: "*_cluster_significance.txt"
+  - effect_sizes:
+      type: file
+      description: Effect sizes for differential intron usage (optional)
+      pattern: "*_effect_sizes.txt"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@mschertzer"
+  - "@JTL-lab"

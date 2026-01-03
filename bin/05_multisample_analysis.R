@@ -67,6 +67,15 @@ if (!identical(count_sample_names, orf_count_sample_names)) {
 
 # reorder sample sheet
 sample_metadata = as.data.frame(fread(metadata_file_path, header = TRUE))
+
+# Handle both 'name'/'group' and 'sample_name'/'condition' column naming conventions
+if ("sample_name" %in% colnames(sample_metadata) && !("name" %in% colnames(sample_metadata))) {
+  sample_metadata$name <- sample_metadata$sample_name
+}
+if ("condition" %in% colnames(sample_metadata) && !("group" %in% colnames(sample_metadata))) {
+  sample_metadata$group <- sample_metadata$condition
+}
+
 sample_metadata = sample_metadata[match(count_sample_names, sample_metadata$name), ] # reorders
 
 # Check for any mismatches
@@ -80,6 +89,13 @@ experimental = experimental_group
 
 group        = factor(sample_metadata$group, levels = c(control, experimental))
 sample_names = sample_metadata$name
+
+# Check for biological replicates?
+#has_replicates = any(table(group) > 1)
+#if (!has_replicates) {
+#  cat("WARNING: No biological replicates detected. Using fixed BCV = 0.4 for differential analysis.\n")
+#  cat("Results should be interpreted with caution as statistical power is very limited.\n\n")
+#}
 
 # =============================================================================
 # Differential Gene Expression with edgeR
@@ -183,7 +199,7 @@ print(summary(decideTests(result_dte)))
 
 # Save results
 transcript_cpms = counts_raw %>%
-  select(isoform_id, hash_id, ensg_gene_id, gene_name, enst_transcript_id, transcript_name, all_of(cpm_cols)) %>%
+  select(isoform_id, hash_id, ensg_gene_id, gene_name, enst_transcript_id, any_of("transcript_name"), all_of(cpm_cols)) %>%
   distinct()
 
 dte_results %>%
@@ -357,7 +373,7 @@ dtu_summary = dtu_tx_results %>%
   left_join(dtu_gene_results, by = "gene_id") %>%
   left_join(group_props, by = c("gene_id", "isoform_id" = "feature_id")) %>%
   left_join(transript_usage_table, by = c("gene_id" = "ensg_gene_id", "isoform_id")) %>%
-  select(isoform_id, enst_transcript_id, transcript_name, hash_id, lr_transcript, pvalue_transcript, adj_pvalue_transcript, ends_with("_cpm"), ends_with("_prop"), starts_with("group_prop_"), delta_proportion,
+  select(isoform_id, enst_transcript_id, any_of("transcript_name"), hash_id, lr_transcript, pvalue_transcript, adj_pvalue_transcript, ends_with("_cpm"), ends_with("_prop"), starts_with("group_prop_"), delta_proportion,
          gene_id, gene_name, lr_gene, df_gene, pvalue_gene, adj_pvalue_gene)
 # Summary
 cat(sprintf("Genes with DTU (adj_pvalue < 0.05): %d\n", 
