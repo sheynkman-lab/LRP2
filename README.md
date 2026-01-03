@@ -10,7 +10,7 @@ The pipeline combines state-of-the-art tools for long-read RNA sequencing analys
 
 ## Pipeline Summary
 
-The LRP2_Lite pipeline consists of three major stages:
+The LRP2_Lite pipeline consists of four major stages:
 
 ### 1. PacBio Iso-Seq Processing (`01_pacbio_isoseq`)
 - Merge FLNC BAM files per sample (**pbtk pbmerge**)
@@ -33,6 +33,20 @@ The LRP2_Lite pipeline consists of three major stages:
 - Classify predicted proteins (**sqanti_protein_classification**)
 - Generate high-confidence protein sets with custom UTR classification (**protein_utr_classification**)
 
+### 4. Multi-Sample Differential Analysis (`04_multisample_analysis`) *(Optional)*
+- Perform differential splicing analysis (**leafcutter_longread**):
+  - Long-read junction clustering with minicutter
+  - Differential intron usage testing
+  - Subisoform cluster identification
+- Conduct differential expression and usage analysis (**differential_expression**):
+  - Differential gene expression (DGE) with edgeR
+  - Differential transcript expression (DTE) with edgeR
+  - Differential ORF expression with edgeR
+  - Differential transcript usage (DTU) with DRIMSeq
+  - Differential ORF usage (DPU) with DRIMSeq
+
+> **Note**: Differential usage analyses (DTU/DPU with DRIMSeq) require biological replicates. Datasets without replicates may lead to unexpected results with the pipeline currently. 
+
 ### Key Features:
 - **Full isoform resolution**: Leverages PacBio long reads for complete transcript characterization
 - **Quality-based filtering**: Multi-stage artifact removal and quality control
@@ -42,9 +56,7 @@ The LRP2_Lite pipeline consists of three major stages:
 - **Reproducible**: Fully containerized with Docker/Singularity support
 
 ## Usage
-
-> [!NOTE]
-> If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow. Make sure to test your setup with `-profile test` before running the workflow on actual data.
+> **Note**: If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow.
 
 ### Preparing Input Data
 
@@ -58,12 +70,17 @@ control_chr22,/path/to/sample_data/230801_pacbio_rbfox2_control_chr22.flnc.bam,c
 treatment_chr22,/path/to/sample_data/230801_pacbio_rbfox2_RB-G5_chr22.flnc.bam,treatment,rep1
 ```
 
-Each row represents a PacBio Iso-Seq FLNC (Full-Length Non-Chimeric) BAM file. The required columns are:
+Each row represents a PacBio Iso-Seq FLNC (Full-Length Non-Chimeric) BAM file. The columns are:
 
+**Required:**
 - `sample_name`: Unique sample identifier (no spaces)
 - `bam`: Absolute path to the FLNC BAM file
-- `condition`: Sample condition or group (optional, used for downstream analysis)
-- `replicate`: Replicate identifier (optional)
+
+**Optional (required for differential analysis):**
+- `condition`: Sample condition or group (e.g., "control", "treatment")
+- `replicate`: Replicate identifier (e.g., "rep1", "rep2")
+
+> **Note**: The `condition` column (or alternatively `group`) is required if you want to run differential analysis with `--run_differential_analysis`. The column can also be named `group` instead of `condition`.
 
 
 ### Running the Pipeline
@@ -104,6 +121,24 @@ nextflow run /path/to/LRP2_lite \
     -resume
 ```
 
+### Example Command with Differential Analysis
+
+To enable multi-sample differential analysis, use the `--run_differential_analysis` flag and specify the labels for you control and treatment groups, respectively:
+
+```bash
+nextflow run /path/to/LRP2_lite \
+    --input samplesheet.csv \
+    --outdir results \
+    --genome GRCh38 \
+    --run_differential_analysis \
+    --control_group control \
+    --experimental_group treatment \
+    -profile singularity,slurm \
+    -resume
+```
+
+> **Important**: For differential analysis, your samplesheet must include a `condition` column (or `group` column) with at least two groups. Biological replicates are strongly recommended for robust statistical analysis.
+
 ### Available Profiles
 
 The pipeline supports multiple execution profiles:
@@ -142,6 +177,15 @@ The pipeline supports multiple execution profiles:
 - `--max_fuzzy_junction`: Maximum junction position difference (default: `0`)
 - `--max_5p_diff`: Max base-pair difference at 5' end (default: `100`)
 - `--max_3p_diff`: Max base-pair difference at 3' end (default: `200`)
+
+**Differential Analysis (Optional):**
+- `--run_differential_analysis`: Enable multi-sample differential analysis (default: `false`)
+- `--control_group`: Control/reference group name from samplesheet `condition` column (required if enabled)
+- `--experimental_group`: Experimental/treatment group name from samplesheet `condition` column (required if enabled)
+- `--sample_metadata`: Path to sample metadata CSV (default: uses `--input` samplesheet)
+- `--min_samples_per_intron`: Minimum samples per intron for leafcutter (default: `2`)
+- `--min_samples_per_group`: Minimum samples per group for leafcutter (default: `1`)
+- `--min_usage_ratio`: Minimum junction usage ratio for filtering (default: `0.01`)
 
 For a complete list of parameters, run:
 
@@ -189,7 +233,7 @@ nextflow run /path/to/LRP2_lite \
 
 ## Pipeline Output
 
-The pipeline generates comprehensive outputs organized in three main directories:
+The pipeline generates comprehensive outputs organized in the following directories:
 
 ### Output Directory Structure
 
@@ -208,6 +252,29 @@ The pipeline generates comprehensive outputs organized in three main directories
 │   ├── filter_cpat/           # Filtered ORFs and CDS
 │   ├── sqanti_protein/        # Protein classifications
 │   └── protein_utr/           # High-confidence proteins
+├── 04_multisample_analysis/   # Differential analysis (optional)
+│   ├── leafcutter_longread/   # Differential splicing results
+│   │   ├── *_intron_coords.txt
+│   │   ├── *_exon_coords.txt
+│   │   ├── *_subisoform_clusters.txt
+│   │   ├── *_cluster_significance.txt
+│   │   └── *_effect_sizes.txt
+│   └── differential_expression/
+│       ├── differential_gene_expression/
+│       │   ├── *_DGE_edgeR_results.txt
+│       │   ├── *_DGE_edgeR_raw_CPM_matrix.txt
+│       │   ├── *_DGE_edgeR_normalized_CPM_matrix.txt
+│       │   └── *_DGE_MD_plot.pdf
+│       ├── differential_transcript_expression/
+│       │   ├── *_DTE_edgeR_results.txt
+│       │   └── *_DTE_MD_plot.pdf
+│       ├── differential_ORF_expression/
+│       │   ├── *_DE_ORF_edgeR_results.txt
+│       │   └── *_DE_ORF_MD_plot.pdf
+│       ├── differential_transcript_usage/
+│       │   └── *_DTU_transcript_DRIMSeq_summary.txt
+│       └── differential_ORF_usage/
+│           └── *_DU_ORF_DRIMSeq_summary.txt
 └── pipeline_info/             # Execution reports and logs
     ├── execution_report.html
     ├── execution_timeline.html
@@ -234,6 +301,22 @@ The pipeline generates comprehensive outputs organized in three main directories
 - FLNC read counts
 - Gene discovery statistics
 - Junction analysis
+
+**Differential Analysis (if enabled):**
+- **Leafcutter long-read splicing:**
+  - Intron and exon coordinate tables
+  - Subisoform cluster assignments
+  - Differential splicing significance and effect sizes
+  - PSL alignment files
+- **Differential expression (edgeR):**
+  - Gene, transcript, and ORF-level differential expression results
+  - Raw and normalized CPM matrices
+  - MD plots for quality assessment
+  - LogFC, p-values, and FDR-corrected values
+- **Differential usage (DRIMSeq, requires replicates):**
+  - Transcript and ORF-level differential usage summaries
+  - Gene-level and feature-level significance
+  - Proportional usage estimates per group
 
 For detailed information about output files, please refer to the [output documentation](docs/output.md).
 
