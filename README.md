@@ -239,27 +239,27 @@ The pipeline generates comprehensive outputs organized in the following director
 
 ```
 <outdir>/
-├── 01_pacbio_isoseq/          # Iso-Seq processing results
-│   ├── isoseq_merge/          # Merged FLNC BAM files
-│   ├── isoseq_cluster/        # Clustered consensus reads
-│   ├── isoseq_align/          # Aligned consensus isoforms
-│   └── isoseq_collapse/       # Collapsed isoform GFF files
-├── 02_transcriptome/          # Transcript QC and filtering
-│   ├── sqanti_qc/             # SQANTI3 classification reports
-│   └── custom_filtered/       # Filtered transcript sets
-├── 03_predicted_proteome/     # Protein predictions
-│   ├── cpat_orf/              # ORF predictions
-│   ├── filter_cpat/           # Filtered ORFs and CDS
-│   ├── sqanti_protein/        # Protein classifications
-│   └── protein_utr/           # High-confidence proteins
-├── 04_multisample_analysis/   # Differential analysis (optional)
-│   ├── leafcutter_longread/   # Differential splicing results
+├── S1_PACBIO_ISOSEQ/                    # Stage 1: Iso-Seq processing results
+│   ├── M1_ISOSEQ_MERGE/                 # Merged FLNC BAM files
+│   ├── M2_ISOSEQ_CLUSTER/               # Clustered consensus reads
+│   ├── M3_ISOSEQ_ALIGN/                 # Aligned consensus isoforms
+│   └── M4_ISOSEQ_COLLAPSE/              # Collapsed isoform GFF files
+├── S2_TRANSCRIPTOME/                    # Stage 2: Transcript QC and filtering
+│   ├── M1_SQANTI_QC/                    # SQANTI3 classification reports
+│   └── M2_FILTER_TRANSCRIPTOME/         # Filtered transcript sets
+├── S3_PREDICTED_PROTEOME/               # Stage 3: Protein predictions
+│   ├── M1_CPAT_ORF/                     # ORF predictions
+│   ├── M2_FILTER_CPAT/                  # Filtered ORFs and CDS
+│   ├── M3_SQANTI_PROTEIN_CLASSIFICATION/# Protein classifications
+│   └── M4_PROTEIN_UTR_CLASSIFICATION/   # High-confidence proteins
+├── S4_MULTISAMPLE_ANALYSIS/             # Stage 4: Differential analysis (optional)
+│   ├── M1_LEAFCUTTER_LONGREAD/          # Differential splicing results
 │   │   ├── *_intron_coords.txt
 │   │   ├── *_exon_coords.txt
 │   │   ├── *_subisoform_clusters.txt
 │   │   ├── *_cluster_significance.txt
 │   │   └── *_effect_sizes.txt
-│   └── differential_expression/
+│   └── M2_DIFFERENTIAL_EXPRESSION/      # Differential expression/usage
 │       ├── differential_gene_expression/
 │       │   ├── *_DGE_edgeR_results.txt
 │       │   ├── *_DGE_edgeR_raw_CPM_matrix.txt
@@ -275,7 +275,7 @@ The pipeline generates comprehensive outputs organized in the following director
 │       │   └── *_DTU_transcript_DRIMSeq_summary.txt
 │       └── differential_ORF_usage/
 │           └── *_DU_ORF_DRIMSeq_summary.txt
-└── pipeline_info/             # Execution reports and logs
+└── pipeline_info/                       # Execution reports and logs
     ├── execution_report.html
     ├── execution_timeline.html
     └── lrp2_software_versions.yml
