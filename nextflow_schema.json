@@ -250,6 +250,67 @@
                 }
             }
         },
+        "differential_analysis_options": {
+            "title": "Differential analysis options",
+            "type": "object",
+            "fa_icon": "fas fa-chart-line",
+            "description": "Options for multi-sample differential expression and splicing analysis.",
+            "properties": {
+                "run_differential_analysis": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enable multi-sample differential analysis subworkflow.",
+                    "help_text": "When enabled, runs differential splicing (leafcutter) and differential expression/usage analyses (edgeR/DRIMSeq).",
+                    "fa_icon": "fas fa-play"
+                },
+                "control_group": {
+                    "type": "string",
+                    "description": "Control/reference group name from sample metadata.",
+                    "help_text": "Name of the control group in the 'condition' or 'group' column of your samplesheet. Required if run_differential_analysis is enabled.",
+                    "fa_icon": "fas fa-check-circle"
+                },
+                "experimental_group": {
+                    "type": "string",
+                    "description": "Experimental/treatment group name from sample metadata.",
+                    "help_text": "Name of the experimental group in the 'condition' or 'group' column of your samplesheet. Required if run_differential_analysis is enabled.",
+                    "fa_icon": "fas fa-flask"
+                },
+                "min_samples_per_intron": {
+                    "type": "integer",
+                    "default": 2,
+                    "description": "Minimum number of samples per intron for leafcutter differential splicing.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "min_samples_per_group": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "Minimum number of samples per group for leafcutter differential splicing.",
+                    "fa_icon": "fas fa-users"
+                },
+                "min_usage_ratio": {
+                    "type": "number",
+                    "default": 0.01,
+                    "description": "Minimum junction usage ratio for minicutter filtering.",
+                    "fa_icon": "fas fa-percent"
+                },
+                "lr_leafcutter_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to long-read leafcutter R script.",
+                    "help_text": "R script used for long-read leafcutter clustering and differential splicing analysis.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "multisample_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to multi-sample analysis R script.",
+                    "help_text": "R script used for differential expression and usage analysis with edgeR and DRIMSeq.",
+                    "fa_icon": "far fa-file-code"
+                }
+            }
+        },
         "predicted_proteome_options": {
             "title": "Predicted proteome options",
             "type": "object",
@@ -471,6 +532,9 @@
         },
         {
             "$ref": "#/$defs/predicted_proteome_options"
+        },
+        {
+            "$ref": "#/$defs/differential_analysis_options"
         },
         {
             "$ref": "#/$defs/institutional_config_options"
