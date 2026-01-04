@@ -14,6 +14,7 @@ process FILTER_CPAT {
     tuple val(meta), path("*_predicted_proteome_all_orfs_mapped.tsv"), emit: all_orfs_mapped
     tuple val(meta), path("*_predicted_proteome_best_orfs_mapped.tsv"), emit: best_orfs_mapped
     tuple val(meta), path("*_predicted_proteome_corrected_filtered_CDS.gtf"), emit: cds_gtf
+    tuple val(meta), path("orf_calling/*_best_orfs_collapsed.fa"), emit: best_orfs_fasta
     path "versions.yml", emit: versions
 
     when:
@@ -61,9 +62,11 @@ process FILTER_CPAT {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
+    mkdir -p orf_calling
     touch ${prefix}_predicted_proteome_all_orfs_mapped.tsv
     touch ${prefix}_predicted_proteome_best_orfs_mapped.tsv
     touch ${prefix}_predicted_proteome_corrected_filtered_CDS.gtf
+    touch orf_calling/${prefix}_best_orfs_collapsed.fa
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

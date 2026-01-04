@@ -21,6 +21,7 @@ process LEAFCUTTER_LONGREAD {
     tuple val(meta), path("*_lr_leafcutter_subisoform_clusters.txt"), emit: subisoform_clusters
     tuple val(meta), path("*_lr_leafcutter_perind_numers.counts.gz"), emit: counts_matrix
     tuple val(meta), path("*_groups_file.txt"), emit: groups_file
+    tuple val(meta), path("Rplots.pdf"), emit: rplots, optional: true
     tuple val(meta), path("*_cluster_significance.txt"), emit: cluster_significance, optional: true
     tuple val(meta), path("*_effect_sizes.txt"), emit: effect_sizes, optional: true
     path "versions.yml", emit: versions
@@ -92,6 +93,7 @@ process LEAFCUTTER_LONGREAD {
     touch ${prefix}_lr_leafcutter_subisoform_clusters.txt
     touch ${prefix}_lr_leafcutter_perind_numers.counts.gz
     touch ${prefix}_groups_file.txt
+    touch Rplots.pdf
     touch ${prefix}_cluster_significance.txt
     touch ${prefix}_effect_sizes.txt
 

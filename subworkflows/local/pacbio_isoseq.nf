@@ -60,12 +60,36 @@ workflow PACBIO_ISOSEQ {
     ch_versions = ch_versions.mix(ISOSEQ_COLLAPSE.out.versions)
 
     emit:
+    // PBTK_PBMERGE outputs
     merged_bam       = PBTK_PBMERGE.out.bam                 // [meta, *.bam]
+    merged_pbi       = PBTK_PBMERGE.out.pbi                 // [meta, *.pbi]
+
+    // ISOSEQ_CLUSTER outputs
     clustered_bam    = ISOSEQ_CLUSTER.out.bam               // [meta, *.transcripts.bam]
+    clustered_pbi    = ISOSEQ_CLUSTER.out.pbi               // [meta, *.transcripts.bam.pbi]
+    cluster          = ISOSEQ_CLUSTER.out.cluster           // [meta, *.transcripts.cluster]
+    cluster_report   = ISOSEQ_CLUSTER.out.cluster_report    // [meta, *.transcripts.cluster_report.csv]
+    transcriptset    = ISOSEQ_CLUSTER.out.transcriptset     // [meta, *.transcripts.transcriptset.xml]
+    hq_bam           = ISOSEQ_CLUSTER.out.hq_bam            // [meta, *.transcripts.hq.bam]
+    hq_pbi           = ISOSEQ_CLUSTER.out.hq_pbi            // [meta, *.transcripts.hq.bam.pbi]
+    hq_fasta         = ISOSEQ_CLUSTER.out.hq_fasta          // [meta, *.transcripts.hq.fasta.gz]
+    lq_bam           = ISOSEQ_CLUSTER.out.lq_bam            // [meta, *.transcripts.lq.bam]
+    lq_pbi           = ISOSEQ_CLUSTER.out.lq_pbi            // [meta, *.transcripts.lq.bam.pbi]
+    lq_fasta         = ISOSEQ_CLUSTER.out.lq_fasta          // [meta, *.transcripts.lq.fasta.gz]
+
+    // ISOSEQ_ALIGN outputs
     aligned_bam      = ISOSEQ_ALIGN.out.bam                 // [meta, *.aligned.bam]
+    aligned_bai      = ISOSEQ_ALIGN.out.bai                 // [meta, *.aligned.bam.bai]
+
+    // ISOSEQ_COLLAPSE outputs
     collapsed_gff    = ISOSEQ_COLLAPSE.out.gff              // [meta, *.collapsed.gff]
+    collapsed_fasta  = ISOSEQ_COLLAPSE.out.fasta            // [meta, *.collapsed.fasta]
+    collapsed_abundance = ISOSEQ_COLLAPSE.out.abundance     // [meta, *.collapsed.abundance.txt]
     collapsed_count  = ISOSEQ_COLLAPSE.out.flnc_count       // [meta, *.collapsed.flnc_count.txt]
     collapsed_group  = ISOSEQ_COLLAPSE.out.group_txt        // [meta, *.collapsed.group.txt]
+    collapsed_read_stat = ISOSEQ_COLLAPSE.out.read_stat     // [meta, *.collapsed.read_stat.txt]
+    collapsed_report = ISOSEQ_COLLAPSE.out.report           // [meta, *.collapsed.report.json]
+
     versions         = ch_versions.unique().collectFile(name: 'versions.yml')
 }
 

@@ -16,6 +16,9 @@ process PROTEIN_UTR_CLASSIFICATION {
     tuple val(meta), path("protein_sqanti/*_protein_high_confidence.gtf"), emit: protein_gtf
     tuple val(meta), path("protein_sqanti/*_protein_high_confidence.fa"), emit: protein_fasta
     tuple val(meta), path("protein_sqanti/*_hashids_with_cpm_ORF.txt"), emit: hashids_orf
+    tuple val(meta), path("protein_sqanti/*.sqanti_protein_classification.tsv"), emit: protein_classification_copy
+    tuple val(meta), path("orf_calling/*_best_orfs_collapsed.fa"), emit: best_orfs_fasta
+    tuple val(meta), path("orf_calling/*_corrected_filtered_CDS.gtf"), emit: cds_gtf_copy
     path "versions.yml", emit: versions
 
     when:
@@ -55,12 +58,15 @@ process PROTEIN_UTR_CLASSIFICATION {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    mkdir -p protein_sqanti
+    mkdir -p protein_sqanti orf_calling
     touch protein_sqanti/${prefix}_protein_all_isoforms.txt
     touch protein_sqanti/${prefix}_protein_high_confidence.txt
     touch protein_sqanti/${prefix}_protein_high_confidence.gtf
     touch protein_sqanti/${prefix}_protein_high_confidence.fa
     touch protein_sqanti/${prefix}_hashids_with_cpm_ORF.txt
+    touch protein_sqanti/${prefix}.sqanti_protein_classification.tsv
+    touch orf_calling/${prefix}_best_orfs_collapsed.fa
+    touch orf_calling/${prefix}_corrected_filtered_CDS.gtf
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

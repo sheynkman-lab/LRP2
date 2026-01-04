@@ -13,6 +13,7 @@ process ISOSEQ_ALIGN {
 
     output:
     tuple val(meta), path("*.aligned.bam"), emit: bam
+    tuple val(meta), path("*.aligned.bam.bai"), emit: bai
     path "versions.yml", emit: versions
 
     when:

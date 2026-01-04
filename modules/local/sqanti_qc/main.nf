@@ -14,7 +14,12 @@ process SQANTI_QC {
     tuple val(meta), path("*_classification.txt"), emit: classification
     tuple val(meta), path("*_corrected.gtf"), emit: corrected_gtf
     tuple val(meta), path("*_corrected.fasta"), emit: corrected_fasta
+    tuple val(meta), path("*_corrected.genePred"), emit: corrected_genepred
+    tuple val(meta), path("*_corrected.gtf.cds.gff"), emit: corrected_cds_gff
+    tuple val(meta), path("*.isoforms.gtf"), emit: isoforms_gtf
     tuple val(meta), path("*_junctions.txt"), emit: junctions
+    tuple val(meta), path("*.params.txt"), emit: params
+    tuple val(meta), path("refAnnotation_*.genePred"), emit: refannotation_genepred
     path "versions.yml", emit: versions
 
     when:
@@ -60,10 +65,12 @@ process SQANTI_QC {
     touch ${prefix}_classification.txt
     touch ${prefix}_corrected.gtf
     touch ${prefix}_corrected.fasta
+    touch ${prefix}_corrected.genePred
+    touch ${prefix}_corrected.gtf.cds.gff
+    touch ${prefix}.isoforms.gtf
     touch ${prefix}_junctions.txt
-    touch ${prefix}_gene_discovery.txt
-    touch ${prefix}_corrected_classification.html
-    touch ${prefix}_corrected_junctions.html
+    touch ${prefix}.params.txt
+    touch refAnnotation_${prefix}.genePred
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

@@ -66,6 +66,7 @@ workflow MULTISAMPLE_ANALYSIS {
     subisoform_clusters     = LEAFCUTTER_LONGREAD.out.subisoform_clusters      // [meta, *_subisoform_clusters.txt]
     leafcutter_counts       = LEAFCUTTER_LONGREAD.out.counts_matrix            // [meta, *.counts.gz]
     groups_file             = LEAFCUTTER_LONGREAD.out.groups_file              // [meta, *_groups_file.txt]
+    rplots                  = LEAFCUTTER_LONGREAD.out.rplots                   // [meta, Rplots.pdf]
     cluster_significance    = LEAFCUTTER_LONGREAD.out.cluster_significance     // [meta, *_cluster_significance.txt]
     effect_sizes            = LEAFCUTTER_LONGREAD.out.effect_sizes             // [meta, *_effect_sizes.txt]
 

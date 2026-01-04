@@ -12,8 +12,12 @@ process ISOSEQ_COLLAPSE {
 
     output:
     tuple val(meta), path("*.collapsed.gff"), emit: gff
+    tuple val(meta), path("*.collapsed.fasta"), emit: fasta
+    tuple val(meta), path("*.collapsed.abundance.txt"), emit: abundance
     tuple val(meta), path("*.collapsed.flnc_count.txt"), emit: flnc_count
     tuple val(meta), path("*.collapsed.group.txt"), emit: group_txt
+    tuple val(meta), path("*.collapsed.read_stat.txt"), emit: read_stat
+    tuple val(meta), path("*.collapsed.report.json"), emit: report
     path "versions.yml", emit: versions
 
     when:
@@ -45,8 +49,12 @@ process ISOSEQ_COLLAPSE {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}.collapsed.gff
+    touch ${prefix}.collapsed.fasta
+    touch ${prefix}.collapsed.abundance.txt
     touch ${prefix}.collapsed.flnc_count.txt
     touch ${prefix}.collapsed.group.txt
+    touch ${prefix}.collapsed.read_stat.txt
+    touch ${prefix}.collapsed.report.json
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

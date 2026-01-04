@@ -81,23 +81,29 @@ workflow PREDICTED_PROTEOME {
     emit:
     // CPAT outputs
     orf_prob                    = CPAT_ORF.out.orf_prob                                     // [meta, *_cpat.ORF_prob.tsv]
+    orf_prob_best               = CPAT_ORF.out.orf_prob_best                                // [meta, *_cpat.ORF_prob.best.tsv]
     orf_seqs                    = CPAT_ORF.out.orf_seqs                                     // [meta, *_cpat.ORF_seqs.fa]
+    no_orf                      = CPAT_ORF.out.no_orf                                       // [meta, *_cpat.no_ORF.txt]
     cpat_error                  = CPAT_ORF.out.error_log                                    // [meta, *_cpat.error]
 
     // FILTER_CPAT outputs
     all_orfs_mapped             = FILTER_CPAT.out.all_orfs_mapped                           // [meta, *_all_orfs_mapped.tsv]
     best_orfs_mapped            = FILTER_CPAT.out.best_orfs_mapped                          // [meta, *_best_orfs_mapped.tsv]
     cds_gtf                     = FILTER_CPAT.out.cds_gtf                                   // [meta, *_CDS.gtf]
+    best_orfs_fasta             = FILTER_CPAT.out.best_orfs_fasta                           // [meta, orf_calling/*_best_orfs_collapsed.fa]
 
     // SQANTI_PROTEIN outputs
     protein_classification      = SQANTI_PROTEIN_CLASSIFICATION.out.protein_classification  // [meta, *.sqanti_protein_classification.tsv]
 
     // PROTEIN_UTR_CLASSIFICATION outputs
-    protein_all_isoforms        = PROTEIN_UTR_CLASSIFICATION.out.protein_all_isoforms       // [meta, *_protein_all_isoforms.txt]
-    protein_high_confidence     = PROTEIN_UTR_CLASSIFICATION.out.protein_high_confidence    // [meta, *_protein_high_confidence.txt]
-    protein_gtf                 = PROTEIN_UTR_CLASSIFICATION.out.protein_gtf                // [meta, *_protein_high_confidence.gtf]
-    protein_fasta               = PROTEIN_UTR_CLASSIFICATION.out.protein_fasta              // [meta, *_protein_high_confidence.fa]
-    hashids_orf                 = PROTEIN_UTR_CLASSIFICATION.out.hashids_orf                // [meta, *_hashids_with_cpm_ORF.txt]
+    protein_all_isoforms        = PROTEIN_UTR_CLASSIFICATION.out.protein_all_isoforms       // [meta, protein_sqanti/*_protein_all_isoforms.txt]
+    protein_high_confidence     = PROTEIN_UTR_CLASSIFICATION.out.protein_high_confidence    // [meta, protein_sqanti/*_protein_high_confidence.txt]
+    protein_gtf                 = PROTEIN_UTR_CLASSIFICATION.out.protein_gtf                // [meta, protein_sqanti/*_protein_high_confidence.gtf]
+    protein_fasta               = PROTEIN_UTR_CLASSIFICATION.out.protein_fasta              // [meta, protein_sqanti/*_protein_high_confidence.fa]
+    hashids_orf                 = PROTEIN_UTR_CLASSIFICATION.out.hashids_orf                // [meta, protein_sqanti/*_hashids_with_cpm_ORF.txt]
+    protein_classification_copy = PROTEIN_UTR_CLASSIFICATION.out.protein_classification_copy // [meta, protein_sqanti/*.sqanti_protein_classification.tsv]
+    protein_best_orfs_fasta     = PROTEIN_UTR_CLASSIFICATION.out.best_orfs_fasta            // [meta, orf_calling/*_best_orfs_collapsed.fa]
+    protein_cds_gtf_copy        = PROTEIN_UTR_CLASSIFICATION.out.cds_gtf_copy               // [meta, orf_calling/*_corrected_filtered_CDS.gtf]
 
     versions                    = ch_versions.unique().collectFile(name: 'versions.yml')
 }

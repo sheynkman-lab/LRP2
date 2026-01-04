@@ -12,7 +12,9 @@ process CPAT_ORF {
 
     output:
     tuple val(meta), path("*_cpat.ORF_prob.tsv"), emit: orf_prob
+    tuple val(meta), path("*_cpat.ORF_prob.best.tsv"), emit: orf_prob_best
     tuple val(meta), path("*_cpat.ORF_seqs.fa"), emit: orf_seqs
+    tuple val(meta), path("*_cpat.no_ORF.txt"), emit: no_orf
     tuple val(meta), path("*_cpat.error"), emit: error_log
     path "versions.yml", emit: versions
 
@@ -49,7 +51,9 @@ process CPAT_ORF {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}_cpat.ORF_prob.tsv
+    touch ${prefix}_cpat.ORF_prob.best.tsv
     touch ${prefix}_cpat.ORF_seqs.fa
+    touch ${prefix}_cpat.no_ORF.txt
     touch ${prefix}_cpat.error
 
     cat <<-END_VERSIONS > versions.yml

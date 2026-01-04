@@ -3,7 +3,7 @@ process FILTER_TRANSCRIPTOME {
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/jtllab/lrp2-lite:1.2"
+    container "docker://docker.io/jtllab/lrp2-lite:latest"
 
     input:
     tuple val(meta), path(classification_file), path(corrected_gtf), path(corrected_fasta)
@@ -14,9 +14,14 @@ process FILTER_TRANSCRIPTOME {
     path hashlib_script
 
     output:
+    tuple val(meta), path("*_transcriptome_classification.txt"), emit: classification
     tuple val(meta), path("*_transcriptome_classification_filtered.txt"), emit: classification_filtered
+    tuple val(meta), path("*_transcriptome_corrected.gtf"), emit: corrected_gtf
     tuple val(meta), path("*_transcriptome_corrected_filtered.gtf"), emit: corrected_gtf_filtered
+    tuple val(meta), path("*_transcriptome_corrected.fasta"), emit: corrected_fasta
     tuple val(meta), path("*_transcriptome_corrected_filtered.fasta"), emit: corrected_fasta_filtered
+    tuple val(meta), path("*_transcriptome_corrected.psl"), emit: corrected_psl
+    tuple val(meta), path("*_transcriptome_hashids_mapping.txt"), emit: hashids_mapping
     tuple val(meta), path("*_transcriptome_hashids_with_cpm_filtered.txt"), emit: hashids_filtered
     tuple val(meta), path("*_transcriptome_all_hashids_with_cpm.txt"), emit: hashids_all
     tuple val(meta), path("*_transcriptome_dropout_transcripts.tsv"), emit: dropout_transcripts
@@ -38,9 +43,9 @@ process FILTER_TRANSCRIPTOME {
 
     """
     # Link the SQANTI_QC output files to the working directory with expected naming
-    ln -s \$(pwd)/$classification_file ${prefix}_transcriptome_classification.txt
-    ln -s \$(pwd)/$corrected_gtf ${prefix}_transcriptome_corrected.gtf
-    ln -s \$(pwd)/$corrected_fasta ${prefix}_transcriptome_corrected.fasta
+    ln -sf \$(pwd)/$classification_file ${prefix}_transcriptome_classification.txt
+    ln -sf \$(pwd)/$corrected_gtf ${prefix}_transcriptome_corrected.gtf
+    ln -sf \$(pwd)/$corrected_fasta ${prefix}_transcriptome_corrected.fasta
 
     # Export environment variables expected by the R script
     # OUTPUT_DIR must be the current working directory where symlinks and outputs are
@@ -70,9 +75,14 @@ process FILTER_TRANSCRIPTOME {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
+    touch ${prefix}_transcriptome_classification.txt
     touch ${prefix}_transcriptome_classification_filtered.txt
+    touch ${prefix}_transcriptome_corrected.gtf
     touch ${prefix}_transcriptome_corrected_filtered.gtf
+    touch ${prefix}_transcriptome_corrected.fasta
     touch ${prefix}_transcriptome_corrected_filtered.fasta
+    touch ${prefix}_transcriptome_corrected.psl
+    touch ${prefix}_transcriptome_hashids_mapping.txt
     touch ${prefix}_transcriptome_hashids_with_cpm_filtered.txt
     touch ${prefix}_transcriptome_all_hashids_with_cpm.txt
     touch ${prefix}_transcriptome_dropout_transcripts.tsv

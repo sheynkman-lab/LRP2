@@ -18,8 +18,10 @@ process ISOSEQ_CLUSTER {
     tuple val(meta), path("*.transcripts.transcriptset.xml") , emit: transcriptset
     tuple val(meta), path("*.transcripts.hq.bam")            , optional: true, emit: hq_bam
     tuple val(meta), path("*.transcripts.hq.bam.pbi")        , optional: true, emit: hq_pbi
+    tuple val(meta), path("*.transcripts.hq.fasta.gz")       , optional: true, emit: hq_fasta
     tuple val(meta), path("*.transcripts.lq.bam")            , optional: true, emit: lq_bam
     tuple val(meta), path("*.transcripts.lq.bam.pbi")        , optional: true, emit: lq_pbi
+    tuple val(meta), path("*.transcripts.lq.fasta.gz")       , optional: true, emit: lq_fasta
     tuple val(meta), path("*.transcripts.singletons.bam")    , optional: true, emit: singletons_bam
     tuple val(meta), path("*.transcripts.singletons.bam.pbi"), optional: true, emit: singletons_pbi
     path  "versions.yml"                                     , emit: versions
