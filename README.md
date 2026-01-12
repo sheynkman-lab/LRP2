@@ -13,10 +13,9 @@ The pipeline combines state-of-the-art tools for long-read RNA sequencing analys
 The LRP2_Lite pipeline consists of four major stages:
 
 ### 1. PacBio Iso-Seq Processing (`01_pacbio_isoseq`)
-- Merge FLNC BAM files per sample (**pbtk pbmerge**)
-- Cluster merged reads into consensus isoforms (**isoseq cluster**)
-- Align consensus isoforms to reference genome (**pbmm2**)
-- Collapse redundant isoforms based on alignment (**isoseq collapse**)
+- Align FLNC BAM files to reference genome in parallel (**pbmm2**)
+- Merge alignments per sample (**pbtk pbmerge**)
+- Collapse redundant isoforms (**isoseq collapse**)
 
 ### 2. Transcript Quality Control and Filtering (`02_transcriptome`)
 - Perform comprehensive quality control and classification (**sqanti_qc**)
@@ -65,9 +64,9 @@ First, prepare a samplesheet with your input data that looks as follows:
 **samplesheet.csv:**
 
 ```csv
-sample_name,bam,condition,replicate
-control_chr22,/path/to/sample_data/230801_pacbio_rbfox2_control_chr22.flnc.bam,control,rep1
-treatment_chr22,/path/to/sample_data/230801_pacbio_rbfox2_RB-G5_chr22.flnc.bam,treatment,rep1
+sample_name,bam,condition,replicate,sample_type
+control_chr22,/path/to/sample_data/230801_pacbio_rbfox2_control_chr22.flnc.bam,control,rep1,RNA
+treatment_chr22,/path/to/sample_data/230801_pacbio_rbfox2_RB-G5_chr22.flnc.bam,treatment,rep1,RNA
 ```
 
 Each row represents a PacBio Iso-Seq FLNC (Full-Length Non-Chimeric) BAM file. The columns are:
@@ -75,6 +74,7 @@ Each row represents a PacBio Iso-Seq FLNC (Full-Length Non-Chimeric) BAM file. T
 **Required:**
 - `sample_name`: Unique sample identifier (no spaces)
 - `bam`: Absolute path to the FLNC BAM file
+- `sanple_type`: Data type of the sample, which may be either 'RNA' or 'protein'
 
 **Optional (required for differential analysis):**
 - `condition`: Sample condition or group (e.g., "control", "treatment")
