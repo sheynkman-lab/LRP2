@@ -39,7 +39,7 @@ workflow PIPELINE_INITIALISATION {
 
     main:
 
-    ch_versions = Channel.empty()
+    ch_versions = channel.empty()
 
     //
     // Print version and exit if required and dump pipeline parameters to JSON file
@@ -91,7 +91,11 @@ workflow PIPELINE_INITIALISATION {
         // Collect all BAMs from the samplesheet and merge them together: process as a Groovy list first, then create the channel
         def samplesheet_list = samplesheetToList(params.input, "${projectDir}/assets/schema_input_bam.json")
         // Expected structure: [meta, bam, bam_id, condition, replicate]
-        def bams = samplesheet_list.collect { row -> row[1] }  // bam files
+        def bams = samplesheet_list.collect { row -> row[1] }
+        // sample_name is mapped to meta.id in the schema
+        def sample_names = samplesheet_list.collect { row ->
+            return row[0].id
+        }
 
         def ids = samplesheet_list.collect { row ->
             // First check if bam_id is in meta
@@ -116,16 +120,17 @@ workflow PIPELINE_INITIALISATION {
         // Create a single meta map for the merged dataset
         def meta = [
             id: params.dataset_name,
+            sample_names: sample_names,
             bam_ids: ids,
             conditions: conditions,
             replicates: replicates
         ]
 
-        Channel
+        channel
             .of([meta, bams])
             .set { ch_samplesheet }
     } else {
-        Channel
+        channel
             .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
             .map {
                 meta, fastq_1, fastq_2 ->
