@@ -31,12 +31,13 @@ workflow PACBIO_ISOSEQ {
             // Create individual [meta, bam] items with unique IDs from sample_names array
             bams.withIndex().collect { bam, index ->
                 def individual_meta = [
-                    id: meta.sample_names[index],  
-                    dataset_id: meta.id,           
-                    sample_names: meta.sample_names, 
+                    id: meta.sample_names[index],
+                    dataset_id: meta.id,
+                    sample_names: meta.sample_names,
                     bam_ids: meta.bam_ids,
                     conditions: meta.conditions,
-                    replicates: meta.replicates
+                    replicates: meta.replicates,
+                    sample_types: meta.sample_types
                 ]
                 [individual_meta, bam]
             }
@@ -67,7 +68,8 @@ workflow PACBIO_ISOSEQ {
                 sample_names: metas[0].sample_names,
                 bam_ids: metas[0].bam_ids,
                 conditions: metas[0].conditions,
-                replicates: metas[0].replicates
+                replicates: metas[0].replicates,
+                sample_types: metas[0].sample_types
             ]
             [dataset_meta, bams]  // [meta, [aligned1, aligned2, ...]]
         }

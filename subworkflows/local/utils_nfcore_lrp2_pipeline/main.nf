@@ -90,31 +90,93 @@ workflow PIPELINE_INITIALISATION {
     if (input_type == "bam") {
         // Collect all BAMs from the samplesheet and merge them together: process as a Groovy list first, then create the channel
         def samplesheet_list = samplesheetToList(params.input, "${projectDir}/assets/schema_input_bam.json")
-        // Expected structure: [meta, bam, bam_id, condition, replicate]
-        def bams = samplesheet_list.collect { row -> row[1] }
-        // sample_name is mapped to meta.id in the schema
-        def sample_names = samplesheet_list.collect { row ->
-            return row[0].id
+        // Expected structure: [meta, bam] where meta contains: id, bam_id, condition, replicate, sample_type
+
+        // Filter to only keep RNA samples (case-insensitive)
+        def rna_samples = samplesheet_list.findAll { row ->
+            def sample_type = row[0].containsKey('sample_type') ? row[0].sample_type : 'unknown'
+            sample_type.toLowerCase() == 'rna'
         }
 
-        def ids = samplesheet_list.collect { row ->
-            // First check if bam_id is in meta
-            if (row[0].containsKey('bam_id')) {
-                return row[0].bam_id
-            }
-            // Otherwise get from index 2 if available
-            if (row.size() > 2) {
-                return row[2]
-            }
-            // Fallback to meta.id
-            return row[0].id
+        // =====================================================================
+        // SAMPLESHEET QC SUMMARY
+        // =====================================================================
+        def total_samples = samplesheet_list.size()
+        def rna_count = rna_samples.size()
+        def protein_count = total_samples - rna_count
+
+        // Check if we have any RNA samples to process
+        if (rna_count == 0) {
+            error "ERROR: No RNA samples found in samplesheet. At least one RNA sample is required for pipeline processing."
         }
 
-        def conditions = samplesheet_list.collect { row ->
-            row.size() > 3 ? row[row.size() - 2] : 'unknown'
+        // Calculate condition statistics (using all samples for comprehensive view)
+        def all_conditions = samplesheet_list.collect { row ->
+            row[0].containsKey('condition') ? row[0].condition : 'unknown'
         }
-        def replicates = samplesheet_list.collect { row ->
-            row.size() > 3 ? row[row.size() - 1] : 'unknown'
+        def unique_conditions = all_conditions.unique()
+        def samples_per_condition = all_conditions.groupBy { cond -> cond }.collectEntries { condition, samples ->
+            [(condition): samples.size()]
+        }
+
+        // Calculate replicate statistics per condition
+        def condition_replicate_map = [:]
+        samplesheet_list.each { row ->
+            def condition = row[0].containsKey('condition') ? row[0].condition : 'unknown'
+            def replicate = row[0].containsKey('replicate') ? row[0].replicate : 'unknown'
+            if (!condition_replicate_map.containsKey(condition)) {
+                condition_replicate_map[condition] = []
+            }
+            condition_replicate_map[condition] << replicate
+        }
+
+        def replicates_per_condition = condition_replicate_map.collectEntries { condition, reps ->
+            [(condition): reps.unique().size()]
+        }
+        def avg_replicates = replicates_per_condition.values().sum() / replicates_per_condition.size()
+
+        // Display QC Summary with colors
+        def colors = logColours(params.monochrome_logs)
+        log.info ""
+        log.info "${colors.blue}======================================================================${colors.reset}"
+        log.info "${colors.blue}               SAMPLESHEET QC SUMMARY${colors.reset}"
+        log.info "${colors.blue}======================================================================${colors.reset}"
+        log.info ""
+        log.info "${colors.cyan}Sample Overview:${colors.reset}"
+        log.info "  ${colors.dim}Total unique samples detected    :${colors.reset} ${colors.green}${total_samples}${colors.reset}"
+        log.info "  ${colors.dim}Total RNA samples detected       :${colors.reset} ${colors.green}${rna_count}${colors.reset}"
+        log.info "  ${colors.dim}Total protein samples detected   :${colors.reset} ${protein_count > 0 ? colors.yellow : colors.dim}${protein_count}${colors.reset}"
+        log.info ""
+        log.info "${colors.cyan}Condition Summary:${colors.reset}"
+        log.info "  ${colors.dim}Total unique conditions detected :${colors.reset} ${colors.green}${unique_conditions.size()}${colors.reset}"
+        unique_conditions.each { condition ->
+            def count = samples_per_condition[condition]
+            def reps = replicates_per_condition[condition]
+            log.info "    ${colors.purple}-${colors.reset} ${colors.bold}${condition.padRight(20)}${colors.reset}         : ${colors.green}${count}${colors.reset} sample(s), ${colors.green}${reps}${colors.reset} replicate(s)"
+        }
+        log.info ""
+        log.info "${colors.cyan}Replicate Statistics:${colors.reset}"
+        log.info "  ${colors.dim}Average replicates per condition :${colors.reset} ${colors.green}${String.format('%.1f', avg_replicates)}${colors.reset}"
+        log.info ""
+        log.info "${colors.blue}======================================================================${colors.reset}"
+        log.info ""
+
+        // Extract fields from RNA samples only
+        def bams = rna_samples.collect { row -> row[1] }
+        def sample_names = rna_samples.collect { row -> row[0].id }
+
+        def ids = rna_samples.collect { row ->
+            row[0].containsKey('bam_id') ? row[0].bam_id : row[0].id
+        }
+
+        def conditions = rna_samples.collect { row ->
+            row[0].containsKey('condition') ? row[0].condition : 'unknown'
+        }
+        def replicates = rna_samples.collect { row ->
+            row[0].containsKey('replicate') ? row[0].replicate : 'unknown'
+        }
+        def sample_types = rna_samples.collect { row ->
+            row[0].containsKey('sample_type') ? row[0].sample_type : 'RNA'
         }
 
         // Create a single meta map for the merged dataset
@@ -123,7 +185,8 @@ workflow PIPELINE_INITIALISATION {
             sample_names: sample_names,
             bam_ids: ids,
             conditions: conditions,
-            replicates: replicates
+            replicates: replicates,
+            sample_types: sample_types
         ]
 
         channel
@@ -340,4 +403,72 @@ def methodsDescriptionText(mqc_methods_yaml) {
     def description_html = engine.createTemplate(methods_text).make(meta)
 
     return description_html.toString()
+}
+
+//
+// ANSI colours used for terminal logging
+//
+def logColours(monochrome_logs=true) {
+    def colorcodes = [:] as Map
+
+    // Reset / Meta
+    colorcodes['reset']      = monochrome_logs ? '' : "\033[0m"
+    colorcodes['bold']       = monochrome_logs ? '' : "\033[1m"
+    colorcodes['dim']        = monochrome_logs ? '' : "\033[2m"
+    colorcodes['underlined'] = monochrome_logs ? '' : "\033[4m"
+    colorcodes['blink']      = monochrome_logs ? '' : "\033[5m"
+    colorcodes['reverse']    = monochrome_logs ? '' : "\033[7m"
+    colorcodes['hidden']     = monochrome_logs ? '' : "\033[8m"
+
+    // Regular Colors
+    colorcodes['black']  = monochrome_logs ? '' : "\033[0;30m"
+    colorcodes['red']    = monochrome_logs ? '' : "\033[0;31m"
+    colorcodes['green']  = monochrome_logs ? '' : "\033[0;32m"
+    colorcodes['yellow'] = monochrome_logs ? '' : "\033[0;33m"
+    colorcodes['blue']   = monochrome_logs ? '' : "\033[0;34m"
+    colorcodes['purple'] = monochrome_logs ? '' : "\033[0;35m"
+    colorcodes['cyan']   = monochrome_logs ? '' : "\033[0;36m"
+    colorcodes['white']  = monochrome_logs ? '' : "\033[0;37m"
+
+    // Bold
+    colorcodes['bblack']  = monochrome_logs ? '' : "\033[1;30m"
+    colorcodes['bred']    = monochrome_logs ? '' : "\033[1;31m"
+    colorcodes['bgreen']  = monochrome_logs ? '' : "\033[1;32m"
+    colorcodes['byellow'] = monochrome_logs ? '' : "\033[1;33m"
+    colorcodes['bblue']   = monochrome_logs ? '' : "\033[1;34m"
+    colorcodes['bpurple'] = monochrome_logs ? '' : "\033[1;35m"
+    colorcodes['bcyan']   = monochrome_logs ? '' : "\033[1;36m"
+    colorcodes['bwhite']  = monochrome_logs ? '' : "\033[1;37m"
+
+    // Underline
+    colorcodes['ublack']  = monochrome_logs ? '' : "\033[4;30m"
+    colorcodes['ured']    = monochrome_logs ? '' : "\033[4;31m"
+    colorcodes['ugreen']  = monochrome_logs ? '' : "\033[4;32m"
+    colorcodes['uyellow'] = monochrome_logs ? '' : "\033[4;33m"
+    colorcodes['ublue']   = monochrome_logs ? '' : "\033[4;34m"
+    colorcodes['upurple'] = monochrome_logs ? '' : "\033[4;35m"
+    colorcodes['ucyan']   = monochrome_logs ? '' : "\033[4;36m"
+    colorcodes['uwhite']  = monochrome_logs ? '' : "\033[4;37m"
+
+    // High Intensity
+    colorcodes['iblack']  = monochrome_logs ? '' : "\033[0;90m"
+    colorcodes['ired']    = monochrome_logs ? '' : "\033[0;91m"
+    colorcodes['igreen']  = monochrome_logs ? '' : "\033[0;92m"
+    colorcodes['iyellow'] = monochrome_logs ? '' : "\033[0;93m"
+    colorcodes['iblue']   = monochrome_logs ? '' : "\033[0;94m"
+    colorcodes['ipurple'] = monochrome_logs ? '' : "\033[0;95m"
+    colorcodes['icyan']   = monochrome_logs ? '' : "\033[0;96m"
+    colorcodes['iwhite']  = monochrome_logs ? '' : "\033[0;97m"
+
+    // Bold High Intensity
+    colorcodes['biblack']  = monochrome_logs ? '' : "\033[1;90m"
+    colorcodes['bired']    = monochrome_logs ? '' : "\033[1;91m"
+    colorcodes['bigreen']  = monochrome_logs ? '' : "\033[1;92m"
+    colorcodes['biyellow'] = monochrome_logs ? '' : "\033[1;93m"
+    colorcodes['biblue']   = monochrome_logs ? '' : "\033[1;94m"
+    colorcodes['bipurple'] = monochrome_logs ? '' : "\033[1;95m"
+    colorcodes['bicyan']   = monochrome_logs ? '' : "\033[1;96m"
+    colorcodes['biwhite']  = monochrome_logs ? '' : "\033[1;97m"
+
+    return colorcodes
 }

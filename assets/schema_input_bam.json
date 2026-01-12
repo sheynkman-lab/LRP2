@@ -23,19 +23,28 @@
             "bam_id": {
                 "type": "string",
                 "pattern": "^\\S+$",
-                "errorMessage": "BAM ID must be provided and cannot contain spaces. This should match the name in the BAM header (e.g., BioSample_1)"
+                "errorMessage": "BAM ID must be provided and cannot contain spaces. This should match the name in the BAM header (e.g., BioSample_1)",
+                "meta": ["bam_id"]
             },
             "condition": {
                 "type": "string",
                 "pattern": "^\\S+$",
-                "errorMessage": "Condition must be provided and cannot contain spaces"
+                "errorMessage": "Condition must be provided and cannot contain spaces",
+                "meta": ["condition"]
             },
             "replicate": {
                 "type": "string",
                 "pattern": "^\\S+$",
-                "errorMessage": "Replicate label must be provided and cannot contain spaces"
+                "errorMessage": "Replicate label must be provided and cannot contain spaces",
+                "meta": ["replicate"]
+            },
+            "sample_type": {
+                "type": "string",
+                "pattern": "^(?i)(RNA|protein)$",
+                "errorMessage": "Sample type must be either 'RNA' or 'protein'",
+                "meta": ["sample_type"]
             }
         },
-        "required": ["sample_name", "bam", "bam_id", "condition", "replicate"]
+        "required": ["sample_name", "bam", "bam_id", "condition", "replicate", "sample_type"]
     }
 }
