@@ -35,13 +35,13 @@ cpat_fasta_file        <- file.path(cpat_dir, paste0(basename, "_cpat.ORF_seqs.f
 cpat_results_file      <- file.path(cpat_dir, paste0(basename, "_cpat.ORF_prob.tsv"))
 sample_full_fasta_path <- file.path(sqanti_dir, paste0(basename, "_corrected_filtered.fasta"))
 sample_gtf_path        <- file.path(sqanti_dir, paste0(basename, "_corrected_filtered.gtf"))
-classification_file    <- paste0(sqanti_dir, "/", basename, "_classification_filtered.txt")
+#classification_file    <- paste0(sqanti_dir, "/", basename, "_classification_filtered.txt")
 
 stopifnot("Input ORF FASTA file not found" = file.exists(cpat_fasta_file))
 stopifnot("CPAT results file not found" = file.exists(cpat_results_file))
 stopifnot("Sample full fasta file not found" = file.exists(sample_full_fasta_path))
 stopifnot("Sample gtf file not found" = file.exists(sample_gtf_path))
-stopifnot("File not found" = file.exists(classification_file))
+#stopifnot("File not found" = file.exists(classification_file))
 
 
 # =============================================================================
@@ -123,23 +123,27 @@ map_orfs_to_genome <- function(orf_coords, sample_exons, gencode_gtf, full_fasta
   return(mapped_orfs)
 }
 
-#' Select best ORF for each transcript
+#' Define plausible ORFs, can be more than one per transcript
+#' From Plausible ORFs, select single best ORF per transcript
 #' Logic: Prefer GENCODE matches with fewest upstream ATGs, otherwise highest coding score
 #' @param mapped_orfs Data frame of mapped ORFs
 #' @return Data frame with best ORF per transcript
 call_best_orfs <- function(mapped_orfs) {
   
   # ORF quality scoring parameters but these don't seem to be used
-  coding_threshold  # CPAT protein-coding threshold
-  atg_shift  <- 10          # Sigmoid parameters for ATG penalty
-  atg_growth <- 0.5
+  #coding_threshold  # CPAT protein-coding threshold
+  #atg_shift  <- 10          # Sigmoid parameters for ATG penalty
+  #atg_growth <- 0.5
   
   # per transcript, if there is a gencode match, pick the one with the fewest upstream ATGs
   mapped_orfs %<>% 
-    mutate(atg_penalty     = 1 - 1/(1 + exp(-atg_growth * (upstream_atgs - atg_shift))), 
-           composite_score = Coding_prob * (1 - atg_penalty),
-           orf_quality     = ifelse(!has_stop_codon, "No Stop Codon", 
-                                    ifelse(Coding_prob <= coding_threshold, "Low Quality ORF", "Plausible ORF")))
+    mutate(#atg_penalty     = 1 - 1/(1 + exp(-atg_growth * (upstream_atgs - atg_shift))), 
+           #composite_score = Coding_prob * (1 - atg_penalty),
+           orf_quality     = case_when(
+             Coding_prob <= coding_threshold ~ "Low Quality ORF",
+             !has_stop_codon & !gencode_match ~ "No Stop Codon",
+             TRUE ~ "Plausible ORF"
+           ))
   
   best_orfs = mapped_orfs %>% 
     filter(orf_quality == "Plausible ORF") %>%
@@ -152,40 +156,6 @@ call_best_orfs <- function(mapped_orfs) {
     mutate(orf_quality = ifelse(ID %in% best_orfs$ID, "Clear Best ORF", orf_quality))
   
   return(mapped_orfs)
-}
-
-#' Translate ORF sequences to proteins and group by identical sequences
-#' @param orfs Data frame with ORF coordinates
-#' @param transcript_seqs Named vector of transcript sequences
-#' @return Data frame with protein sequences and grouped transcript IDs
-group_by_protein_sequence <- function(filtered_results, full_fasta) {
-  
-  orf_proteins = filtered_results %>%
-    select(isoform_id, ORF_start, ORF_end) %>%
-    left_join(full_fasta, by = "isoform_id") %>%
-    filter(!is.na(full_sequence)) %>%
-    mutate(orf_dna_sequence = substr(full_sequence, ORF_start, ORF_end))
-  
-  # Vectorized translation for speed
-  dna      <- DNAStringSet(orf_proteins$orf_dna_sequence)
-  proteins <- translate(dna, if.fuzzy.codon = "solve")
-  
-  orf_proteins %<>%
-    mutate(orf_protein_sequence = as.character(proteins)) %>%
-    filter(orf_protein_sequence != "") %>%
-    select(isoform_id, orf_protein_sequence)
-  
-  # Group transcripts by identical protein sequences
-  orf_groups = orf_proteins %>%
-    group_by(orf_protein_sequence) %>%
-    arrange(isoform_id) %>%
-    mutate(
-      orf_isoform_id = paste(isoform_id, collapse = ","),
-      orf_base_id    = isoform_id[1]  # First transcript as representative
-    ) %>% 
-    ungroup()
-  
-  return(orf_groups)
 }
 
 #' Get CDS coordinates by trimming exons to ORF boundaries
@@ -221,7 +191,7 @@ get_cds_coords <- function(best_orfs, sample_exons) {
         TRUE ~ end
       )
     ) %>%
-    select(ID, isoform_id, orf_isoform_id, seqnames, exon_number, new_start, new_end, strand)
+    select(ID, isoform_id, seqnames, exon_number, new_start, new_end, strand)
   
   return(cds_trimmed)
 }
@@ -230,40 +200,40 @@ get_cds_coords <- function(best_orfs, sample_exons) {
 #' Uses the exon mapping information to extract only CDS regions
 #' @param sample_gtf Starting gtf file
 #' @param all_cds_exons Trimmed CDS exon coordinates
-#' @param gene_mapping GENCODE gene and transcript names
 #' @return GTF file of all transcripts with CDS features
-write_gtf_with_cds <- function(sample_gtf, all_cds_exons, gene_mapping) {
+write_gtf_with_cds <- function(sample_gtf, all_cds_exons) {
   
   # selecting type individually in case custom gtfs have more type columns- want to reset attributes column
-  sample_gtf %<>% 
-    select(isoform_id = transcript_id, everything()) %>%
-    left_join(gene_mapping %>% select(isoform_id, gencode_gene_id = gene_id, any_of("gene_name"), orf_isoform_id), by = "isoform_id")
+  #sample_gtf %<>% 
+    #select(isoform_id = transcript_id, everything())
+    #left_join(gene_mapping %>% select(isoform_id, gencode_gene_id = gene_id, any_of("gene_name"), orf_isoform_id), by = "isoform_id")
   
   # Create transcript lines (one per transcript)
   transcript_lines = sample_gtf %>%
     filter(type == "transcript") %>%
-    select(seqnames, type, start, end, strand, source, isoform_id, gencode_gene_id, any_of("gene_name"), orf_isoform_id)
+    select(seqnames, type, start, end, strand, source, transcript_id, gene_id)
+    #select(seqnames, type, start, end, strand, source, isoform_id, gencode_gene_id, any_of("gene_name"), orf_isoform_id)
   
   # Create exon lines
   exon_lines = sample_gtf %>%
     filter(type == "exon") %>%
-    select(seqnames, type, start, end, strand, source, isoform_id, gencode_gene_id, any_of("gene_name"), orf_isoform_id)
+    select(seqnames, type, start, end, strand, source, transcript_id, gene_id)
   
   # Create CDS lines
   cds_lines = all_cds_exons %>%
-    select(-orf_isoform_id) %>%
-    left_join(gene_mapping %>% select(isoform_id, gencode_gene_id = gene_id, any_of("gene_name"), orf_isoform_id), by = "isoform_id") %>%
+    #left_join(gene_mapping %>% select(isoform_id, gencode_gene_id = gene_id, any_of("gene_name"), orf_isoform_id), by = "isoform_id") %>%
     mutate(type = "CDS", source = sample_gtf$source[1]) %>%
-    select(seqnames, type, start = new_start, end = new_end, strand, source, isoform_id, gencode_gene_id, any_of("gene_name"), orf_isoform_id)
+    select(seqnames, type, start = new_start, end = new_end, strand, source, transcript_id = isoform_id, gene_id)
   
   # combine types and add attribute column
   updated_gtf = bind_rows(transcript_lines, exon_lines, cds_lines) %>%
-    arrange(isoform_id, start) %>%
+    arrange(transcript_id, start) %>%
     mutate(
       attributes = if ("gene_name" %in% colnames(.)) {
-        paste0('gene_id "', gencode_gene_id, '"; transcript_id "', isoform_id, '"; gene_name "', gene_name, '"; ORF_id "', orf_isoform_id, '";')
+        #paste0('gene_id "', gene_id, '"; transcript_id "', transcript_id, '"; gene_name "', gene_name, '"; ORF_id "', orf_isoform_id, '";')
+        paste0('gene_id "', gene_id, '"; transcript_id "', transcript_id, '"; gene_name "', gene_name, '";')
       } else {
-        paste0('gene_id "', gencode_gene_id, '"; transcript_id "', isoform_id, '"; ORF_id "', orf_isoform_id, '";')
+        paste0('gene_id "', gene_id, '"; transcript_id "', transcript_id, '";')
       },
       score = ".", 
       frame = "."
@@ -299,14 +269,14 @@ full_fasta = tibble(
   full_sequence = as.character(full)
 )
 
-# SQANTI classification
-classification = read_tsv(classification_file, show_col_types = FALSE)
-gene_mapping = classification %>% 
-  select(isoform_id = isoform, 
-         structural_category, 
-         gene_id = associated_gene, 
-         transcript_id = associated_transcript, 
-         any_of(c("gene_name", "transcript_name")))
+# SQANTI classification- consider removing
+# classification = read_tsv(classification_file, show_col_types = FALSE)
+# gene_mapping = classification %>% 
+#   select(isoform_id = isoform, 
+#          structural_category, 
+#          gene_id = associated_gene, 
+#          transcript_id = associated_transcript, 
+#          any_of(c("gene_name", "transcript_name")))
 
 # === STEP 2: Get dataframe of exons from gtf ===
 message("\n--- STEP 2: Extracting exons from sample gtf ---")
@@ -332,50 +302,29 @@ stop_codon_status = check_stop_codons(cpat_fasta_file) # uses ORF (dna) fasta to
 orf_coords        = left_join(cpat_results, stop_codon_status, by = "ID")
 mapped_orfs       = map_orfs_to_genome(orf_coords, sample_exons, gencode_gtf, full_fasta)
 
-# === STEP 4: Define the clear best ORF and print out all classified ORFs ===
+# === STEP 4: Define the best ORF per transcript ===
 message("\n--- STEP 4: Calling best ORFs and filtering---")
 
 mapped_orfs_classified = call_best_orfs(mapped_orfs)
-mapped_orfs_classified %<>% left_join(gene_mapping, by = "isoform_id")
+#mapped_orfs_classified %<>% left_join(gene_mapping, by = "isoform_id")
 
-original_n_transcripts = n_distinct(mapped_orfs_classified$isoform_id)
-
-best_orfs = mapped_orfs_classified %>% 
-  filter(orf_quality == "Clear Best ORF")
-
-n_best_orfs = nrow(best_orfs %>% distinct(isoform_id))
-
-write_tsv(mapped_orfs_classified, file.path(cpat_dir, paste0(basename, "_all_orfs_mapped.tsv")))
-
-# === STEP 5: Group transcripts by ORF protein sequence and write fasta===
-message("\n--- STEP 5: Grouping by ORF protein sequence ---")
-orf_groups = group_by_protein_sequence(best_orfs, full_fasta)
-best_orfs %<>% left_join(orf_groups, by = "isoform_id")
+all_orfs       = mapped_orfs_classified
+plausible_orfs = mapped_orfs_classified %>% filter(orf_quality == "Clear Best ORF" | orf_quality == "Plausible ORF")
+best_orfs      = mapped_orfs_classified %>% filter(orf_quality == "Clear Best ORF")
 
 write_tsv(best_orfs, file.path(cpat_dir, paste0(basename, "_best_orfs_mapped.tsv")))
+write_tsv(all_orfs, file.path(cpat_dir, paste0(basename, "_all_orfs_mapped.tsv")))
 
-if ("gene_name" %in% colnames(best_orfs)) {
-  unique_orf = best_orfs %>% distinct(gene_id, gene_name, orf_isoform_id, orf_protein_sequence)
-} else {
-  unique_orf = best_orfs %>% distinct(gene_id, orf_isoform_id, orf_protein_sequence)
-}
-
-protein_seqs        = AAStringSet(unique_orf$orf_protein_sequence)
-names(protein_seqs) = if ("gene_name" %in% colnames(unique_orf)) {
-  paste0(unique_orf$orf_isoform_id, "|", unique_orf$gene_id, "|", unique_orf$gene_name)
-} else {
-  paste0(unique_orf$orf_isoform_id, "|", unique_orf$gene_id)
-}
-writeXStringSet(protein_seqs, file.path(cpat_dir, paste0(basename, "_best_orfs_collapsed.fa")))
-
-# === STEP 6: Write updated gtfs considering best ORFs ===
-message("\n--- STEP 6: Writing updated GTF ---")
+# === STEP 5: Write gtf for best ORFs, including CDS and exon types, no collapsing here ===
+message("\n--- STEP 6: Writing GTF of best ORFs with CDS and exon types ---")
 all_cds_exons = get_cds_coords(best_orfs, sample_exons)
-gene_mapping %<>% 
-  left_join(select(best_orfs, isoform_id, orf_isoform_id)) %>%
-  mutate(orf_isoform_id = ifelse(is.na(orf_isoform_id), "noORF", orf_isoform_id))
+# gene_mapping %<>% 
+#   left_join(select(best_orfs, isoform_id, orf_isoform_id)) %>%
+#   mutate(orf_isoform_id = ifelse(is.na(orf_isoform_id), "noORF", orf_isoform_id))
 
-updated_gtf   = write_gtf_with_cds(sample_gtf, all_cds_exons, gene_mapping)
+all_cds_exons %<>% 
+  left_join(distinct(sample_gtf, transcript_id, gene_id), by = c("isoform_id" = "transcript_id"))
+updated_gtf = write_gtf_with_cds(sample_gtf, all_cds_exons)
 
 write.table(updated_gtf, file.path(cpat_dir, paste0(basename, "_corrected_filtered_CDS.gtf")), 
             sep = "\t", 
@@ -387,9 +336,27 @@ write.table(updated_gtf, file.path(cpat_dir, paste0(basename, "_corrected_filter
 # Summary
 # =============================================================================
 
-message("\n=== ANALYSIS COMPLETE ===")
-message(paste0("Started with ORFs called for ", original_n_transcripts, " transcripts."))
-message(paste0("After filtering, ", n_best_orfs, " transcripts have a 'Clear Best ORF'")) 
-message(paste0("All mapped ORFs: ", basename, "_all_cpat_orfs_mapped.tsv"))
-message(paste0("Best mapped ORFs: ", basename, "_best_cpat_orfs_mapped.tsv"))
-message("Analysis completed successfully!")
+starting_transcripts = nrow(all_sample_transcripts)
+n_transcripts_orfs   = n_distinct(all_orfs$isoform_id)
+percent_orfs         = round((n_transcripts_orfs/starting_transcripts) * 100, 4)
+
+n_cpat_orfs          = nrow(all_orfs)
+n_plausible_orfs     = nrow(plausible_orfs)
+percent_plausible    = round((n_plausible_orfs/n_cpat_orfs) * 100, 1)
+
+n_best_orfs          = nrow(best_orfs %>% distinct(isoform_id))
+n_noORFs             = starting_transcripts - n_best_orfs
+percent_best         = round((n_best_orfs/starting_transcripts) * 100, 1)
+percent_noORFs       = round((n_noORFs/starting_transcripts) * 100, 1)
+
+
+message("\n=== CPAT FILTER ANALYSIS COMPLETE ===")
+message(paste0("- CPAT called at least one ORF for ", n_transcripts_orfs, " / ", starting_transcripts, " (", percent_orfs,"%)", " transcripts."))
+message(paste0("- Based on coding potential, ", n_plausible_orfs, " / ", n_cpat_orfs, " (", percent_plausible,"%)"," of CPAT ORFs were classified as plausible ORFs.")) 
+message(paste0("- ", n_noORFs, " / ", starting_transcripts, " (", percent_noORFs,"%)", " transcripts do not have a plausible ORF.")) 
+message(paste0("- After further filtering, a 'Clear Best ORF' was identified for ", n_best_orfs, " / ", starting_transcripts, " (", percent_best,"%)", " transcripts.")) 
+
+message("\n=== CPAT FILTER OUTPUT FILES ===")
+message(paste0("All CPAT ORFs with Quality Metrics: ", basename, "_all_cpat_orfs_mapped.tsv"))
+message(paste0("The single best plausible ORF per transcript: ", basename, "_best_cpat_orfs_mapped.tsv"))
+message(paste0("GTF contains exon type for all transcripts and CDS transcripts with a best plausible ORF: ", basename, "_corrected_filtered_CDS.gtf"))
