@@ -49,10 +49,12 @@ tclass_to_keep          <- Sys.getenv("TRANSCRIPT_CLASS_KEEP", "FSM,NIC,NNC")
 classification_file = paste0(dir, "/", basename, "_classification.txt")
 sqanti_gtf          = paste0(dir, "/", basename, "_corrected.gtf")
 sqanti_fasta        = paste0(dir, "/", basename, "_corrected.fasta")
+mapping_file        = paste0(dir, "/", basename, "_hashids_mapping.txt")
 
 stopifnot("File not found" = file.exists(classification_file))
 stopifnot("File not found" = file.exists(sqanti_gtf))
 stopifnot("File not found" = file.exists(sqanti_fasta))
+stopifnot("File not found" = file.exists(mapping_file))
 
 # Create additional output directory
 dropout_dir = file.path(dir, "dropout")
@@ -61,85 +63,6 @@ dir.create(dropout_dir, recursive = TRUE, showWarnings = FALSE)
 # =============================================================================
 # Helper functions
 # =============================================================================
-
-#' Convert gtf to psl format- adapted from FLAIR and IsoViz
-#' @param gtf_input_path Input GTF file path
-#' @param psl_output_file Output PSL file
-convert_gtf_to_psl = function(gtf_input_path, psl_output_file){
-  
-  # Read the GTF file 
-  gr     = import(gtf_input_path, format = "gtf")
-  gtf_df = as.data.frame(gr)
-  
-  # keep only the following columns 
-  gtf_df %<>% 
-    dplyr::select(seqnames, type, start, end, strand, transcript_id, gene_id)
-  
-  colnames(gtf_df) = c("chrom", "ty", "start", "end", "strand", "transcript_id", "gene_id")
-  gtf_df$start     = gtf_df$start-1
-  
-  # Filter for exons only
-  exons_df = gtf_df %>% 
-    filter(ty == "exon")
-  
-  cols_to_convert           = c("chrom", "ty", "strand", "transcript_id", "gene_id")
-  exons_df[cols_to_convert] = lapply(exons_df[cols_to_convert], as.character)
-  
-  # Function to generate PSL lines from grouped exons
-  generate_psl_lines = function(exons_grouped) {
-    
-    psl_lines = lapply(exons_grouped, function(test_ex) {
-      
-      # Get block starts and sizes
-      blockstarts = test_ex$start
-      blocksizes  = test_ex$end - test_ex$start
-      blockcount  = length(blockstarts)
-      
-      # Reverse if needed (negative strand)
-      if (blockcount > 1 && blockstarts[1] > blockstarts[2]) {
-        blocksizes  = rev(blocksizes)
-        blockstarts = rev(blockstarts)
-      }
-      
-      # Calculate transcript coordinates
-      tstart = blockstarts[1]
-      tend   = blockstarts[blockcount] + blocksizes[blockcount]
-      qsize  = sum(blocksizes)
-      qname  = paste0(test_ex$transcript_id[1], "_", test_ex$gene_id[1])
-      
-      # Calculate query starts (cumulative positions)
-      qstarts = c(0, cumsum(blocksizes)[-blockcount])
-      
-      # Format as comma-separated strings
-      qstarts_str     = paste0(paste(qstarts, collapse = ","), ",")
-      blocksizes_str  = paste0(paste(blocksizes, collapse = ","), ",")
-      blockstarts_str = paste0(paste(blockstarts, collapse = ","), ",")
-      
-      # Construct PSL line
-      psl_line = c(
-        0, 0, 0, 0, 0, 0, 0, 0, 
-        test_ex$strand[1], qname, qsize, 0, qsize,
-        test_ex$chrom[1], 0, tstart, tend, blockcount, 
-        blocksizes_str, qstarts_str, blockstarts_str
-      )
-      
-      # Return as tab-separated string
-      paste(psl_line, collapse = "\t")
-    })
-    
-    # Return all lines
-    unlist(psl_lines)
-  }
-  
-  # Usage:
-  exons_grouped = exons_df %>%
-    group_by(transcript_id) %>% 
-    group_split()
-  
-  psl_lines = generate_psl_lines(exons_grouped)
-  
-  writeLines(psl_lines, psl_output_file)
-}
 
 #' Save filtered sequences to FASTA
 #' @param fasta_file Input FASTA file
@@ -169,21 +92,6 @@ save_filtered_gtf <- function(gtf_file, keep_ids, output_file) {
   export(filtered_gtf, output_file)
   message(paste0("Saved ", length(unique(filtered_gtf$transcript_id)), " transcripts to ", basename(output_file)))
 }
-
-# =============================================================================
-# Generating hashids
-# =============================================================================
-
-message("\n Generating hash ids for all transcripts...")
-
-# Sample gtf to psl
-sqanti_psl = file.path(dir, paste0(basename, "_corrected.psl")) # output psl
-convert_gtf_to_psl(gtf_input_path  = sqanti_gtf, 
-                   psl_output_file = sqanti_psl)
-
-# Run python script for hash ids- generates mapping file with transcript_id and hash_id
-mapping_file = file.path(dir, paste0(basename, "_hashids_mapping.txt"))
-system2("python", args = c("scripts/hashlib_id_generator.py", sqanti_psl, mapping_file))
 
 # =============================================================================
 # Combine sqanti associated gene_ids with gencode ids and hash ids, include counts

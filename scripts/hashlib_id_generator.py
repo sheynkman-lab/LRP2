@@ -15,30 +15,37 @@ def convert_psl_ids(psl_file, mapping_file):
         for line in infile:
             read          = line.rstrip("\n").split("\t")
             original_name = read[9]
+            chrom         = read[13]
+            strand        = read[8]
 
             # parse blocksizes, tstarts
             blocksizes = [int(x) for x in read[18].rstrip(",").split(",")]
             tstarts    = [int(x) for x in read[20].rstrip(",").split(",")]
+            
+            # Check for monoexonic transcripts (single exon = no junctions)
+            if len(blocksizes) == 1:
+                new_id = f"{chrom}_monoexon:{tstarts[0]}-{tstarts[0] + blocksizes[0]}_{strand}"
+            else:
+                # compute tends
+                tends = [s + l for s, l in zip(tstarts, blocksizes)]
 
-            # compute tends
-            tends = [s + l for s, l in zip(tstarts, blocksizes)]
+                # collapse junctions
+                collapse_tstarts = tstarts[1:]
+                collapse_tends   = tends[:-1]
 
-            # collapse junctions
-            collapse_tstarts = tstarts[1:]
-            collapse_tends   = tends[:-1]
+                # hash start junctions
+                s        = ",".join(map(str, collapse_tstarts))
+                s_hashed = hashlib.shake_256(s.encode("utf-8")).hexdigest(8)
+                s_id     = "s" + s_hashed
 
-            # hash start junctions
-            s        = ",".join(map(str, collapse_tstarts))
-            s_hashed = hashlib.shake_256(s.encode("utf-8")).hexdigest(8)
-            s_id     = "s" + s_hashed
+                # hash end junctions
+                e        = ",".join(map(str, collapse_tends))
+                e_hashed = hashlib.shake_256(e.encode("utf-8")).hexdigest(8)
+                e_id     = "e" + e_hashed
 
-            # hash end junctions
-            e        = ",".join(map(str, collapse_tends))
-            e_hashed = hashlib.shake_256(e.encode("utf-8")).hexdigest(8)
-            e_id     = "e" + e_hashed
-
-            # new read ID = startID:endID
-            new_id  = f"{s_id}:{e_id}"
+                # new read ID = chr_startID:endID_strand
+                new_id  = f"{chrom}_{s_id}:{e_id}_{strand}"
+                
             mappings.append((original_name, new_id))
             
     # Write mapping file

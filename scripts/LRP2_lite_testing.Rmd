@@ -3122,6 +3122,9 @@ gtf_data %>% filter(type == "CDS")
 January 14, 2026
 # filter cpat
 Fix: remove requirement for stop codon if gencode match
+Fix: cpat filter no longer requires sqanti classification file. the gtf is required to have gene_id and transcript_id attributes and those will be used.
+Fix: Moving the orf collapsing script to the protein classification module so that CPAT filter is simpler. We dont do anything other than classify and filter cpat orfs.
+
 Check the SREK1 example in AML data
 ```{r}
 # requirements for 03_filter_cpat
@@ -3136,7 +3139,6 @@ cpat_fasta_file        <- file.path(cpat_dir, paste0(basename, "_cpat.ORF_seqs.f
 cpat_results_file      <- file.path(cpat_dir, paste0(basename, "_cpat.ORF_prob.tsv"))
 sample_full_fasta_path <- file.path(sqanti_dir, paste0(basename, "_corrected_filtered.fasta"))
 sample_gtf_path        <- file.path(sqanti_dir, paste0(basename, "_corrected_filtered.gtf"))
-classification_file    <- paste0(sqanti_dir, "/", basename, "_classification_filtered.txt")
 
 ```
 
@@ -3206,13 +3208,13 @@ full_fasta = tibble(
 )
 
 # SQANTI classification
-classification = read_tsv(classification_file, show_col_types = FALSE)
-gene_mapping = classification %>% 
-  select(isoform_id = isoform, 
-         structural_category, 
-         gene_id = associated_gene, 
-         transcript_id = associated_transcript, 
-         any_of(c("gene_name", "transcript_name")))
+# classification = read_tsv(classification_file, show_col_types = FALSE)
+# gene_mapping = classification %>% 
+#   select(isoform_id = isoform, 
+#          structural_category, 
+#          gene_id = associated_gene, 
+#          transcript_id = associated_transcript, 
+#          any_of(c("gene_name", "transcript_name")))
 
 ```
 
@@ -3280,43 +3282,156 @@ message(paste0("GTF contains exon type for all transcripts and CDS transcripts w
 ```
 
 
+January 15, 2026
+
+Check hash id uniqueness on 12 million isoseq transcripts
+```{r}
+source("~/megan/github/megan-schertzer/ms_functions.R")
+
+# 12 million transcripts
+hash = fread("/home/cwp5au/megan/AML_project/260112_lrp2_test/S1_PACBIO_ISOSEQ/M3_ISOSEQ_COLLAPSE/AML_hashids_mapping.txt") # 12,767,372
+
+hash_gene = hash %>% 
+  group_by(gene_id, hash_id) %>%
+  summarize(pb_ids = paste0(transcript_id, collapse = ",")) %>%
+  ungroup() # 11,591,258
+
+hash_gene %>% distinct(hash_id) # 11,535,642
+
+hash_collapsed = hash_gene %>% 
+  group_by(hash_id) %>%
+  summarize(
+    n_id = n(),
+    gene_id = paste0(gene_id, collapse = ","),
+    pb_ids = paste0(pb_ids, collapse = ";")) %>%
+  ungroup() %>%
+  arrange(desc(n_id))
+
+redundant = hash_collapsed %>% filter(n_id > 1) # 4515
+
+write_tsv(redundant, "/home/cwp5au/megan/AML_project/260112_lrp2_test/S1_PACBIO_ISOSEQ/M3_ISOSEQ_COLLAPSE/AML_redundant_hashids.txt")
+
+redundant = read_tsv("/home/cwp5au/megan/AML_project/260112_lrp2_test/S1_PACBIO_ISOSEQ/M3_ISOSEQ_COLLAPSE/AML_redundant_hashids.txt")
+redundant %>% select(hash_id, n_id) 
+
+# s46b9dd2b0ba88d13:e46b9dd2b0ba88d13 has 51k matches?
+hash_gene %>% filter(hash_id == "s46b9dd2b0ba88d13:e46b9dd2b0ba88d13")
+
+# more likely, 1.6 million transcripts
+hash = fread("/home/cwp5au/megan/AML_project/LRP2_lite/results/sqanti_transcript/all_AML_hashids_mapping.txt") # 1,650,770
+
+hash_gene = hash %>% 
+  group_by(gene_id, hash_id) %>%
+  summarize(pb_ids = paste0(transcript_id, collapse = ",")) %>%
+  ungroup() # 1,459,435
+
+hash_gene %>% distinct(hash_id) # 1,423,084
+redundant_hash = hash_gene %>% filter(hash_id == "s46b9dd2b0ba88d13:e46b9dd2b0ba88d13") 
+hash_gene %>% filter(hash_id != "s46b9dd2b0ba88d13:e46b9dd2b0ba88d13") # 1,423,877
+other_redundant = hash_gene %>% filter(hash_id != "s46b9dd2b0ba88d13:e46b9dd2b0ba88d13") %>%
+  group_by(hash_id) %>%
+  tally() %>%
+  filter(n > 1) # 794
+
+sqanti = fread("/home/cwp5au/megan/AML_project/LRP2_lite/results/sqanti_transcript/all_AML_classification.txt") # 1,650,770
+gtf = import("/home/cwp5au/megan/AML_project/LRP2_lite/results/pacbio_isoseq/all_AML_merged.collapsed.gff") %>%
+  as.data.frame()
+
+# look at very redundant hash- these are monoexons
+redundant_hash = hash_gene %>% filter(hash_id == "s46b9dd2b0ba88d13:e46b9dd2b0ba88d13") %>% separate_rows(pb_ids)
+sqanti %>% filter(isoform %in% c(redundant_hash$pb_ids)) %>% group_by(subcategory) %>% tally()
+
+# look at other examples
+hash_gene %>% filter(hash_id == "s001ef32b6bfe4937:e4b4acc7c44d4fa89") # PB.55218.3, PB.55220.18
+sqanti %>% filter(isoform %in% c("PB.55218.3", "PB.55220.18")) # intron chain matches but strand differs, one looks like internal priming, considering adding strand
+
+gtf %>% filter(transcript_id == "PB.55218.3")
+gtf %>% filter(transcript_id == "PB.55220.18")
+
+hash_gene %>% filter(hash_id == "s007ca1c358e0ef36:ee81cf9caa746d6c7")
+sqanti %>% filter(isoform %in% c("PB.13551.879", "PB.13554.1")) # same, strandedness
+gtf %>% filter(transcript_id == "PB.13551.879")
+gtf %>% filter(transcript_id == "PB.13554.1")
+
+# check broadly for strandedness
+other = other_redundant %>% 
+  left_join(hash_gene) %>%
+  mutate(isoform = str_extract(pb_ids, "^[^,]+")) %>%
+  select(hash_id, isoform) %>%
+  left_join(sqanti, by = "isoform")
+
+other %>% group_by(exons) %>% tally() # 1398 have 2 exons
+strand_check = other %>%
+  group_by(hash_id) %>%
+  summarize(
+    strand_consistent = n_distinct(strand) == 1,
+    strands = paste(unique(strand), collapse = ","),
+    n_isoforms = n()
+  )
+
+strand_check %>% group_by(strand_consistent) %>% tally() # 702 false, 92 true
+same_strand = strand_check %>% filter(strand_consistent == TRUE)
+
+# if not different strand, what are these?
+other %>% filter(hash_id %in% same_strand$hash_id)
+hash_gene %>% filter(hash_id == "s0d12b371f0a94ca4:ef25ad78c1a983880") 
+sqanti %>% filter(isoform %in% c("PB.13787.1971", "PB.3675.78")) 
+
+gtf %>% filter(transcript_id == "PB.13787.1971") # different chr but actually same intron chain
+gtf %>% filter(transcript_id == "PB.3675.78")
+
+gtf %>% filter(transcript_id == "PB.33036.226") # different chr but actually same intron chain
+gtf %>% filter(transcript_id == "PB.48200.6")
+
+gtf %>% filter(transcript_id == "PB.55666.91") # chrX/Y same junction chain
+gtf %>% filter(transcript_id == "PB.57711.28")
+
+# look at chr
+other %>% filter(hash_id %in% same_strand$hash_id) %>%
+  group_by(hash_id) %>%
+  summarise(chroms = paste(unique(chrom), collapse = ","),
+            exons_n = paste(exons, collapse = ",")) %>%
+  ungroup() %>%
+  filter(chroms != "chrX,chrY") # 34
+
+```
+
+
+January 15, 2025
+Edits to Protein classification script
+- do all collapsing in this module now
+- since sqanti protein re-aligns with gencode, we can get gene name info from here
+- removes the need to read in sqanti transcript
+- removes the transcript gene overlap with protein gene overlap
+- output full protein fasta for mass spec
+- add bed visualization for CDS
+- use base orf id which is the most abundant transcript with that ORF
 
 ```{r}
-#' Translate ORF sequences to proteins and group by identical sequences
-#' @param orfs Data frame with ORF coordinates
-#' @param transcript_seqs Named vector of transcript sequences
-#' @return Data frame with protein sequences and grouped transcript IDs
-group_by_protein_sequence <- function(filtered_results, full_fasta) {
-  
-  orf_proteins = filtered_results %>%
-    select(isoform_id, ORF_start, ORF_end) %>%
-    left_join(full_fasta, by = "isoform_id") %>%
-    filter(!is.na(full_sequence)) %>%
-    mutate(orf_dna_sequence = substr(full_sequence, ORF_start, ORF_end))
-  
-  # Vectorized translation for speed
-  dna      <- DNAStringSet(orf_proteins$orf_dna_sequence)
-  proteins <- translate(dna, if.fuzzy.codon = "solve")
-  
-  orf_proteins %<>%
-    mutate(orf_protein_sequence = as.character(proteins)) %>%
-    filter(orf_protein_sequence != "") %>%
-    select(isoform_id, orf_protein_sequence)
-  
-  # Group transcripts by identical protein sequences
-  orf_groups = orf_proteins %>%
-    group_by(orf_protein_sequence) %>%
-    arrange(isoform_id) %>%
-    mutate(
-      orf_isoform_id = paste(isoform_id, collapse = ","),
-      orf_base_id    = isoform_id[1]  # First transcript as representative
-    ) %>% 
-    ungroup()
-  
-  return(orf_groups)
-}
-# === STEP 5: Group transcripts by ORF protein sequence and write fasta===
-message("\n--- STEP 5: Grouping by ORF protein sequence ---")
+# requirements for 04_protein_classfication
+
+basename                        <- "all_AML"
+sqanti_transcript_dir           <- file.path("/home/cwp5au/megan/AML_project/LRP2_lite/results", "sqanti_transcript")
+cpat_dir                        <- file.path("/home/cwp5au/megan/AML_project/LRP2_lite/results", "orf_calling")
+protein_sqanti_dir              <- file.path("/home/cwp5au/megan/AML_project/LRP2_lite/results", "protein_sqanti")
+gencode_gtf_path                <- "/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf"
+
+sample_cds_gtf_path    <- file.path(cpat_dir, paste0(basename, "_corrected_filtered_CDS.gtf"))
+#sample_cds_fasta_path  <- file.path(cpat_dir, paste0(basename, "_best_orfs_collapsed.fa"))
+protein_sqanti_path    <- file.path(protein_sqanti_dir, paste0(basename, ".sqanti_protein_classification.tsv"))
+cpm_file_path          <- file.path(sqanti_transcript_dir, paste0(basename, "_hashids_with_cpm_filtered.txt"))
+
+PROTEIN_CLASS_KEEP="FPM,NPC,NPE"
+min_junctions_after_stop_codon <- as.numeric(0)
+pclass_base_to_keep            <- strsplit(PROTEIN_CLASS_KEEP, ",")[[1]]
+
+```
+
+
+```{r}
+# === STEP 5: Collapse transcripts by identical ORF protein sequence ===
+message("\n--- STEP 5: Collapsing by ORF protein sequence ---")
+
 orf_groups = group_by_protein_sequence(best_orfs, full_fasta)
 best_orfs %<>% left_join(orf_groups, by = "isoform_id")
 

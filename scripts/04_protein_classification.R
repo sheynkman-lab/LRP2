@@ -29,6 +29,8 @@ suppressPackageStartupMessages({
   library(rtracklayer)
 })
 
+options(scipen = 999)
+
 # =============================================================================
 # Get environment variables and check required files
 # =============================================================================
@@ -40,7 +42,7 @@ protein_sqanti_dir              <- file.path(Sys.getenv("OUTPUT_DIR"), "protein_
 gencode_gtf_path                <- Sys.getenv("GENCODE_GTF_FILE")
 
 sample_cds_gtf_path    <- file.path(cpat_dir, paste0(basename, "_corrected_filtered_CDS.gtf"))
-sample_cds_fasta_path  <- file.path(cpat_dir, paste0(basename, "_best_orfs_collapsed.fa"))
+#sample_cds_fasta_path  <- file.path(cpat_dir, paste0(basename, "_best_orfs_collapsed.fa"))
 protein_sqanti_path    <- file.path(protein_sqanti_dir, paste0(basename, ".sqanti_protein_classification.tsv"))
 cpm_file_path          <- file.path(sqanti_transcript_dir, paste0(basename, "_hashids_with_cpm_filtered.txt"))
 
@@ -49,7 +51,7 @@ pclass_base_to_keep            <- strsplit(Sys.getenv("PROTEIN_CLASS_KEEP"), ","
 
 stopifnot("GENCODE gtf file not found" = file.exists(gencode_gtf_path))
 stopifnot("Sample gtf file not found" = file.exists(sample_cds_gtf_path))
-stopifnot("Collapsed best ORF fasta not found" = file.exists(sample_cds_fasta_path))
+#stopifnot("Collapsed best ORF fasta not found" = file.exists(sample_cds_fasta_path))
 stopifnot("Protein classification file not found" = file.exists(protein_sqanti_path))
 
 # =============================================================================
@@ -63,7 +65,10 @@ stopifnot("Protein classification file not found" = file.exists(protein_sqanti_p
 #' @param gc_chains Character vector: GENCODE junction chains for this gene
 #' @return Character: "perfect_subset", "known_protruding", or "novel"
 classify_multiexonic_utr = function(tss, strand, junc_chain, gc_chains) {
-  if (is.na(tss) || junc_chain == "" || length(gc_chains) == 0) return("novel")
+  
+  # Check for NA or invalid inputs
+  if (is.na(tss) || is.na(strand) || is.na(junc_chain) || is.na(gc_chains)) return("novel")
+  if (junc_chain == "" || length(gc_chains) == 0) return("novel")
   
   # Split the concatenated chains
   gc_chains = str_split(gc_chains, "\\|\\|\\|")[[1]]
@@ -71,7 +76,13 @@ classify_multiexonic_utr = function(tss, strand, junc_chain, gc_chains) {
   status = "novel"
   
   for (gc_chain in gc_chains) {
-    if (!str_detect(gc_chain, fixed(junc_chain))) next
+    
+    # Check for NA values in gc_chain
+    if (is.na(gc_chain)) next
+    
+    # Check if junction chain is detected
+    match_result = str_detect(gc_chain, fixed(junc_chain))
+    if (is.na(match_result) || !match_result) next
     
     # Junction chain matches - check if TSS protrudes beyond reference
     if (strand == "+") {
@@ -102,6 +113,40 @@ classify_multiexonic_utr = function(tss, strand, junc_chain, gc_chains) {
   }
   
   return(status)
+}
+
+#' Translate ORF sequences to proteins and group by identical sequences
+#' @param orfs Data frame with ORF coordinates
+#' @param transcript_seqs Named vector of transcript sequences
+#' @return Data frame with protein sequences and grouped transcript IDs
+group_by_protein_sequence <- function(filtered_results, full_fasta) {
+  
+  orf_proteins = filtered_results %>%
+    select(isoform_id, ORF_start, ORF_end) %>%
+    left_join(full_fasta, by = "isoform_id") %>%
+    filter(!is.na(full_sequence)) %>%
+    mutate(orf_dna_sequence = substr(full_sequence, ORF_start, ORF_end))
+  
+  # Vectorized translation for speed
+  dna      <- DNAStringSet(orf_proteins$orf_dna_sequence)
+  proteins <- translate(dna, if.fuzzy.codon = "solve")
+  
+  orf_proteins %<>%
+    mutate(orf_protein_sequence = as.character(proteins)) %>%
+    filter(orf_protein_sequence != "") %>%
+    select(isoform_id, orf_protein_sequence)
+  
+  # Group transcripts by identical protein sequences
+  orf_groups = orf_proteins %>%
+    group_by(orf_protein_sequence) %>%
+    arrange(isoform_id) %>%
+    mutate(
+      orf_isoform_id = paste(isoform_id, collapse = ","),
+      orf_base_id    = isoform_id[1]  # First transcript as representative
+    ) %>% 
+    ungroup()
+  
+  return(orf_groups)
 }
 
 # =============================================================================
@@ -223,10 +268,16 @@ utr_info = tx_metadata %>%
   )
 
 # =============================================================================
-# STEP 3: Classify 5' UTRs
+# STEP 3: Classify 5' UTRs and merge with SQANTI protein
 # =============================================================================
 
 message("\n--- STEP 3: Classifying 5' UTRs ---")
+
+# Read in SQANTI protein classification to get gene map to reference
+sqanti_class = read_tsv(protein_sqanti_path, show_col_types = FALSE)
+gene_map = sqanti_class %>% 
+  select(transcript_id = isoform_id, reference_gene_id = tx_gene) %>%
+  distinct()
 
 # Check TSS overlap with GENCODE using GRanges 
 tss_gr = GRanges(
@@ -251,7 +302,8 @@ utr_info$distance_to_gc = distances
 
 # Join GENCODE chains for multiexonic comparison
 utr_info = utr_info %>%
-  left_join(gencode_chains, by = "gene_id")
+  left_join(gene_map, by = "transcript_id") %>%
+  left_join(select(gencode_chains, reference_gene_id = gene_id, everything()), by = "reference_gene_id")
 
 # Classify monoexonic UTRs
 utr_info = utr_info %>%
@@ -299,27 +351,25 @@ utr_results = utr_info %>%
       TRUE ~ "unknown"
     )
   ) %>%
-  select(isoform_id = transcript_id, num_5utr_exons, utr_exon_status, tss_in_gc_exons, junc_cat, utr_cat)
+  select(transcript_id, num_5utr_exons, utr_exon_status, tss_in_gc_exons, junc_cat, utr_cat)
 
-# Merge with SQANTI protein classification
-sqanti_class = read_tsv(protein_sqanti_path, show_col_types = FALSE)
-
-# Adjust C term differences since CPAT includes stop codon in coords and gencode does not
+# Merge with SQANTI protein, adjust C term differences since CPAT includes stop codon in coords and gencode does not
 sqanti_class %<>% mutate(
   pr_cterm_diff = ifelse(!is.na(pr_cterm_diff), pr_cterm_diff + 3, pr_cterm_diff),
   pr_cterm_gene_diff = ifelse(!is.na(pr_cterm_gene_diff), pr_cterm_gene_diff - 3, pr_cterm_gene_diff),
   pr_chang = ifelse(!is.na(pr_chang), pr_chang - 3, pr_chang))
 
 utr_output = sqanti_class %>%
-  full_join(utr_results, by = "isoform_id")
+  select(transcript_id = isoform_id, everything()) %>%
+  full_join(utr_results, by = "transcript_id")
 
 # 5' UTR summary statistics
 message("\n--- 5'UTR Classification complete! ---")
 message(sprintf("Total transcripts: %d", nrow(utr_output)))
-message(sprintf("  subset: %d", sum(utr_output$utr_cat == "subset", na.rm = TRUE)))
-message(sprintf("  unique: %d", sum(utr_output$utr_cat == "unique", na.rm = TRUE)))
-message(sprintf("  no_orf: %d", sum(utr_output$utr_cat == "no_orf", na.rm = TRUE)))
-message(sprintf("  no_utr: %d", sum(utr_output$utr_cat == "no_utr", na.rm = TRUE)))
+message(sprintf("  N-terminal truncation (subset): %d", sum(utr_output$utr_cat == "subset", na.rm = TRUE)))
+message(sprintf("  Novel start site (unique): %d", sum(utr_output$utr_cat == "unique", na.rm = TRUE)))
+message(sprintf("  No open reading frame (no_orf): %d", sum(utr_output$utr_cat == "no_orf", na.rm = TRUE)))
+message(sprintf("  No 5' UTR (no_utr): %d", sum(utr_output$utr_cat == "no_utr", na.rm = TRUE)))
 
 
 # =============================================================================

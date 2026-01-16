@@ -316,7 +316,7 @@ write_tsv(best_orfs, file.path(cpat_dir, paste0(basename, "_best_orfs_mapped.tsv
 write_tsv(all_orfs, file.path(cpat_dir, paste0(basename, "_all_orfs_mapped.tsv")))
 
 # === STEP 5: Write gtf for best ORFs, including CDS and exon types, no collapsing here ===
-message("\n--- STEP 6: Writing GTF of best ORFs with CDS and exon types ---")
+message("\n--- STEP 5: Writing GTF of best ORFs with CDS and exon types ---")
 all_cds_exons = get_cds_coords(best_orfs, sample_exons)
 # gene_mapping %<>% 
 #   left_join(select(best_orfs, isoform_id, orf_isoform_id)) %>%
@@ -335,6 +335,7 @@ write.table(updated_gtf, file.path(cpat_dir, paste0(basename, "_corrected_filter
 # =============================================================================
 # Summary
 # =============================================================================
+all_sample_transcripts = distinct(sample_gtf, transcript_id, gene_id)
 
 starting_transcripts = nrow(all_sample_transcripts)
 n_transcripts_orfs   = n_distinct(all_orfs$isoform_id)
@@ -359,4 +360,4 @@ message(paste0("- After further filtering, a 'Clear Best ORF' was identified for
 message("\n=== CPAT FILTER OUTPUT FILES ===")
 message(paste0("All CPAT ORFs with Quality Metrics: ", basename, "_all_cpat_orfs_mapped.tsv"))
 message(paste0("The single best plausible ORF per transcript: ", basename, "_best_cpat_orfs_mapped.tsv"))
-message(paste0("GTF contains exon type for all transcripts and CDS transcripts with a best plausible ORF: ", basename, "_corrected_filtered_CDS.gtf"))
+message(paste0("GTF contains exon type for all transcripts and CDS type for transcripts with a best plausible ORF: ", basename, "_corrected_filtered_CDS.gtf"))
