@@ -6,6 +6,7 @@
 # Modified by Gloria (gs9yr@virginia.edu) for protein classification
 # Modified by Gloria (gs9yr@virginia.edu) to read in a single gtf with CDS features (10/14/25)
 # Modified by Megan (cwp5au@virginia.edu) to work with the latest SQANTI3 5.5 (10/15/25)
+# Modified by Megan (cwp5au@virginia.edu) to no longer require the best orf file as input (1/19/26)
 
 # imports
 
@@ -15,12 +16,6 @@ import bisect
 from collections import defaultdict, namedtuple
 from csv import DictWriter
 from bx.intervals import IntervalTree
-
-#utilitiesPath = os.path.join(os.path.dirname(os.path.realpath(__file__)), "utilities")
-#sys.path.insert(0, utilitiesPath)
-
-# importing functions from original sqanti3
-#from sqanti3_qc import myQueryTranscripts, genePredReader, myQueryProteins, associationOverlapping
 
 # Use SQANTI_PATH environment variable if available- imports were updated based on sqanti3 5.5
 sqanti_path = os.environ.get('SQANTI_PATH', '/opt/sqanti3')
@@ -988,9 +983,6 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
                 # possibly NNC, genic, genic intron, anti-sense, or intergenic
                 isoform_hit = associationOverlapping(isoform_hit, rec, junctions_by_chr)
 
-            # # write out junction information
-            # write_junctionInfo(rec, junctions_by_chr, accepted_canonical_sites, indelsJunc, genome_dict, fout_junc, covInf=SJcovInfo, covNames=SJcovNames, phyloP_reader=phyloP_reader)
-
             if isoform_hit.str_class in ("intergenic", "genic_intron"):
                 # Liz: I don't find it necessary to cluster these novel genes. They should already be always non-overlapping.
                 if args.novel_gene_prefix is not None:  # used by splits to not have redundant novelGene IDs
@@ -1000,90 +992,85 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
                 isoform_hit.transcripts = ['novel']
                 novel_gene_index += 1
 
-            # # look at Cage Peak info (if available)
-            # if cage_peak_obj is not None:
-            #     if rec.strand == '+':
-            #         within_cage, dist_cage , pos_cage_peak = cage_peak_obj.find(rec.chrom, rec.strand, rec.txStart)
-            #     else:
-            #         within_cage, dist_cage , pos_cage_peak = cage_peak_obj.find(rec.chrom, rec.strand, rec.txEnd)
-            #     isoform_hit.within_cage = within_cage
-            #     isoform_hit.dist_cage = dist_cage
-            #     isoform_hit.pos_cage_peak = pos_cage_peak
-
-            # # look at PolyA Peak info (if available)
-            # if polya_peak_obj is not None:
-            #     if rec.strand == '+':
-            #         within_polya_site, dist_polya_site = polya_peak_obj.find(rec.chrom, rec.strand, rec.txStart)
-            #     else:
-            #         within_polya_site, dist_polya_site = polya_peak_obj.find(rec.chrom, rec.strand, rec.txEnd)
-            #     isoform_hit.within_polya_site = within_polya_site
-            #     isoform_hit.dist_polya_site = dist_polya_site
-
-            # # polyA motif finding: look within 50 bp upstream of 3' end for the highest ranking polyA motif signal (user provided)
-            # if polyA_motif_list is not None:
-            #     if rec.strand == '+':
-            #         polyA_motif, polyA_dist = find_polyA_motif(str(genome_dict[rec.chrom][rec.txEnd-50:rec.txEnd].seq), polyA_motif_list)
-            #     else:
-            #         polyA_motif, polyA_dist = find_polyA_motif(str(genome_dict[rec.chrom][rec.txStart:rec.txStart+50].reverse_complement().seq), polyA_motif_list)
-            #     isoform_hit.polyA_motif = polyA_motif
-            #     isoform_hit.polyA_dist = polyA_dist
-
             # Fill in ORF/coding info and NMD detection
             if orfDict:
-                if args.is_fusion:
-                    #pdb.set_trace()
-                    # fusion - special case handling, need to see which part of the ORF this segment falls on
-                    fusion_gene = 'PBfusion.' + str(seqid_fusion.match(rec.id).group(1))
-                    rec_component_start, rec_component_end = fusion_components[rec.id]
-                    rec_len = rec_component_end - rec_component_start + 1
-                    if fusion_gene in orfDict:
-                        orf_start, orf_end = orfDict[fusion_gene].cds_start, orfDict[fusion_gene].cds_end
-                        if orf_start <= rec_component_start < orf_end:
-                            isoform_hit.CDS_start = 1
-                            isoform_hit.CDS_end = min(rec_len, orf_end - rec_component_start + 1)
-                            isoform_hit.ORFlen = (isoform_hit.CDS_end - isoform_hit.CDS_start)/3
-                            _s = (rec_component_start-orf_start)//3
-                            _e = min(int(_s+isoform_hit.ORFlen), len(orfDict[fusion_gene].orf_seq))
-                            isoform_hit.ORFseq = orfDict[fusion_gene].orf_seq[_s:_e]
-                            isoform_hit.coding = "coding"
-                        elif rec_component_start <= orf_start < rec_component_end:
-                            isoform_hit.CDS_start = orf_start - rec_component_start
-                            if orf_end >= rec_component_end:
-                                isoform_hit.CDS_end = rec_component_end - rec_component_start + 1
-                            else:
-                                isoform_hit.CDS_end = orf_end - rec_component_start + 1
-                            isoform_hit.ORFlen = (isoform_hit.CDS_end - isoform_hit.CDS_start) / 3
-                            _e = min(int(isoform_hit.ORFlen), len(orfDict[fusion_gene].orf_seq))
-                            isoform_hit.ORFseq = orfDict[fusion_gene].orf_seq[:_e]
-                            isoform_hit.coding = "coding"
-                elif rec.id in orfDict:  # this will never be true for fusion, so the above code seg runs instead
-                    isoform_hit.coding = "coding"
-                    isoform_hit.ORFlen = orfDict[rec.id].orf_length
-                    isoform_hit.CDS_start = orfDict[rec.id].cds_start  # 1-based start
-                    isoform_hit.CDS_end = orfDict[rec.id].cds_end      # 1-based end
-                    isoform_hit.ORFseq  = orfDict[rec.id].orf_seq
-
-            if isoform_hit.coding == "coding":
-                m = {} # transcript coord (0-based) --> genomic coord (0-based)
-                if rec.strand == '+':
-                    i = 0
-                    for exon in rec.exons:
-                        for c in range(exon.start, exon.end):
-                            m[i] = c
-                            i += 1
-                else: # - strand
-                    i = 0
-                    for exon in rec.exons:
-                        for c in range(exon.start, exon.end):
-                            m[rec.length-i-1] = c
-                            i += 1
-
-                isoform_hit.CDS_genomic_start = m[isoform_hit.CDS_start-1] + 1  # make it 1-based
-                # NOTE: if using --orf_input, it is possible to see discrepancy between the exon structure
-                # provided by GFF and the input ORF. For now, just shorten it
-                isoform_hit.CDS_genomic_end = m[min(isoform_hit.CDS_end-1, max(m))] + 1    # make it 1-based
-                #orfDict[rec.id].cds_genomic_start = m[orfDict[rec.id].cds_start-1] + 1  # make it 1-based
-                #orfDict[rec.id].cds_genomic_end   = m[orfDict[rec.id].cds_end-1] + 1    # make it 1-based
+              if args.is_fusion and rec.id.startswith('PBfusion'):
+                # Fusion handling: check if this fusion component has CDS
+                if rec.id in orfDict:
+                  isoform_hit.coding = orfDict[rec.id]['coding']
+                  isoform_hit.ORFlen = orfDict[rec.id]['ORFlen']
+                  isoform_hit.CDS_genomic_start = orfDict[rec.id]['CDS_genomic_start']
+                  isoform_hit.CDS_genomic_end = orfDict[rec.id]['CDS_genomic_end']
+                  isoform_hit.ORFseq = orfDict[rec.id]['ORFseq']
+                  isoform_hit.CDS_start = 'NA'
+                  isoform_hit.CDS_end = 'NA'
+              elif rec.id in orfDict:
+                # Normal transcript handling
+                isoform_hit.coding = orfDict[rec.id]['coding']
+                isoform_hit.ORFlen = orfDict[rec.id]['ORFlen']
+                isoform_hit.CDS_genomic_start = orfDict[rec.id]['CDS_genomic_start']
+                isoform_hit.CDS_genomic_end = orfDict[rec.id]['CDS_genomic_end']
+                isoform_hit.ORFseq = orfDict[rec.id]['ORFseq']
+                isoform_hit.CDS_start = 'NA'
+                isoform_hit.CDS_end = 'NA'
+                
+            # removed by Megan 1/19/26- we want to use genomic coords straight away from gtf, no need to convert
+            # if orfDict:
+            #     if args.is_fusion:
+            #         #pdb.set_trace()
+            #         # fusion - special case handling, need to see which part of the ORF this segment falls on
+            #         fusion_gene = 'PBfusion.' + str(seqid_fusion.match(rec.id).group(1))
+            #         rec_component_start, rec_component_end = fusion_components[rec.id]
+            #         rec_len = rec_component_end - rec_component_start + 1
+            #         if fusion_gene in orfDict:
+            #             orf_start, orf_end = orfDict[fusion_gene].cds_start, orfDict[fusion_gene].cds_end
+            #             if orf_start <= rec_component_start < orf_end:
+            #                 isoform_hit.CDS_start = 1
+            #                 isoform_hit.CDS_end = min(rec_len, orf_end - rec_component_start + 1)
+            #                 isoform_hit.ORFlen = (isoform_hit.CDS_end - isoform_hit.CDS_start)/3
+            #                 _s = (rec_component_start-orf_start)//3
+            #                 _e = min(int(_s+isoform_hit.ORFlen), len(orfDict[fusion_gene].orf_seq))
+            #                 isoform_hit.ORFseq = orfDict[fusion_gene].orf_seq[_s:_e]
+            #                 isoform_hit.coding = "coding"
+            #             elif rec_component_start <= orf_start < rec_component_end:
+            #                 isoform_hit.CDS_start = orf_start - rec_component_start
+            #                 if orf_end >= rec_component_end:
+            #                     isoform_hit.CDS_end = rec_component_end - rec_component_start + 1
+            #                 else:
+            #                     isoform_hit.CDS_end = orf_end - rec_component_start + 1
+            #                 isoform_hit.ORFlen = (isoform_hit.CDS_end - isoform_hit.CDS_start) / 3
+            #                 _e = min(int(isoform_hit.ORFlen), len(orfDict[fusion_gene].orf_seq))
+            #                 isoform_hit.ORFseq = orfDict[fusion_gene].orf_seq[:_e]
+            #                 isoform_hit.coding = "coding"
+            #     elif rec.id in orfDict:  # this will never be true for fusion, so the above code seg runs instead
+            #         isoform_hit.coding = "coding"
+            #         isoform_hit.ORFlen = orfDict[rec.id].orf_length
+            #         isoform_hit.CDS_start = orfDict[rec.id].cds_start  # 1-based start
+            #         isoform_hit.CDS_end = orfDict[rec.id].cds_end      # 1-based end
+            #         isoform_hit.ORFseq  = orfDict[rec.id].orf_seq
+            
+            # removed by Megan on 1/19/26
+            # if isoform_hit.coding == "coding":
+            #     m = {} # transcript coord (0-based) --> genomic coord (0-based)
+            #     if rec.strand == '+':
+            #         i = 0
+            #         for exon in rec.exons:
+            #             for c in range(exon.start, exon.end):
+            #                 m[i] = c
+            #                 i += 1
+            #     else: # - strand
+            #         i = 0
+            #         for exon in rec.exons:
+            #             for c in range(exon.start, exon.end):
+            #                 m[rec.length-i-1] = c
+            #                 i += 1
+            # 
+            #     isoform_hit.CDS_genomic_start = m[isoform_hit.CDS_start-1] + 1  # make it 1-based
+            #     # NOTE: if using --orf_input, it is possible to see discrepancy between the exon structure
+            #     # provided by GFF and the input ORF. For now, just shorten it
+            #     isoform_hit.CDS_genomic_end = m[min(isoform_hit.CDS_end-1, max(m))] + 1    # make it 1-based
+            #     #orfDict[rec.id].cds_genomic_start = m[orfDict[rec.id].cds_start-1] + 1  # make it 1-based
+            #     #orfDict[rec.id].cds_genomic_end   = m[orfDict[rec.id].cds_end-1] + 1    # make it 1-based
 
 
             if isoform_hit.CDS_genomic_end!='NA':
@@ -1121,27 +1108,127 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
 
 # modified by Megan on 10/16/25 to take in updated best ORF file
 # fixed bug to calculate num_3utr_nt (original was transcript_len - orf_length_nt)
-def read_in_custom_orf_calls_into_orfDict(orf_file):
-    # read in orfs called as part of lrp pipeline
-    # stick with same format of orfDict as in expected in sqanti
-    orfDict = {} # pb_acc -> myQueryProtein
-    for line in open(orf_file):
-        if line.startswith('ID'): continue # Skip header
-        wds = line.split()
+# removed by Megan on 1/19/26, calculate info from gtf directly
+# def read_in_custom_orf_calls_into_orfDict(orf_file):
+#     # read in orfs called as part of lrp pipeline
+#     # stick with same format of orfDict as in expected in sqanti
+#     orfDict = {} # pb_acc -> myQueryProtein
+#     for line in open(orf_file):
+#         if line.startswith('ID'): continue # Skip header
+#         wds = line.split()
+#         
+#         pb_acc = wds[1]              # Column 1: isoform_id (flexbile id, doesn't need to be pb)
+#         transcript_len = int(wds[3]) # Column 3: mRNA (transcript length)
+#         cds_start = int(wds[6])      # Column 6: ORF_start
+#         cds_end = int(wds[7])        # Column 7: ORF_start
+#         orf_length = int(wds[8])     # Column 8: ORF length in nucleotides
+#         num_3utr_nt = transcript_len - cds_end # 3'UTR length
+#         seq = ''
+#         
+#         # Create myQueryProteins object
+#         orf_obj = myQueryProteins(cds_start, cds_end, orf_length, seq, pb_acc)
+#         orf_obj.num_3utr_nt = num_3utr_nt
+#         orfDict[pb_acc] = orf_obj 
+#     return orfDict
+
+# added by Megan on 1/19/26 so that best orf file is no longer needed
+def extract_cds_info_from_gtf(gtf_file):
+    """
+    Extract CDS information from GTF file.
+    Returns dict with genomic CDS coordinates already calculated.
+    """
+    result = {}
+    transcript_cds = defaultdict(list)
+    transcript_exons = defaultdict(list)
+    transcript_info = {}
+    
+    with open(gtf_file) as f:
+        for line in f:
+            if line.startswith('#'):
+                continue
+            parts = line.strip().split('\t')
+            if len(parts) < 9:
+                continue
+                
+            feature = parts[2]
+            start = int(parts[3])
+            end = int(parts[4])
+            strand = parts[6]
+            attrs = parts[8]
+            
+            tid = extract_transcript_id(attrs)
+            if not tid:
+                continue
+            
+            transcript_info[tid] = strand
+            
+            if feature == 'exon':
+                transcript_exons[tid].append((start, end))
+            elif feature == 'CDS':
+                transcript_cds[tid].append((start, end))
+    
+    # Process each transcript with CDS
+    for tid, cds_list in transcript_cds.items():
+        if not cds_list:
+            continue
         
-        pb_acc = wds[1]              # Column 1: isoform_id (flexbile id, doesn't need to be pb)
-        transcript_len = int(wds[3]) # Column 3: mRNA (transcript length)
-        cds_start = int(wds[6])      # Column 6: ORF_start
-        cds_end = int(wds[7])        # Column 7: ORF_start
-        orf_length = int(wds[8])     # Column 8: ORF length in nucleotides
-        num_3utr_nt = transcript_len - cds_end # 3'UTR length
-        seq = ''
+        strand = transcript_info[tid]
+        exons = sorted(transcript_exons.get(tid, []))
         
-        # Create myQueryProteins object
-        orf_obj = myQueryProteins(cds_start, cds_end, orf_length, seq, pb_acc)
-        orf_obj.num_3utr_nt = num_3utr_nt
-        orfDict[pb_acc] = orf_obj 
-    return orfDict
+        # Calculate CDS length
+        cds_length_nt = sum(end - start + 1 for start, end in cds_list)
+        
+        # Get genomic start/end of CDS (in biological sense: 5' and 3')
+        min_coord = min(s for s, e in cds_list)
+        max_coord = max(e for s, e in cds_list)
+        
+        if strand == '+':
+            cds_genomic_start = min_coord  # 5' end (left)
+            cds_genomic_end = max_coord    # 3' end (right)
+            cds_3prime_genomic = max_coord
+        else:  # - strand
+            cds_genomic_start = max_coord  # 5' end (right)
+            cds_genomic_end = min_coord    # 3' end (left)
+            cds_3prime_genomic = min_coord
+        
+        # Calculate 3'UTR length: count nucleotides from CDS 3' end to transcript 3' end
+        num_3utr_nt = 0
+        
+        if strand == '+':
+            # Count from CDS end to transcript end (rightward)
+            for exon_start, exon_end in exons:
+                # Skip exons entirely before CDS end
+                if exon_end < cds_3prime_genomic:
+                    continue
+                # For exon containing CDS end, count from CDS end onward
+                if exon_start <= cds_3prime_genomic <= exon_end:
+                    num_3utr_nt += exon_end - cds_3prime_genomic
+                # For exons entirely after CDS end
+                elif exon_start > cds_3prime_genomic:
+                    num_3utr_nt += exon_end - exon_start + 1
+        else:  # - strand
+            # Count from CDS end to transcript end (leftward)
+            for exon_start, exon_end in exons:
+                # Skip exons entirely after CDS end (remember, going leftward)
+                if exon_start > cds_3prime_genomic:
+                    continue
+                # For exon containing CDS end, count from CDS end onward (leftward)
+                if exon_start <= cds_3prime_genomic <= exon_end:
+                    num_3utr_nt += cds_3prime_genomic - exon_start
+                # For exons entirely before CDS end (to the left)
+                elif exon_end < cds_3prime_genomic:
+                    num_3utr_nt += exon_end - exon_start + 1
+        
+        result[tid] = {
+            'coding': 'coding',
+            'ORFlen': cds_length_nt,
+            'CDS_genomic_start': cds_genomic_start,
+            'CDS_genomic_end': cds_genomic_end,
+            'num_3utr_nt': num_3utr_nt,
+            'ORFseq': ''
+        }
+    
+    return result
 
 
 ### code to get "perfect subset" information ###
@@ -1298,14 +1385,8 @@ if __name__ == "__main__":
     parser = ArgumentParser()
 
     parser.add_argument("unsplit_isoform_gff", help="Input isoform GTF")
-    parser.add_argument("orf_tsv", help="Predicted ORF tsv")
+    #parser.add_argument("orf_tsv", help="Predicted ORF tsv")
     parser.add_argument("unsplit_annotation_gtf", help="Input annotation GTF")
-
-    # parser.add_argument("isoform_gff", help="Input isoform GFF3, for transcript")
-    # parser.add_argument("cds_isoform_gff", help="Input isoform GFF3, for CDS")
-    # parser.add_argument("orf_tsv", help="Predicted ORF tsv")
-    # parser.add_argument("annotation_gtf", help="Annotation GTF, for transcript")
-    # parser.add_argument("cds_annotation_gtf", help="Annotation GTF, for CDS")
 
     parser.add_argument("-d", "--output_dir", default="output", help="Output directory (default: output)")
     parser.add_argument("-p", "--output_prefix", default="out", help="Output prefix (default: out")
@@ -1318,7 +1399,7 @@ if __name__ == "__main__":
 
     if os.path.exists(output_dir):
         if not os.path.isdir(output_dir):
-            print("ERROR: {output_dir} is not a directory! Abort!", file=sys.stderr)
+            print(f"ERROR: {output_dir} is not a directory! Abort!", file=sys.stderr)
             sys.exit(-1)
     else:
         os.makedirs(output_dir)
@@ -1326,26 +1407,17 @@ if __name__ == "__main__":
 
     # by here, what is input are the unsplit sample and unsplit annotaiton (gencode) files - afterwards - normally in this script, would expect the split gtfs, exon only and cds only for each (total 4)
 
-    # make split files for sample; after done writing, the names of the files are returned, and we do force assign the new just-made split gtf files to where files were originally assigned via args
+    # Split GTF files into exon-only and CDS-only versions
     args.isoform_gff, args.cds_isoform_gff = process_gtf(args.unsplit_isoform_gff, os.path.join(args.output_dir, args.output_prefix))
-
-    # make split files for reference 
     args.annotation_gtf, args.cds_annotation_gtf = process_gtf(args.unsplit_annotation_gtf, os.path.join(args.output_dir, "gencode")) 
 
+    SQANTIArgs = namedtuple('SQANTIArgs', 'isoform annotation dir output_prefix genename min_ref_len is_fusion corrGTF coverage window novel_gene_prefix')
 
-
-    SQANTIArgs = namedtuple('SQANTIArgs', 'isoform annotation dir output_prefix genename min_ref_len is_fusion corrGTF orf_tsv coverage window novel_gene_prefix')
-    # NOTE - liz - i need to stick with these names since they are originally in sqanti input
-    # for now, not changing into *_filename
-    cds_isoform_gff = args.isoform_gff
-    cds_annotation_gtf = args.annotation_gtf
-
-    sqanti_args = SQANTIArgs(cds_isoform_gff,
-                      cds_annotation_gtf,
+    sqanti_args = SQANTIArgs(args.isoform_gff,
+                      args.annotation_gtf,
                       dir=output_dir,
                       output_prefix=output_prefix,
                       corrGTF=args.isoform_gff,
-                      orf_tsv=args.orf_tsv,
                       genename=None,
                       min_ref_len=0,
                       is_fusion=False,
@@ -1364,8 +1436,11 @@ if __name__ == "__main__":
     isoforms_by_chr, queryDict = protein_isoforms_parser(sqanti_args)
 
     ## read in orf calls from cpat (from lrp pipeline) into sqanti orfDict format
-    orfDict = read_in_custom_orf_calls_into_orfDict(sqanti_args.orf_tsv)
-
+    #orfDict = read_in_custom_orf_calls_into_orfDict(sqanti_args.orf_tsv)
+    
+    ## Extract CDS info directly from GTF (no ORF file needed!)
+    orfDict = extract_cds_info_from_gtf(args.unsplit_isoform_gff)
+    
     ## transcript isoform classification
     isoforms_info = isoformClassification(sqanti_args,
                                           isoforms_by_chr,
@@ -1383,22 +1458,19 @@ if __name__ == "__main__":
 
 
     # updated named tuple to point to cds files (genocode, pacbio)
-    ProteinArgs = namedtuple('ProteinArgs', 'isoform annotation dir output_prefix genename min_ref_len is_fusion corrGTF orf_tsv coverage window novel_gene_prefix')
-    # NOTE - liz - i need to stick with these names since they are originally in sqanti input
-    cds_isoform_gff = args.cds_isoform_gff #os.path.abspath(ddir + 'jurkat_cds_chr22.gff')
-    cds_annotation_gtf = args.cds_annotation_gtf #os.path.abspath(ddir + 'gencode_cds_chr22.gtf')
-    protein_args = ProteinArgs(cds_isoform_gff,
-                               cds_annotation_gtf,
+    ProteinArgs = namedtuple('ProteinArgs', 'isoform annotation dir output_prefix genename min_ref_len is_fusion corrGTF coverage window novel_gene_prefix')
+    protein_args = ProteinArgs(args.cds_isoform_gff,
+                               args.cds_annotation_gtf,
                                dir=output_dir,
                                output_prefix=output_prefix,
-                               corrGTF=cds_isoform_gff,
-                               orf_tsv=args.orf_tsv,
+                               corrGTF=args.cds_isoform_gff,
                                genename=None,
                                min_ref_len=0,
                                is_fusion=False,
                                coverage=None,
                                window=None,
-                               novel_gene_prefix=None)
+                               novel_gene_prefix=None)    
+    
 
     ## parse reference transcripts(GTF) to dicts
     protein_refs_1exon_by_chr, protein_refs_exons_by_chr, protein_junctions_by_chr, \
@@ -1473,17 +1545,15 @@ if __name__ == "__main__":
                 'pr_cterm_diff': pr.tts_diff,
                 'pr_nterm_gene_diff': pr.tss_gene_diff,
                 'pr_cterm_gene_diff': pr.tts_gene_diff,
-                'tx_transcripts': ','.join(tx.transcripts),
-                'pr_transcripts': ','.join(pr.transcripts),
-                #'tx_gene': ','.join(tx.genes), # fix bug of duplication
-                #'pr_gene': ','.join(pr.genes),
-                'tx_gene': ','.join(list(dict.fromkeys(tx.genes))),
-                'pr_gene': ','.join(list(dict.fromkeys(pr.genes))),
+                'tx_transcripts': ','.join(tx.transcripts), # only returns one
+                'pr_transcripts': ','.join(pr.transcripts), # only returns one
+                'tx_gene': ','.join(sorted(list(dict.fromkeys(tx.genes)))),  # Sort here
+                'pr_gene': ','.join(sorted(list(dict.fromkeys(pr.genes)))),  # Sort here
                 'tx_num_exons': tx.num_exons,
                 'pr_num_exons': pr.num_exons,
                 'is_nmd': tx.is_NMD * 1,
                 'num_junc_after_stop_codon': tx.num_junc_after_stop,
-                'num_nt_after_stop_codon': orfDict[pb].num_3utr_nt,
+                'num_nt_after_stop_codon': orfDict[pb]['num_3utr_nt'],
                 'tx_5hang': tx_5hang,
                 'tx_3hang': tx_3hang,
                 'pr_nhang': pr_5hang,
@@ -1493,13 +1563,11 @@ if __name__ == "__main__":
     f.close()
     print(f"Output written to: {output_filename}")
 
-# remove intermediate files
+# Clean up intermediate files
 os.remove(args.isoform_gff)
 os.remove(args.cds_isoform_gff)
 os.remove(args.annotation_gtf)
 os.remove(args.cds_annotation_gtf)
-
-# Also remove genePred files if desired
 os.remove(os.path.join(args.output_dir, "refAnnotation_" + args.output_prefix + ".genePred"))
 os.remove(os.path.splitext(args.isoform_gff)[0] + ".genePred")
 os.remove(os.path.splitext(args.cds_isoform_gff)[0] + ".genePred")

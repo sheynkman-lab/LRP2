@@ -61,3 +61,4 @@ environments/leafcutter_env/*
 sample_data/*
 work/*
 null/*
+scripts/archive/*

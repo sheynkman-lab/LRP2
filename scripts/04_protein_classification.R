@@ -161,13 +161,13 @@ gencode_gtf = import(gencode_gtf_path) %>% as.data.frame()
 # Identify protein-coding transcripts (have CDS)
 pc_transcripts = gencode_gtf %>%
   filter(type == "CDS") %>%
-  pull(transcript_name) %>%
+  pull(transcript_id) %>%
   unique()
 
 # Extract exons and create GRanges for overlap checking
 gencode_exons = gencode_gtf %>%
-  filter(type == "exon", transcript_name %in% pc_transcripts) %>%
-  select(seqnames, start, end, gene_id, transcript_name, strand)
+  filter(type == "exon", transcript_id %in% pc_transcripts) %>%
+  select(seqnames, start, end, gene_id, transcript_id, strand)
 
 gencode_gr = gencode_exons %>%
   select(seqnames, start, end, strand) %>%
@@ -177,8 +177,8 @@ gencode_gr = GenomicRanges::reduce(gencode_gr) # Reduces overlapping exons into 
 
 # Create exon chain strings per gene for junction matching (could potentially be tweaked to mimic collapse logic)
 gencode_chains = gencode_exons %>%
-  arrange(gene_id, transcript_name, start) %>%
-  group_by(gene_id, transcript_name) %>%
+  arrange(gene_id, transcript_id, start) %>%
+  group_by(gene_id, transcript_id) %>%
   summarise(
     exon_chain = paste(paste0(start, "-", end), collapse = "_"),
     .groups = "drop_last"  # Keep gene grouping!

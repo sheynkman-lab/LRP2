@@ -3397,7 +3397,96 @@ other %>% filter(hash_id %in% same_strand$hash_id) %>%
 ```
 
 
-January 15, 2025
+January 19, 2025
+
+Test original sqanti protein
+conda activate sqanti3
+
+python scripts/sqanti3_protein_input_full_gtf.py \
+  /home/cwp5au/megan/AML_project/LRP2_lite/results/orf_calling/all_AML_corrected_filtered_CDS.gtf \
+  /home/cwp5au/megan/AML_project/LRP2_lite/results/orf_calling/all_AML_best_orfs_mapped.tsv \
+  /project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf \
+  -d /home/cwp5au/megan/AML_project/LRP2_lite/results/test \
+  -p all_AML_og
+
+
+python scripts/sqanti3_protein.py \
+  /home/cwp5au/megan/AML_project/LRP2_lite/results/orf_calling/all_AML_corrected_filtered_CDS.gtf \
+  /project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf \
+  -d /home/cwp5au/megan/AML_project/LRP2_lite/results/test \
+  -p all_AML_new
+
+Results are the same. Here is a summary of the changes.
+- Removed dependency on separate ORF file by extracting CDS information directly from GTF
+- new function: extract_cds_info_from_gtf()
+- before, the script was using transcript coords from best orf tsv and then converting to genomic coords. this was unnecessary since all of that info is in the gtf.
+- Added sorted() to gene concatenation for deterministic output order
+```{r}
+# compare the outputs
+og = read_tsv("/home/cwp5au/megan/AML_project/LRP2_lite/results/test/all_AML_og.sqanti_protein_classification.tsv")
+new = read_tsv("/home/cwp5au/megan/AML_project/LRP2_lite/results/test/all_AML_new.sqanti_protein_classification.tsv")
+
+og_test = og %>% filter(isoform_id != "PB.44482.4")
+new_test = new %>% filter(isoform_id != "PB.44482.4")
+
+all.equal(og_test, new_test)
+
+og_test
+new_test
+
+rows_differ <- !apply(og == new, 1, all, na.rm = TRUE)
+rows_differ
+
+og[rows_differ, ]
+
+df_old <- og %>% mutate(row_id = row_number())
+df_new <- new %>% mutate(row_id = row_number())
+
+# Anti-join to find differences
+diff_rows <- anti_join(og_test, new_test, by = colnames(og_test))
+
+# Comprehensive comparison function
+check_differences <- function(df1, df2) {
+  cat("=== Dimension Check ===\n")
+  cat("df1:", dim(df1), "\n")
+  cat("df2:", dim(df2), "\n")
+  
+  cat("\n=== Identical Check ===\n")
+  print(identical(df1, df2))
+  
+  cat("\n=== all.equal Check ===\n")
+  print(all.equal(df1, df2))
+  
+  cat("\n=== Column-by-Column Check ===\n")
+  for (col in colnames(df1)) {
+    if (col %in% colnames(df2)) {
+      if (!identical(df1[[col]], df2[[col]])) {
+        cat("Column", col, "DIFFERS\n")
+        
+        # Count differences
+        n_diff <- sum(df1[[col]] != df2[[col]], na.rm = TRUE)
+        cat("  Number of different values:", n_diff, "\n")
+        
+        # Show example
+        diff_idx <- which(df1[[col]] != df2[[col]])[1]
+        if (length(diff_idx) > 0 && !is.na(diff_idx)) {
+          cat("  Example - Row", diff_idx, "\n")
+          cat("    df1:", df1[[col]][diff_idx], "\n")
+          cat("    df2:", df2[[col]][diff_idx], "\n")
+        }
+      }
+    } else {
+      cat("Column", col, "MISSING in df2\n")
+    }
+  }
+}
+
+# Run it
+check_differences(og_test, new_test)
+identical(colnames(og_test), colnames(new_test))
+
+```
+
 Edits to Protein classification script
 - do all collapsing in this module now
 - since sqanti protein re-aligns with gencode, we can get gene name info from here
@@ -3425,6 +3514,72 @@ PROTEIN_CLASS_KEEP="FPM,NPC,NPE"
 min_junctions_after_stop_codon <- as.numeric(0)
 pclass_base_to_keep            <- strsplit(PROTEIN_CLASS_KEEP, ",")[[1]]
 
+```
+
+
+```{r}
+# =============================================================================
+# STEP 5: Reconcile gene ids and gene names
+# =============================================================================
+
+message("\n--- STEP 5: Reconcile gene ids and names ---")
+
+gene_mapping = gencode_gtf %>% distinct(gene_id, gene_name)
+ensg_lookup  = setNames(gene_mapping$gene_name, gene_mapping$gene_id)
+
+# Just do direct assignment - no functions at all
+protein_classifications$tx_gene_name = ensg_lookup[protein_classifications$tx_gene]
+protein_classifications$pr_gene_name = ensg_lookup[protein_classifications$pr_gene]
+
+# For the columns with commas, manually fix them (this is much faster than ifelse)
+has_comma_tx = which(grepl(",", protein_classifications$tx_gene))
+has_comma_pr = which(grepl(",", protein_classifications$pr_gene))
+
+message("Transcripts mapping to multiple genes at tx level: ", length(has_comma_tx))
+message("Transcripts mapping to multiple genes at pr level: ", length(has_comma_pr))
+
+for (i in has_comma_tx) {
+  ensgs = strsplit(protein_classifications$tx_gene[i], ",")[[1]]
+  protein_classifications$tx_gene_name[i] = paste(unique(ensg_lookup[ensgs]), collapse = ",")
+}
+
+for (i in has_comma_pr) {
+  ensgs = strsplit(protein_classifications$pr_gene[i], ",")[[1]]
+  protein_classifications$pr_gene_name[i] = paste(unique(ensg_lookup[ensgs]), collapse = ",")
+}
+
+# Reconciliation of gene ids
+matching = protein_classifications$tx_gene == protein_classifications$pr_gene
+protein_classifications$reconciled_gene_id = protein_classifications$pr_gene  
+protein_classifications$reconciled_gene_name = protein_classifications$pr_gene_name
+
+# Only need to reconcile non-matching rows
+non_matching = which(!matching)
+
+message("Rows that don't match and need reconciliation:", length(non_matching), "\n")
+
+for (i in non_matching) {
+  tx_ids  = strsplit(protein_classifications$tx_gene[i], ",")[[1]]
+  pr_ids  = strsplit(protein_classifications$pr_gene[i], ",")[[1]]
+  
+  tx_name = strsplit(protein_classifications$tx_gene_name[i], ",")[[1]]
+  pr_name = strsplit(protein_classifications$pr_gene_name[i], ",")[[1]]
+  
+  match_id   = intersect(tx_ids, pr_ids)
+  match_name = intersect(tx_name, pr_name)
+  
+  if (length(match_id) > 0) {
+    protein_classifications$reconciled_gene_id[i] = match_id[1]
+  } else {
+    protein_classifications$reconciled_gene_id[i] = pr_ids[1]
+  }
+  
+  if (length(match_name) > 0) {
+    protein_classifications$reconciled_gene_name[i] = match_name[1]
+  } else {
+    protein_classifications$reconciled_gene_name[i] = pr_name[1]
+  }
+}
 ```
 
 
