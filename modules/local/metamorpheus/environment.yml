@@ -1,0 +1,7 @@
+name: metamorpheus
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - conda-forge::metamorpheus=1.0.5

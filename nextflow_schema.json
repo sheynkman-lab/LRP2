@@ -20,7 +20,7 @@
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to comma-separated file containing information about the samples in the experiment.",
-                    "help_text": "You will need to create a design file with information about the BAM files. Required columns: 'sample_name', 'bam', 'bam_id', 'condition', 'replicate'. The 'bam_id' must match the name in the BAM header (e.g., BioSample_1). All BAMs will be merged together at the start of the pipeline.",
+                    "help_text": "You will need to create a design file with information about the sample files. Required columns: 'sample_name', 'sample_path', 'bam_id', 'condition', 'replicate', 'sample_type'. For RNA samples (BAM files), 'bam_id' must match the name in the BAM header (e.g., BioSample_1). For protein samples (MS files), set 'bam_id' to 'none'. All RNA BAMs will be merged together at the start of the pipeline.",
                     "fa_icon": "fas fa-file-csv"
                 },
                 "dataset_name": {
@@ -407,6 +407,35 @@
                 }
             }
         },
+        "proteomics_options": {
+            "title": "Proteomics options",
+            "type": "object",
+            "fa_icon": "fas fa-microscope",
+            "description": "Options for mass spectrometry proteomics analysis.",
+            "properties": {
+                "metamorpheus_config": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to MetaMorpheus task configuration TOML file.",
+                    "help_text": "Configuration file specifying MetaMorpheus search parameters (mass tolerance, modifications, FDR thresholds, etc.).",
+                    "fa_icon": "far fa-file-code"
+                },
+                "msconvert_peak_picking": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Apply peak picking filter during MS file conversion.",
+                    "help_text": "When enabled, applies vendor peak picking algorithm during conversion from raw to mzML format.",
+                    "fa_icon": "fas fa-chart-line"
+                },
+                "gencode_protein_fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to GENCODE reference protein FASTA file.",
+                    "help_text": "Reference protein database for MetaMorpheus searches.",
+                    "fa_icon": "far fa-file-code"
+                }
+            }
+        },
         "generic_options": {
             "title": "Generic options",
             "type": "object",
@@ -532,6 +561,9 @@
         },
         {
             "$ref": "#/$defs/predicted_proteome_options"
+        },
+        {
+            "$ref": "#/$defs/proteomics_options"
         },
         {
             "$ref": "#/$defs/differential_analysis_options"

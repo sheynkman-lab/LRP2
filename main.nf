@@ -39,7 +39,7 @@ include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_lrp2
 workflow SHEYNKMANLAB_LRP2 {
 
     take:
-    samplesheet // channel: samplesheet read in from --input
+    samplesheet         // channel: combined samplesheet with both RNA and protein samples
 
     main:
 

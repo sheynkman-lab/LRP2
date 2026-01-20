@@ -1,0 +1,56 @@
+name: metamorpheus
+description: Search mass spectrometry data against protein database using MetaMorpheus
+keywords:
+  - mass spectrometry
+  - proteomics
+  - database search
+  - peptide identification
+  - metamorpheus
+tools:
+  - metamorpheus:
+      description: A bottom-up proteomics database search software with integrated post-translational modification discovery
+      homepage: https://github.com/smith-chem-wisc/MetaMorpheus
+      documentation: https://github.com/smith-chem-wisc/MetaMorpheus/wiki
+      tool_dev_url: https://github.com/smith-chem-wisc/MetaMorpheus
+      doi: "10.1021/acs.jproteome.7b00873"
+      licence: ["MIT"]
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - mzml_files:
+      type: file
+      description: Mass spectrometry data file(s) in mzML format (single file or list for fractionated samples)
+      pattern: "*.{mzML,mzml}"
+  - database_fasta:
+      type: file
+      description: Protein sequence database in FASTA format
+      pattern: "*.{fasta,fa}"
+  - config_toml:
+      type: file
+      description: MetaMorpheus task configuration file in TOML format
+      pattern: "*.toml"
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+  - psm_table:
+      type: file
+      description: Peptide-spectrum matches (PSMs) table with identification results
+      pattern: "*.psmtsv"
+  - results:
+      type: directory
+      description: Complete MetaMorpheus search results including all output files
+      pattern: "results/**"
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

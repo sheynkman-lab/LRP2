@@ -1,0 +1,43 @@
+name: msconvert_mzml
+description: Convert raw mass spectrometry files to mzML format using ProteoWizard msconvert
+keywords:
+  - mass spectrometry
+  - proteomics
+  - file conversion
+  - mzml
+  - msconvert
+tools:
+  - msconvert:
+      description: ProteoWizard msconvert tool for converting mass spectrometry data formats
+      homepage: http://proteowizard.sourceforge.net/
+      documentation: http://proteowizard.sourceforge.net/tools.shtml
+      tool_dev_url: https://github.com/ProteoWizard/pwiz
+      licence: ["Apache-2.0"]
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - raw_file:
+      type: file
+      description: Raw mass spectrometry data file from instrument
+      pattern: "*.raw"
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+  - mzml:
+      type: file
+      description: Converted mass spectrometry data in mzML format
+      pattern: "*.mzML"
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

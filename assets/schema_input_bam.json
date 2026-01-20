@@ -13,17 +13,17 @@
                 "errorMessage": "Sample name must be provided and cannot contain spaces",
                 "meta": ["id"]
             },
-            "bam": {
+            "sample_path": {
                 "type": "string",
                 "format": "file-path",
                 "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.bam$",
-                "errorMessage": "BAM file must be provided, cannot contain spaces and must have extension '.bam'"
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(bam|raw|mzML|mzml)$",
+                "errorMessage": "Sample file must be provided, cannot contain spaces and must have extension '.bam', '.raw', '.mzML', or '.mzml'"
             },
             "bam_id": {
                 "type": "string",
-                "pattern": "^\\S+$",
-                "errorMessage": "BAM ID must be provided and cannot contain spaces. This should match the name in the BAM header (e.g., BioSample_1)",
+                "pattern": "^(\\S+|none)$",
+                "errorMessage": "BAM ID must be provided for RNA samples and cannot contain spaces. For protein samples, use 'none'. For RNA samples, this should match the name in the BAM header (e.g., BioSample_1)",
                 "meta": ["bam_id"]
             },
             "condition": {
@@ -45,6 +45,6 @@
                 "meta": ["sample_type"]
             }
         },
-        "required": ["sample_name", "bam", "bam_id", "condition", "replicate", "sample_type"]
+        "required": ["sample_name", "sample_path", "bam_id", "condition", "replicate", "sample_type"]
     }
 }

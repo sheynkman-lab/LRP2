@@ -86,16 +86,20 @@ workflow PIPELINE_INITIALISATION {
 
     // Determine input type based on file content
     def input_type = detectInputType(params.input)
+    def rna_channel_data = []
+    def protein_channel_data = []
+    def combined_channel_data = []
 
-    if (input_type == "bam") {
-        // Collect all BAMs from the samplesheet and merge them together: process as a Groovy list first, then create the channel
+    if (input_type == "sample_path") {
         def samplesheet_list = samplesheetToList(params.input, "${projectDir}/assets/schema_input_bam.json")
-        // Expected structure: [meta, bam] where meta contains: id, bam_id, condition, replicate, sample_type
-
-        // Filter to only keep RNA samples (case-insensitive)
+        // Expected structure: [meta, sample_path] where meta contains: id, bam_id, condition, replicate, sample_type
         def rna_samples = samplesheet_list.findAll { row ->
             def sample_type = row[0].containsKey('sample_type') ? row[0].sample_type : 'unknown'
             sample_type.toLowerCase() == 'rna'
+        }
+        def protein_samples = samplesheet_list.findAll { row ->
+            def sample_type = row[0].containsKey('sample_type') ? row[0].sample_type : 'unknown'
+            sample_type.toLowerCase() == 'protein'
         }
 
         // =====================================================================
@@ -105,12 +109,18 @@ workflow PIPELINE_INITIALISATION {
         def rna_count = rna_samples.size()
         def protein_count = total_samples - rna_count
 
-        // Check if we have any RNA samples to process
-        if (rna_count == 0) {
-            error "ERROR: No RNA samples found in samplesheet. At least one RNA sample is required for pipeline processing."
+        if (total_samples == 0) {
+            error "ERROR: No samples found in samplesheet. Please provide at least one sample."
         }
 
-        // Calculate condition statistics (using all samples for comprehensive view)
+        // Warn if no RNA samples (transcriptome/proteome prediction will be skipped)
+        if (rna_count == 0 && protein_count > 0) {
+            log.warn "WARNING: No RNA samples found in samplesheet. Only proteomics modules will run."
+        } else if (rna_count == 0) {
+            error "ERROR: No samples found in samplesheet. Please provide at least one RNA or protein sample."
+        }
+
+        // Calculate condition statistics (using all samples)
         def all_conditions = samplesheet_list.collect { row ->
             row[0].containsKey('condition') ? row[0].condition : 'unknown'
         }
@@ -162,60 +172,80 @@ workflow PIPELINE_INITIALISATION {
         log.info ""
 
         // Extract fields from RNA samples only
-        def bams = rna_samples.collect { row -> row[1] }
-        def sample_names = rna_samples.collect { row -> row[0].id }
+        if (rna_samples.size() > 0) {
+            def sample_paths = rna_samples.collect { row -> row[1] }
+            def sample_names = rna_samples.collect { row -> row[0].id }
 
-        def ids = rna_samples.collect { row ->
-            row[0].containsKey('bam_id') ? row[0].bam_id : row[0].id
+            def ids = rna_samples.collect { row ->
+                row[0].containsKey('bam_id') ? row[0].bam_id : row[0].id
+            }
+
+            def conditions = rna_samples.collect { row ->
+                row[0].containsKey('condition') ? row[0].condition : 'unknown'
+            }
+            def replicates = rna_samples.collect { row ->
+                row[0].containsKey('replicate') ? row[0].replicate : 'unknown'
+            }
+            def sample_types = rna_samples.collect { row ->
+                row[0].containsKey('sample_type') ? row[0].sample_type : 'RNA'
+            }
+
+            // Create a single meta map for the merged dataset
+            def meta = [
+                id: params.dataset_name,
+                sample_names: sample_names,
+                bam_ids: ids,
+                conditions: conditions,
+                replicates: replicates,
+                sample_types: sample_types
+            ]
+
+            rna_channel_data = [[meta, sample_paths]]
         }
 
-        def conditions = rna_samples.collect { row ->
-            row[0].containsKey('condition') ? row[0].condition : 'unknown'
-        }
-        def replicates = rna_samples.collect { row ->
-            row[0].containsKey('replicate') ? row[0].replicate : 'unknown'
-        }
-        def sample_types = rna_samples.collect { row ->
-            row[0].containsKey('sample_type') ? row[0].sample_type : 'RNA'
+        // Populate protein channel data - keep as individual samples with sample_type = 'protein'
+        protein_channel_data = protein_samples.collect { row ->
+            def meta = row[0]
+            if (!meta.containsKey('sample_type')) {
+                meta = meta + [sample_type: 'protein']
+            }
+            return [meta, row[1]]
         }
 
-        // Create a single meta map for the merged dataset
-        def meta = [
-            id: params.dataset_name,
-            sample_names: sample_names,
-            bam_ids: ids,
-            conditions: conditions,
-            replicates: replicates,
-            sample_types: sample_types
-        ]
+        // Combine RNA and protein channel data into a single list
+        if (rna_channel_data) {
+            combined_channel_data.addAll(rna_channel_data)
+        }
+        if (protein_channel_data) {
+            combined_channel_data.addAll(protein_channel_data)
+        }
 
-        channel
-            .of([meta, bams])
-            .set { ch_samplesheet }
     } else {
-        channel
-            .fromList(samplesheetToList(params.input, "${projectDir}/assets/schema_input.json"))
-            .map {
-                meta, fastq_1, fastq_2 ->
-                    if (!fastq_2) {
-                        return [ meta.id, meta + [ single_end:true ], [ fastq_1 ] ]
-                    } else {
-                        return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ] ]
-                    }
+        // For FASTQ input, process as before but store in combined array
+        combined_channel_data = samplesheetToList(params.input, "${projectDir}/assets/schema_input.json")
+            .collect { meta, fastq_1, fastq_2 ->
+                if (!fastq_2) {
+                    return [ meta.id, meta + [ single_end:true ], [ fastq_1 ] ]
+                } else {
+                    return [ meta.id, meta + [ single_end:false ], [ fastq_1, fastq_2 ] ]
+                }
             }
-            .groupTuple()
-            .map { samplesheet ->
-                validateInputSamplesheet(samplesheet)
+            .groupBy { item -> item[0] }
+            .collect { entry ->
+                def sample_id = entry.key
+                def runs = entry.value
+                def metas = runs.collect { run -> run[1] }
+                def fastqs = runs.collect { run -> run[2] }
+                validateInputSamplesheet([sample_id, metas, fastqs])
             }
-            .map {
-                meta, fastqs ->
-                    return [ meta, fastqs.flatten() ]
+            .collect { meta, fastqs ->
+                return [ meta, fastqs.flatten() ]
             }
-            .set { ch_samplesheet }
+        // For FastQ input, all samples are RNA
     }
 
     emit:
-    samplesheet = ch_samplesheet
+    samplesheet = combined_channel_data.isEmpty() ? channel.empty() : channel.fromList(combined_channel_data)
     versions    = ch_versions
 }
 
@@ -295,23 +325,18 @@ def validateInputSamplesheet(input) {
 }
 
 //
-// Note: BAM samplesheet validation is now minimal since all BAMs are merged together
-// The bam_id field must match the name in the BAM header for count matrix generation
-//
-
-//
 // Detect input type based on samplesheet headers
 //
 def detectInputType(input_file) {
     def file = new File(input_file)
     def firstLine = file.readLines()[0]
 
-    if (firstLine.contains("bam") && firstLine.contains("condition")) {
-        return "bam"
+    if (firstLine.contains("sample_path") && firstLine.contains("condition")) {
+        return "sample_path"
     } else if (firstLine.contains("fastq")) {
         return "fastq"
     } else {
-        error("Could not determine input type from samplesheet headers. Expected either 'bam' or 'fastq' columns.")
+        error("Could not determine input type from samplesheet headers. Expected either 'sample_path' or 'fastq' columns.")
     }
 }
 //
