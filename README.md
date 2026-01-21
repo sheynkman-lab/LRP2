@@ -4,17 +4,18 @@
 
 ## Introduction
 
-**LRP2_Lite** is a bioinformatics pipeline for comprehensive long-read proteogenomics analysis of PacBio Iso-Seq data. It takes full-length non-chimeric (FLNC) BAM files as input, and performs isoform discovery, quality control, and protein prediction, outputting high-confidence proteomes and detailed classification reports.
+**LRP2_Lite** is a bioinformatics pipeline for comprehensive long-read proteogenomics analysis of PacBio Iso-Seq data and mass spectrometry proteomics data. It takes full-length non-chimeric (FLNC) BAM files and/or raw MS files as input, performing isoform discovery, quality control, protein prediction, and peptide-spectrum matching, outputting high-confidence proteomes and detailed classification reports.
 
-The pipeline combines state-of-the-art tools for long-read RNA sequencing analysis with custom filtering and classification scripts following best practices to identify novel protein isoforms from PacBio data.
+The pipeline combines state-of-the-art tools for long-read RNA sequencing analysis and mass spectrometry proteomics with custom filtering and classification scripts following best practices to identify novel protein isoforms from PacBio data and validate them with experimental proteomics evidence.
 
 ## Pipeline Summary
 
-The LRP2_Lite pipeline consists of four major stages:
+The LRP2_Lite pipeline consists of five major stages:
 
 ### 1. PacBio Iso-Seq Processing (`01_pacbio_isoseq`)
-- Align FLNC BAM files to reference genome in parallel (**pbmm2**)
-- Merge alignments per sample (**pbtk pbmerge**)
+- Merge FLNC BAM files per sample (**pbtk pbmerge**)
+- Cluster merged reads into consensus isoforms (**isoseq cluster**)
+- Align clustered consensus isoforms to reference genome (**pbmm2**)
 - Collapse redundant isoforms (**isoseq collapse**)
 
 ### 2. Transcript Quality Control and Filtering (`02_transcriptome`)
@@ -44,14 +45,26 @@ The LRP2_Lite pipeline consists of four major stages:
   - Differential transcript usage (DTU) with DRIMSeq
   - Differential ORF usage (DPU) with DRIMSeq
 
-> **Note**: Differential usage analyses (DTU/DPU with DRIMSeq) require biological replicates. Datasets without replicates may lead to unexpected results with the pipeline currently. 
+> **Note**: Differential usage analyses (DTU/DPU with DRIMSeq) require biological replicates. Datasets without replicates may lead to unexpected results with the pipeline currently.
+
+### 5. Proteomics Analysis (`05_proteomics`) *(Optional)*
+- Convert raw MS data to mzML format (**msconvert**)
+  - Supports .raw mass spectrometry files
+  - Applies peak picking for centroid data
+- Perform peptide-spectrum matching (**MetaMorpheus**):
+  - Supports database search against predicted or reference proteome
+  - Generates peptide-spectrum match (PSM) tables
+  - Outputs comprehensive protein search results and statistics
+
+> **Note**: The PROTEOMICS subworkflow can only run when protein samples (sample_type='protein') are provided in the samplesheet. It will search against the predicted proteome from Stage 3 if RNA samples were processed, and otherwise use a provided reference protein database via `--gencode_protein_fasta`. 
 
 ### Key Features:
 - **Full isoform resolution**: Leverages PacBio long reads for complete transcript characterization
 - **Quality-based filtering**: Multi-stage artifact removal and quality control
 - **Protein-level analysis**: ORF prediction and protein classification
-- **Reference-based annotation**: Integration with GENCODE annotations
-- **Species support**: Human and mouse genomes (via iGenomes and GENCODE)
+- **Proteomics integration**: Mass spectrometry protein search and analysis with MetaMorpheus
+- **Multi-omics support**: Combined, integrated RNA-level and protein-level analysis
+- **Species support**: Human and mouse genomes (via iGenomes)
 - **Reproducible**: Fully containerized with Docker/Singularity support
 
 ## Usage
@@ -64,16 +77,16 @@ First, prepare a samplesheet with your input data that looks as follows:
 **samplesheet.csv:**
 
 ```csv
-sample_name,bam,condition,replicate,sample_type
+sample_name,sample_path,condition,replicate,sample_type
 control_chr22,/path/to/sample_data/230801_pacbio_rbfox2_control_chr22.flnc.bam,control,rep1,RNA
 treatment_chr22,/path/to/sample_data/230801_pacbio_rbfox2_RB-G5_chr22.flnc.bam,treatment,rep1,RNA
 ```
 
-Each row represents a PacBio Iso-Seq FLNC (Full-Length Non-Chimeric) BAM file. The columns are:
+Each row represents a PacBio Iso-Seq FLNC (Full-Length Non-Chimeric) BAM file, OR a Mass Spectrometry protein .raw or .mzML file. The columns are:
 
 **Required:**
 - `sample_name`: Unique sample identifier (no spaces)
-- `bam`: Absolute path to the FLNC BAM file
+- `sample_path`: Absolute path to the sample (*.bam if RNA, *.raw or .mzML if protein)
 - `sanple_type`: Data type of the sample, which may be either 'RNA' or 'protein'
 
 **Optional (required for differential analysis):**
@@ -187,6 +200,13 @@ The pipeline supports multiple execution profiles:
 - `--min_samples_per_group`: Minimum samples per group for leafcutter (default: `1`)
 - `--min_usage_ratio`: Minimum junction usage ratio for filtering (default: `0.01`)
 
+**Proteomics Analysis (Optional):**
+- `--gencode_protein_fasta`: Path to reference protein database FASTA (required for protein-only analysis without RNA samples)
+- `--metamorpheus_config`: Path to MetaMorpheus TOML configuration file (default: uses built-in ``sample_data/SearchTask.toml``)
+- `--msconvert_peak_picking`: Enable peak picking during mzML conversion (default: `true`)
+
+> **Note**: When both RNA and protein samples are provided, the pipeline automatically uses the predicted proteome from Stage 3 as the search database. For protein-only analysis (no RNA samples), you must provide `--gencode_protein_fasta`.
+
 For a complete list of parameters, run:
 
 ```bash
@@ -241,8 +261,8 @@ The pipeline generates comprehensive outputs organized in the following director
 <outdir>/
 ├── S1_PACBIO_ISOSEQ/                    # Stage 1: Iso-Seq processing results
 │   ├── M1_ISOSEQ_MERGE/                 # Merged FLNC BAM files
-│   ├── M2_ISOSEQ_CLUSTER/               # Clustered consensus reads
-│   ├── M3_ISOSEQ_ALIGN/                 # Aligned consensus isoforms
+│   ├── M2_ISOSEQ_CLUSTER/               # Clustered consensus isoforms
+│   ├── M3_ISOSEQ_ALIGN/                 # Aligned clustered isoforms
 │   └── M4_ISOSEQ_COLLAPSE/              # Collapsed isoform GFF files
 ├── S2_TRANSCRIPTOME/                    # Stage 2: Transcript QC and filtering
 │   ├── M1_SQANTI_QC/                    # SQANTI3 classification reports
@@ -275,6 +295,12 @@ The pipeline generates comprehensive outputs organized in the following director
 │       │   └── *_DTU_transcript_DRIMSeq_summary.txt
 │       └── differential_ORF_usage/
 │           └── *_DU_ORF_DRIMSeq_summary.txt
+├── S5_PROTEOMICS/                       # Stage 5: Proteomics analysis (optional)
+│   ├── M1_MSCONVERT_MZML/               # .raw -> .mzML file conversion
+│   │   └── *.mzML
+│   └── M2_METAMORPHEUS/                 # MetaMorpheus search results
+│       ├── *.psmtsv                     # Peptide-spectrum match tables
+│       └── results/                     # Detailed search results
 └── pipeline_info/                       # Execution reports and logs
     ├── execution_report.html
     ├── execution_timeline.html
@@ -295,6 +321,12 @@ The pipeline generates comprehensive outputs organized in the following director
 - CDS annotations (GTF)
 - Protein-to-transcript mappings
 - High-confidence proteome sets
+
+**Proteomics (if protein samples provided):**
+- Converted mzML files from raw MS data
+- Peptide-spectrum match (PSM) tables
+- MetaMorpheus search results and statistics
+- Identified peptides and proteins
 
 **Quality Control:**
 - SQANTI3 QC reports and plots
