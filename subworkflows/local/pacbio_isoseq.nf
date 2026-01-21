@@ -3,10 +3,10 @@
     IMPORT MODULES / SUBWORKFLOWS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { PBTK_PBMERGE as ISOSEQ_MERGE_ALIGNED    } from '../../modules/nf-core/pbtk/pbmerge/main'
-include { PBTK_PBMERGE as ISOSEQ_MERGE_FLNC } from '../../modules/nf-core/pbtk/pbmerge/main'
-include { ISOSEQ_ALIGN                          } from '../../modules/local/isoseq_align/main'
-include { ISOSEQ_COLLAPSE                       } from '../../modules/local/isoseq_collapse/main'
+include { PBTK_PBMERGE as ISOSEQ_MERGE      } from '../../modules/nf-core/pbtk/pbmerge/main'
+include { ISOSEQ_CLUSTER      } from '../../modules/nf-core/isoseq/cluster/main'
+include { ISOSEQ_ALIGN        } from '../../modules/local/isoseq_align/main'
+include { ISOSEQ_COLLAPSE     } from '../../modules/local/isoseq_collapse/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -22,93 +22,66 @@ workflow PACBIO_ISOSEQ {
     ch_versions = channel.empty()
 
     //
-    // Flatten individual FLNC BAMs for parallel alignment with unique meta IDs
-    // [meta, [bam1, bam2]] -> [meta_sample1, bam1], [meta_sample2, bam2]
-    // note: each gets unique ID from sample_names array to avoid filename collisions
+    // MODULE: Merge all FLNC BAMs per sample
     //
-    ch_individual_flnc = ch_samples
-        .flatMap { meta, bams ->
-            // Create individual [meta, bam] items with unique IDs from sample_names array
-            bams.withIndex().collect { bam, index ->
-                def individual_meta = [
-                    id: meta.sample_names[index],
-                    dataset_id: meta.id,
-                    sample_names: meta.sample_names,
-                    bam_ids: meta.bam_ids,
-                    conditions: meta.conditions,
-                    replicates: meta.replicates,
-                    sample_types: meta.sample_types
-                ]
-                [individual_meta, bam]
-            }
-        }
+    ISOSEQ_MERGE (
+        ch_samples
+    )
+    ch_versions = ch_versions.mix(ISOSEQ_MERGE.out.versions)
 
     //
-    // MODULE 1: Align each individual FLNC BAM to reference genome in parallel
+    // MODULE: Cluster merged FLNC reads into consensus isoforms
+    //
+    ISOSEQ_CLUSTER (
+        ISOSEQ_MERGE.out.bam
+    )
+    ch_versions = ch_versions.mix(ISOSEQ_CLUSTER.out.versions)
+
+    //
+    // MODULE: Align clustered consensus isoforms to reference genome
     //
     ISOSEQ_ALIGN (
-        ch_individual_flnc,
+        ISOSEQ_CLUSTER.out.bam,
         reference_fasta
     )
     ch_versions = ch_versions.mix(ISOSEQ_ALIGN.out.versions)
 
     //
-    // Collect aligned BAMs back together by dataset_id for merging
-    // [meta_sample1, aligned1], [meta_sample2, aligned2] -> [dataset_id, [aligned1, aligned2], meta_for_dataset]
-    //
-    ch_aligned_grouped = ISOSEQ_ALIGN.out.bam
-        .map { meta, bam ->
-            [meta.dataset_id, bam, meta]  // [dataset_id, bam, meta]
-        }
-        .groupTuple(by: 0)  // group by dataset_id
-        .map { dataset_id, bams, metas ->
-            // Recreate the dataset-level meta using info from first sample
-            def dataset_meta = [
-                id: dataset_id,  // e.g., "merged"
-                sample_names: metas[0].sample_names,
-                bam_ids: metas[0].bam_ids,
-                conditions: metas[0].conditions,
-                replicates: metas[0].replicates,
-                sample_types: metas[0].sample_types
-            ]
-            [dataset_meta, bams]  // [meta, [aligned1, aligned2, ...]]
-        }
-
-    //
-    // MODULE 2: Merge aligned BAMs
-    //
-    ISOSEQ_MERGE_ALIGNED (
-        ch_aligned_grouped
-    )
-    ch_versions = ch_versions.mix(ISOSEQ_MERGE_ALIGNED.out.versions)
-
-    //
-    // Merge original FLNC BAMs (needed internally for isoseq collapse flnc_count.txt output file to ave correct FLNC counts)
-    //
-    ISOSEQ_MERGE_FLNC (
-        ch_samples
-    )
-    ch_versions = ch_versions.mix(ISOSEQ_MERGE_FLNC.out.versions)
-
-    //
-    // MODULE 3: Collapse redundant isoforms based on merged alignment
+    // MODULE: Collapse redundant isoforms based on alignment
     //
     ISOSEQ_COLLAPSE (
-        ISOSEQ_MERGE_ALIGNED.out.bam
-            .join(ISOSEQ_MERGE_FLNC.out.bam, by: 0)
-            .join(ISOSEQ_MERGE_ALIGNED.out.pbi, by: 0)
-            .join(ISOSEQ_MERGE_FLNC.out.pbi, by: 0)
-            .map { meta, aligned_bam, flnc_bam, aligned_pbi, flnc_pbi ->
-                [meta, aligned_bam, flnc_bam, aligned_pbi, flnc_pbi] }
+        ISOSEQ_ALIGN.out.bam
+            .join(ISOSEQ_MERGE.out.bam, by: 0)
+            .join(ISOSEQ_MERGE.out.pbi, by: 0)
+            .join(ISOSEQ_CLUSTER.out.pbi, by: 0)
+            .map { meta, aligned_bam, flnc_bam, flnc_pbi, clustered_pbi ->
+                [meta, aligned_bam, flnc_bam, clustered_pbi, flnc_pbi] }
     )
     ch_versions = ch_versions.mix(ISOSEQ_COLLAPSE.out.versions)
 
     emit:
-    // ISOSEQ_MERGE_ALIGNED outputs (M2)
-    merged_aligned_bam = ISOSEQ_MERGE_ALIGNED.out.bam         // [meta, *.bam] - merged aligned BAMs
-    merged_aligned_pbi = ISOSEQ_MERGE_ALIGNED.out.pbi         // [meta, *.pbi]
+    // ISOSEQ_MERGE outputs
+    merged_bam       = ISOSEQ_MERGE.out.bam                 // [meta, *.bam]
+    merged_pbi       = ISOSEQ_MERGE.out.pbi                 // [meta, *.pbi]
 
-    // ISOSEQ_COLLAPSE outputs (M3)
+    // ISOSEQ_CLUSTER outputs
+    clustered_bam    = ISOSEQ_CLUSTER.out.bam               // [meta, *.transcripts.bam]
+    clustered_pbi    = ISOSEQ_CLUSTER.out.pbi               // [meta, *.transcripts.bam.pbi]
+    cluster          = ISOSEQ_CLUSTER.out.cluster           // [meta, *.transcripts.cluster]
+    cluster_report   = ISOSEQ_CLUSTER.out.cluster_report    // [meta, *.transcripts.cluster_report.csv]
+    transcriptset    = ISOSEQ_CLUSTER.out.transcriptset     // [meta, *.transcripts.transcriptset.xml]
+    hq_bam           = ISOSEQ_CLUSTER.out.hq_bam            // [meta, *.transcripts.hq.bam]
+    hq_pbi           = ISOSEQ_CLUSTER.out.hq_pbi            // [meta, *.transcripts.hq.bam.pbi]
+    hq_fasta         = ISOSEQ_CLUSTER.out.hq_fasta          // [meta, *.transcripts.hq.fasta.gz]
+    lq_bam           = ISOSEQ_CLUSTER.out.lq_bam            // [meta, *.transcripts.lq.bam]
+    lq_pbi           = ISOSEQ_CLUSTER.out.lq_pbi            // [meta, *.transcripts.lq.bam.pbi]
+    lq_fasta         = ISOSEQ_CLUSTER.out.lq_fasta          // [meta, *.transcripts.lq.fasta.gz]
+
+    // ISOSEQ_ALIGN outputs
+    aligned_bam      = ISOSEQ_ALIGN.out.bam                 // [meta, *.aligned.bam]
+    aligned_bai      = ISOSEQ_ALIGN.out.bai                 // [meta, *.aligned.bam.bai]
+
+    // ISOSEQ_COLLAPSE outputs
     collapsed_gff    = ISOSEQ_COLLAPSE.out.gff              // [meta, *.collapsed.gff]
     collapsed_fasta  = ISOSEQ_COLLAPSE.out.fasta            // [meta, *.collapsed.fasta]
     collapsed_abundance = ISOSEQ_COLLAPSE.out.abundance     // [meta, *.collapsed.abundance.txt]
