@@ -312,7 +312,7 @@ all_orfs       = mapped_orfs_classified
 plausible_orfs = mapped_orfs_classified %>% filter(orf_quality == "Clear Best ORF" | orf_quality == "Plausible ORF")
 best_orfs      = mapped_orfs_classified %>% filter(orf_quality == "Clear Best ORF")
 
-write_tsv(best_orfs, file.path(cpat_dir, paste0(basename, "_best_orfs_mapped.tsv")))
+#write_tsv(best_orfs, file.path(cpat_dir, paste0(basename, "_best_orfs_mapped.tsv")))
 write_tsv(all_orfs, file.path(cpat_dir, paste0(basename, "_all_orfs_mapped.tsv")))
 
 # === STEP 5: Write gtf for best ORFs, including CDS and exon types, no collapsing here ===
@@ -359,5 +359,5 @@ message(paste0("- After further filtering, a 'Clear Best ORF' was identified for
 
 message("\n=== CPAT FILTER OUTPUT FILES ===")
 message(paste0("All CPAT ORFs with Quality Metrics: ", basename, "_all_cpat_orfs_mapped.tsv"))
-message(paste0("The single best plausible ORF per transcript: ", basename, "_best_cpat_orfs_mapped.tsv"))
+#message(paste0("The single best plausible ORF per transcript: ", basename, "_best_cpat_orfs_mapped.tsv"))
 message(paste0("GTF contains exon type for all transcripts and CDS type for transcripts with a best plausible ORF: ", basename, "_corrected_filtered_CDS.gtf"))

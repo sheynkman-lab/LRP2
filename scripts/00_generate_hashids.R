@@ -2,9 +2,10 @@
 
 #' Generate hashids for all transcripts from a gtf
 #' 
-#' - Convert gtf to psl format
+#' - Convert gtf to psl format, 1-based to 0-based coordinate system
 #' - Requires gene_id and transcript_id column in gtf/psl
-#' - Mono-exonic transcripts get NA value 
+#' - Hash id is calculated from psl coords (0-based)
+#' - Mono-exonic transcripts do not have junction chain coords, so these are handled differently 
 #' - Concatenate chr and strand to hashid
 #'
 #' Outputs mapping file with gene_id, transcript_id, and hash_id.
@@ -29,7 +30,7 @@ basename <- Sys.getenv("OUTPUT_BASE_NAME")
 dir      <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti_transcript")
 gtf      <- paste0(dir, "/", basename, "_corrected.gtf")
 
-stopifnot("File not found" = file.exists(sqanti_gtf))
+stopifnot("File not found" = file.exists(gtf))
 
 # =============================================================================
 # Helper functions
@@ -49,7 +50,7 @@ convert_gtf_to_psl = function(gtf_input_path, psl_output_file){
     dplyr::select(seqnames, type, start, end, strand, transcript_id, gene_id)
   
   colnames(gtf_df) = c("chrom", "ty", "start", "end", "strand", "transcript_id", "gene_id")
-  gtf_df$start     = gtf_df$start-1
+  gtf_df$start     = gtf_df$start-1 # converts from 1-based to 0-based
   
   # Filter for exons only
   exons_df = gtf_df %>% 
