@@ -22,20 +22,20 @@ workflow PROTEOMICS {
     ch_versions = channel.empty()
 
     //
-    // MODULE: Convert any protein sample .raw files to .mzML format if needed
+    // MODULE: Convert any protein sample files to .mzML format if needed
     //
-    // Separate raw files from mzML files
+    // Separate files that are already mzML from those that need conversion (note: .raw if thermo fisher, may be other extensions as well depending on vendor)
     ch_ms_files
         .branch { meta, file ->
-            raw: file.name.endsWith('.raw')
-                return [meta, file]
             mzml: file.name.endsWith('.mzML') || file.name.endsWith('.mzml')
+                return [meta, file]
+            needs_conversion: true
                 return [meta, file]
         }
         .set { ch_ms_branched }
 
     MSCONVERT_MZML(
-        ch_ms_branched.raw
+        ch_ms_branched.needs_conversion
     )
     ch_versions = ch_versions.mix(MSCONVERT_MZML.out.versions)
 
