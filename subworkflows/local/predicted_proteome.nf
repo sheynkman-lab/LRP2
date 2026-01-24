@@ -44,8 +44,8 @@ workflow PREDICTED_PROTEOME {
         CPAT_ORF.out.orf_prob
             .join(CPAT_ORF.out.orf_seqs, by: 0)
             .join(ch_samples, by: 0)
-            .map { meta, orf_prob, orf_seqs, fasta, gtf, classification, hashids ->
-                [meta, orf_prob, orf_seqs, fasta, gtf, classification] },
+            .map { meta, orf_prob, orf_seqs, fasta, gtf, _classification, hashids ->
+                [meta, orf_prob, orf_seqs, fasta, gtf] },
         reference_gtf,
         filter_cpat_script
     )
@@ -90,7 +90,6 @@ workflow PREDICTED_PROTEOME {
     all_orfs_mapped             = FILTER_CPAT.out.all_orfs_mapped                           // [meta, *_all_orfs_mapped.tsv]
     best_orfs_mapped            = FILTER_CPAT.out.best_orfs_mapped                          // [meta, *_best_orfs_mapped.tsv]
     cds_gtf                     = FILTER_CPAT.out.cds_gtf                                   // [meta, *_CDS.gtf]
-    best_orfs_fasta             = FILTER_CPAT.out.best_orfs_fasta                           // [meta, orf_calling/*_best_orfs_collapsed.fa]
 
     // SQANTI_PROTEIN outputs
     protein_classification      = SQANTI_PROTEIN_CLASSIFICATION.out.protein_classification  // [meta, *.sqanti_protein_classification.tsv]

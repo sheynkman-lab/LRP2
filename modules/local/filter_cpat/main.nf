@@ -6,7 +6,7 @@ process FILTER_CPAT {
     container "docker://docker.io/jtllab/lrp2-lite:latest"
 
     input:
-    tuple val(meta), path(orf_prob), path(orf_seqs), path(corrected_fasta), path(corrected_gtf), path(classification_filtered)
+    tuple val(meta), path(orf_prob), path(orf_seqs), path(corrected_fasta), path(corrected_gtf)
     path reference_gtf
     path filter_cpat_script
 
@@ -14,7 +14,6 @@ process FILTER_CPAT {
     tuple val(meta), path("*_predicted_proteome_all_orfs_mapped.tsv"), emit: all_orfs_mapped
     tuple val(meta), path("*_predicted_proteome_best_orfs_mapped.tsv"), emit: best_orfs_mapped
     tuple val(meta), path("*_predicted_proteome_corrected_filtered_CDS.gtf"), emit: cds_gtf
-    tuple val(meta), path("orf_calling/*_best_orfs_collapsed.fa"), emit: best_orfs_fasta
     path "versions.yml", emit: versions
 
     when:
@@ -34,7 +33,6 @@ process FILTER_CPAT {
     ln -sf \$(pwd)/$orf_seqs orf_calling/${prefix}_cpat.ORF_seqs.fa
     ln -sf \$(pwd)/$corrected_fasta sqanti_transcript/${prefix}_corrected_filtered.fasta
     ln -sf \$(pwd)/$corrected_gtf sqanti_transcript/${prefix}_corrected_filtered.gtf
-    ln -sf \$(pwd)/$classification_filtered sqanti_transcript/${prefix}_classification_filtered.txt
 
     # Export environment variables expected by the R script
     export OUTPUT_DIR=\$(pwd)
@@ -62,11 +60,9 @@ process FILTER_CPAT {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    mkdir -p orf_calling
     touch ${prefix}_predicted_proteome_all_orfs_mapped.tsv
     touch ${prefix}_predicted_proteome_best_orfs_mapped.tsv
     touch ${prefix}_predicted_proteome_corrected_filtered_CDS.gtf
-    touch orf_calling/${prefix}_best_orfs_collapsed.fa
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
