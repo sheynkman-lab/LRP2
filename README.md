@@ -177,7 +177,7 @@ The pipeline supports multiple execution profiles:
 - `--protein_coding_filter`: Keep only protein-coding genes (default: `true`)
 - `--internal_priming_filter`: Remove internal priming artifacts (default: `true`)
 - `--template_switching_filter`: Remove template switching artifacts (default: `true`)
-- `--structure_filter`: Filtering level - `strict` or `all` (default: `strict`)
+- `--transcript_class_keep`: Comma-separated transcript structural categories to retain - FSM, ISM, NIC, NNC, or 'ALL' (default: `FSM,NIC,NNC`)
 
 **Protein Prediction:**
 - `--species`: Species for CPAT models - `human` or `mouse` (default: `human`)

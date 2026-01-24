@@ -39,7 +39,7 @@ process FILTER_TRANSCRIPTOME {
     def internal_priming_filter = task.ext.internal_priming_filter ?: params.internal_priming_filter
     def template_switching_filter = task.ext.template_switching_filter ?: params.template_switching_filter
     def percent_polya_threshold = task.ext.percent_polya_threshold ?: params.percent_polya_threshold
-    def structure_filter = task.ext.structure_filter ?: params.structure_filter
+    def transcript_class_keep = task.ext.transcript_class_keep ?: params.transcript_class_keep
 
     """
     # Link the SQANTI_QC output files to the working directory with expected naming
@@ -58,7 +58,7 @@ process FILTER_TRANSCRIPTOME {
     export INTERNAL_PRIMING_FILTER=$internal_priming_filter
     export TEMPLATE_SWITCHING_FILTER=$template_switching_filter
     export PERCENT_POLYA_THRESHOLD=$percent_polya_threshold
-    export STRUCTURE_FILTER=$structure_filter
+    export TRANSCRIPT_CLASS_KEEP=$transcript_class_keep
 
     # Ensure R can find packages in the container
     export R_LIBS_USER=""

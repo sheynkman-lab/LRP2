@@ -57,7 +57,7 @@ export PROTEIN_CODING_FILTER=TRUE
 export INTERNAL_PRIMING_FILTER=TRUE
 export TEMPLATE_SWITCHING_FILTER=TRUE
 export PERCENT_POLYA_THRESHOLD=60
-export STRUCTURE_FILTER="strict"
+export TRANSCRIPT_CLASS_KEEP="FSM,NIC,NNC"
 
 # =============================================================================
 # Module: 03_orf_calling

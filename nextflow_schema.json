@@ -241,12 +241,11 @@
                     "description": "Threshold for polyA percentage downstream of TTS.",
                     "fa_icon": "fas fa-percent"
                 },
-                "structure_filter": {
+                "transcript_class_keep": {
                     "type": "string",
-                    "default": "strict",
-                    "description": "Structural category filter level.",
-                    "fa_icon": "fas fa-filter",
-                    "enum": ["strict", "all"]
+                    "default": "FSM,NIC,NNC",
+                    "description": "Comma-separated transcript structural categories to retain (FSM, ISM, NIC, NNC, or 'ALL').",
+                    "fa_icon": "fas fa-filter"
                 }
             }
         },
