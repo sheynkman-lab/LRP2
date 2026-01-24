@@ -3,15 +3,18 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { PACBIO_ISOSEQ          } from '../subworkflows/local/pacbio_isoseq'
-include { TRANSCRIPTOME          } from '../subworkflows/local/transcriptome'
-include { PREDICTED_PROTEOME     } from '../subworkflows/local/predicted_proteome'
-include { PROTEOMICS             } from '../subworkflows/local/proteomics'
-include { MULTISAMPLE_ANALYSIS   } from '../subworkflows/local/multisample_analysis'
-include { paramsSummaryMap       } from 'plugin/nf-schema'
-include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
-include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
-include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_lrp2_pipeline'
+include { GUNZIP as GUNZIP_FASTA         } from '../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_GTF           } from '../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_GENCODE_FASTA } from '../modules/nf-core/gunzip/main'
+include { PACBIO_ISOSEQ                  } from '../subworkflows/local/pacbio_isoseq'
+include { TRANSCRIPTOME                  } from '../subworkflows/local/transcriptome'
+include { PREDICTED_PROTEOME             } from '../subworkflows/local/predicted_proteome'
+include { PROTEOMICS                     } from '../subworkflows/local/proteomics'
+include { MULTISAMPLE_ANALYSIS           } from '../subworkflows/local/multisample_analysis'
+include { paramsSummaryMap               } from 'plugin/nf-schema'
+include { paramsSummaryMultiqc           } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { softwareVersionsToYAML         } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { methodsDescriptionText         } from '../subworkflows/local/utils_nfcore_lrp2_pipeline'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -27,6 +30,44 @@ workflow LRP2 {
     main:
 
     ch_versions = channel.empty()
+
+    //
+    // Decompress reference files if they are gzipped (e.g. GENCODE files gzipped by default)
+    //
+    def fasta_file = params.fasta ? file(params.fasta) : null
+    def is_fasta_gzipped = fasta_file && fasta_file.name.endsWith('.gz')
+
+    if (is_fasta_gzipped) {
+        ch_fasta_input = channel.of([[ id: 'genome_fasta' ], fasta_file])
+        GUNZIP_FASTA(ch_fasta_input)
+        ch_fasta = GUNZIP_FASTA.out.gunzip.map { _meta, file -> file }
+    } else {
+        ch_fasta = fasta_file ? channel.value(fasta_file) : channel.empty()
+    }
+
+    // Handle GTF decompression
+    def gtf_file = params.gencode_gtf ? file(params.gencode_gtf) : null
+    def is_gtf_gzipped = gtf_file && gtf_file.name.endsWith('.gz')
+
+    if (is_gtf_gzipped) {
+        ch_gtf_input = channel.of([[ id: 'gencode_gtf' ], gtf_file])
+        GUNZIP_GTF(ch_gtf_input)
+        ch_gtf = GUNZIP_GTF.out.gunzip.map { _meta, file -> file }
+    } else {
+        ch_gtf = gtf_file ? channel.value(gtf_file) : channel.empty()
+    }
+
+    // Handle gencode_fasta decompression (used by TRANSCRIPTOME)
+    def gencode_fasta_file = params.gencode_fasta ? file(params.gencode_fasta) : null
+    def is_gencode_fasta_gzipped = gencode_fasta_file && gencode_fasta_file.name.endsWith('.gz')
+
+    if (is_gencode_fasta_gzipped) {
+        ch_gencode_fasta_input = channel.of([[ id: 'gencode_fasta' ], gencode_fasta_file])
+        GUNZIP_GENCODE_FASTA(ch_gencode_fasta_input)
+        ch_gencode_fasta = GUNZIP_GENCODE_FASTA.out.gunzip.map { _meta, file -> file }
+    } else {
+        ch_gencode_fasta = gencode_fasta_file ? channel.value(gencode_fasta_file) : channel.empty()
+    }
 
     //
     // Separate RNA and protein samples based on sample_type metadata
@@ -78,7 +119,7 @@ workflow LRP2 {
     //
     PACBIO_ISOSEQ (
         ch_rna_samples_filtered,
-        params.fasta
+        ch_fasta
     )
     ch_versions = ch_versions.mix(PACBIO_ISOSEQ.out.versions.ifEmpty([]))
 
@@ -93,8 +134,8 @@ workflow LRP2 {
             .join(PACBIO_ISOSEQ.out.collapsed_count, by: 0)
             .map { meta, gff, count ->
                 [meta, gff, count] },
-        file(params.gencode_gtf),
-        file(params.gencode_fasta),
+        ch_gtf,
+        ch_gencode_fasta,
         file(sample_metadata_file),
         file(params.filter_script),
         file(params.hashlib_script)
@@ -117,7 +158,7 @@ workflow LRP2 {
             .join(TRANSCRIPTOME.out.hashids_filtered, by: 0)
             .map { meta, fasta, gtf, classification, hashids ->
                 [meta, fasta, gtf, classification, hashids] },
-        file(params.gencode_gtf),
+        ch_gtf,
         hexamer_file,
         logit_model,
         file(params.filter_cpat_script),
