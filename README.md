@@ -1,22 +1,19 @@
-<picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/LRP2-Workflow.darkmode.drawio.png">
-    <source media="(prefers-color-scheme: light)" srcset="assets/LRP2-Workflow.lightmode.drawio.png">
-    <img alt="LRP2 Workflow Diagram" src="assets/LRP2-Workflow.lightmode.drawio.png">
-</picture>
+![LRP2 Logo](assets/LRP2-Workflow.lightmode.drawio.png#gh-light-mode-only)
+![LRP2 Logo](assets/LRP2-Workflow.darkmode.drawio.png#gh-dark-mode-only)
 
-# LRP2-Lite: Long-Read Proteogenomics Lite Pipeline
+# LRP2: Long-Read Proteogenomics Pipeline
 
 [![Nextflow](https://img.shields.io/badge/nextflow%20DSL2-%E2%89%A524.04.2-23aa62.svg)](https://www.nextflow.io/) [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/) [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/) [![run with conda](https://img.shields.io/badge/run%20with-conda-43b02a.svg?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 
 ## Introduction
 
-**LRP2_Lite** is a bioinformatics pipeline for comprehensive long-read proteogenomics analysis of PacBio Iso-Seq data and mass spectrometry proteomics data. It takes full-length non-chimeric (FLNC) BAM files and/or raw MS files as input, performing isoform discovery, quality control, protein prediction, and peptide-spectrum matching, outputting high-confidence proteomes and detailed classification reports.
+**LRP2** is a bioinformatics pipeline for comprehensive long-read proteogenomics analysis of PacBio Iso-Seq data and mass spectrometry proteomics data. It takes full-length non-chimeric (FLNC) BAM files and/or raw MS files as input, performing isoform discovery, quality control, protein prediction, and peptide-spectrum matching, outputting high-confidence proteomes and detailed classification reports.
 
 The pipeline combines state-of-the-art tools for long-read RNA sequencing analysis and mass spectrometry proteomics with custom filtering and classification scripts following best practices to identify novel protein isoforms from PacBio data and validate them with experimental proteomics evidence.
 
 ## Pipeline Summary
 
-The LRP2_Lite pipeline consists of five major stages:
+The LRP2 pipeline consists of five major stages:
 
 ### 1. PacBio Iso-Seq Processing (`01_pacbio_isoseq`)
 - Merge FLNC BAM files per sample (**pbtk pbmerge**)
@@ -26,6 +23,9 @@ The LRP2_Lite pipeline consists of five major stages:
 
 ### 2. Transcript Quality Control and Filtering (`02_transcriptome`)
 - Perform comprehensive quality control and classification (**sqanti_qc**)
+- Generate unique hash identifiers for transcripts (**generate_hashids**):
+  - Create hash IDs from junction chain coordinates
+  - Output transcript-to-hash ID mapping files
 - Filter transcripts (**filter_transcriptome**) by:
   - Protein-coding status
   - Internal priming artifacts
@@ -70,8 +70,18 @@ The LRP2_Lite pipeline consists of five major stages:
 - **Protein-level analysis**: ORF prediction and protein classification
 - **Proteomics integration**: Mass spectrometry protein search and analysis with MetaMorpheus
 - **Multi-omics support**: Combined, integrated RNA-level and protein-level analysis
-- **Species support**: Human and mouse genomes (via iGenomes)
+- **Flexible genome support**: RefSeq genomes (via iGenomes) and GENCODE genomes with multiple release versions
 - **Reproducible**: Fully containerized with Docker/Singularity support
+
+### Reference Genome Support
+
+The pipeline supports three types of reference genome sources:
+
+1. **RefSeq Genomes (via iGenomes)**: Standard genome builds using NCBI/Ensembl annotations from iGenomes (e.g. `--genome GRCh38`)
+2. **GENCODE Genomes**: High-quality genome annotations from GENCODE, supporting multiple release versions (e.g. `--genome GRCh38.p14.v49`)
+3. **Custom genome references**: You may pass paths to a custom, local FASTA and GTF file using the ``--fasta`` and ``--gencode_gtf`` parameters, respectively 
+
+The pipeline automatically downloads and uses the appropriate FASTA and GTF files based on your `--genome` selection. GENCODE genomes are particularly useful when you need specific annotation versions or want the latest curated gene models.
 
 ## Usage
 > **Note**: If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how to set-up Nextflow.
@@ -107,7 +117,7 @@ Each row represents a PacBio Iso-Seq FLNC (Full-Length Non-Chimeric) BAM file, O
 Now, you can run the pipeline using:
 
 ```bash
-nextflow run /path/to/LRP2_lite \
+nextflow run /path/to/LRP2 \
     --input samplesheet.csv \
     --outdir <OUTDIR> \
     --genome GRCh38 \
@@ -119,7 +129,7 @@ This will launch the pipeline with the default parameters using Singularity cont
 If you are running on an HPC environment, you may also run using SLURM, e.g.:
 
 ```bash
-nextflow run /path/to/LRP2_lite \
+nextflow run /path/to/LRP2 \
     --input samplesheet.csv \
     --outdir <OUTDIR> \
     --genome GRCh38 \
@@ -129,7 +139,7 @@ nextflow run /path/to/LRP2_lite \
 ### Example Command with Additional Parameters
 
 ```bash
-nextflow run /path/to/LRP2_lite \
+nextflow run /path/to/LRP2 \
     --input samplesheet.csv \
     --outdir results \
     --genome GRCh38 \
@@ -145,7 +155,7 @@ nextflow run /path/to/LRP2_lite \
 To enable multi-sample differential analysis, use the `--run_differential_analysis` flag and specify the labels for you control and treatment groups, respectively:
 
 ```bash
-nextflow run /path/to/LRP2_lite \
+nextflow run /path/to/LRP2 \
     --input samplesheet.csv \
     --outdir results \
     --genome GRCh38 \
@@ -216,7 +226,7 @@ The pipeline supports multiple execution profiles:
 For a complete list of parameters, run:
 
 ```bash
-nextflow run /path/to/LRP2_lite --help
+nextflow run /path/to/LRP2 --help
 ```
 
 > [!WARNING]
@@ -247,7 +257,7 @@ wget https://zenodo.org/records/18065306/files/230801_pacbio_rbfox2_RB-G5_chr22.
 mv *.flnc.bam sample_data/
 
 # Run pipeline with sample data
-nextflow run /path/to/LRP2_lite \
+nextflow run /path/to/LRP2 \
     --input sample_data/samplesheet.csv \
     --outdir results \
     --genome GRCh38 \
@@ -362,7 +372,7 @@ For detailed information about output files, please refer to the [output documen
 
 ### Development Team
 
-The LRP2_Lite pipeline was developed by the Sheynkman Lab and Knowles Lab:
+The LRP2 pipeline was developed by the Sheynkman Lab and Knowles Lab:
 
 - **Megan Schertzer**, Sheynkman Lab - Pipeline and module code development
 - **Julia Lewandowski**, Knowles Lab - Nextflow workflow implementation
