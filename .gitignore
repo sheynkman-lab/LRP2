@@ -1,3 +1,14 @@
+<<<<<<< HEAD
+.nextflow*
+work/
+data/
+results/
+.DS_Store
+testing/
+testing*
+*.pyc
+null/
+=======
 # History files
 .Rhistory
 .Rapp.history
@@ -53,6 +64,7 @@ log_files/*
 results/*
 
 jurkat_test_results/*
+<<<<<<< HEAD
 
 environments/leafcutter_env/*
 
@@ -62,3 +74,6 @@ sample_data/*
 work/*
 null/*
 scripts/archive/*
+=======
+>>>>>>> main
+>>>>>>> dev

@@ -1,0 +1,50 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/sheynkmanlab/lrp2/master/assets/schema_input_bam.json",
+    "title": "sheynkmanlab/lrp2 pipeline - params.input schema (BAM input)",
+    "description": "Schema for the file provided with params.input (PacBio BAM files)",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "sample_name": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "Sample name must be provided and cannot contain spaces",
+                "meta": ["id"]
+            },
+            "sample_path": {
+                "type": "string",
+                "format": "file-path",
+                "exists": true,
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(bam|raw|mzML|mzml)$",
+                "errorMessage": "Sample file must be provided, cannot contain spaces and must have extension '.bam', '.raw', '.mzML', or '.mzml'"
+            },
+            "bam_id": {
+                "type": "string",
+                "pattern": "^(\\S+|none)$",
+                "errorMessage": "BAM ID must be provided for RNA samples and cannot contain spaces. For protein samples, use 'none'. For RNA samples, this should match the name in the BAM header (e.g., BioSample_1)",
+                "meta": ["bam_id"]
+            },
+            "condition": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "Condition must be provided and cannot contain spaces",
+                "meta": ["condition"]
+            },
+            "replicate": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "Replicate label must be provided and cannot contain spaces",
+                "meta": ["replicate"]
+            },
+            "sample_type": {
+                "type": "string",
+                "pattern": "^(?i)(RNA|protein)$",
+                "errorMessage": "Sample type must be either 'RNA' or 'protein'",
+                "meta": ["sample_type"]
+            }
+        },
+        "required": ["sample_name", "sample_path", "bam_id", "condition", "replicate", "sample_type"]
+    }
+}

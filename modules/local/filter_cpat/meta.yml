@@ -1,0 +1,75 @@
+name: filter_cpat
+description: Filter CPAT output and select best ORFs per transcript
+keywords:
+  - orf
+  - cpat
+  - filtering
+  - proteomics
+  - gtf
+tools:
+  - r-base:
+      description: R statistical computing environment
+      homepage: https://www.r-project.org/
+      documentation: https://cran.r-project.org/manuals.html
+      tool_dev_url: https://svn.r-project.org/R/
+      licence: ["GPL v2", "GPL v3"]
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - orf_prob:
+      type: file
+      description: CPAT ORF probability table
+      pattern: "*_cpat.ORF_prob.tsv"
+  - orf_seqs:
+      type: file
+      description: CPAT predicted ORF sequences
+      pattern: "*_cpat.ORF_seqs.fa"
+  - corrected_fasta:
+      type: file
+      description: SQANTI corrected transcript sequences
+      pattern: "*.fasta"
+  - corrected_gtf:
+      type: file
+      description: SQANTI corrected GTF file
+      pattern: "*.gtf"
+  - classification_filtered:
+      type: file
+      description: SQANTI filtered classification file
+      pattern: "*_classification_filtered.txt"
+  - reference_gtf:
+      type: file
+      description: GENCODE reference GTF file
+      pattern: "*.gtf"
+  - filter_cpat_script:
+      type: file
+      description: R script for filtering CPAT output
+      pattern: "*.R"
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+  - all_orfs_mapped:
+      type: file
+      description: All ORFs mapped to transcripts
+      pattern: "*_predicted_proteome_all_orfs_mapped.tsv"
+  - best_orfs_mapped:
+      type: file
+      description: Best ORF selected per transcript
+      pattern: "*_predicted_proteome_best_orfs_mapped.tsv"
+  - cds_gtf:
+      type: file
+      description: CDS coordinates in GTF format
+      pattern: "*_predicted_proteome_corrected_filtered_CDS.gtf"
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

@@ -1,0 +1,124 @@
+name: "multisample_analysis"
+description: Perform differential expression and usage analysis using edgeR and DRIMSeq
+keywords:
+  - differential expression
+  - differential usage
+  - edgeR
+  - DRIMSeq
+  - RNA-seq
+  - long-read sequencing
+tools:
+  - edgeR:
+      description: Empirical Analysis of Digital Gene Expression Data in R
+      homepage: https://bioconductor.org/packages/release/bioc/html/edgeR.html
+      documentation: https://bioconductor.org/packages/release/bioc/vignettes/edgeR/inst/doc/edgeRUsersGuide.pdf
+      tool_dev_url: https://github.com/Bioconductor/edgeR
+      doi: "10.1093/bioinformatics/btp616"
+      licence: ["GPL (>=2)"]
+  - DRIMSeq:
+      description: Differential transcript usage and tuQTL analyses with Dirichlet-multinomial model in RNA-seq
+      homepage: https://bioconductor.org/packages/release/bioc/html/DRIMSeq.html
+      documentation: https://bioconductor.org/packages/release/bioc/vignettes/DRIMSeq/inst/doc/DRIMSeq.pdf
+      tool_dev_url: https://github.com/markrobinsonuzh/DRIMSeq
+      doi: "10.1186/s13059-016-1008-8"
+      licence: ["GPL (>=3)"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - transcript_counts:
+      type: file
+      description: Transcript-level count matrix with CPM values
+      pattern: "*_hashids_with_cpm_filtered.txt"
+  - orf_counts:
+      type: file
+      description: ORF-level count matrix with CPM values
+      pattern: "*_hashids_with_cpm_ORF.txt"
+  - sample_metadata:
+      type: file
+      description: Sample metadata CSV with 'name' and 'group' columns
+      pattern: "*.csv"
+  - multisample_script:
+      type: file
+      description: R script for differential analysis
+      pattern: "*.R"
+  - control_group:
+      type: string
+      description: Name of the control/reference group from sample metadata
+  - experimental_group:
+      type: string
+      description: Name of the experimental/treatment group from sample metadata
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - dge_results:
+      type: file
+      description: Differential gene expression results from edgeR
+      pattern: "*_DGE_edgeR_results.txt"
+  - dge_raw_cpm:
+      type: file
+      description: Raw CPM matrix for genes
+      pattern: "*_DGE_edgeR_raw_CPM_matrix.txt"
+  - dge_norm_cpm:
+      type: file
+      description: Normalized CPM matrix for genes
+      pattern: "*_DGE_edgeR_normalized_CPM_matrix.txt"
+  - dge_plot:
+      type: file
+      description: MD plot for differential gene expression
+      pattern: "*_DGE_MD_plot.pdf"
+  - dte_results:
+      type: file
+      description: Differential transcript expression results from edgeR
+      pattern: "*_DTE_edgeR_results.txt"
+  - dte_raw_cpm:
+      type: file
+      description: Raw CPM matrix for transcripts
+      pattern: "*_DTE_edgeR_raw_CPM_matrix.txt"
+  - dte_norm_cpm:
+      type: file
+      description: Normalized CPM matrix for transcripts
+      pattern: "*_DTE_edgeR_normalized_CPM_matrix.txt"
+  - dte_plot:
+      type: file
+      description: MD plot for differential transcript expression
+      pattern: "*_DTE_MD_plot.pdf"
+  - de_orf_results:
+      type: file
+      description: Differential ORF expression results from edgeR
+      pattern: "*_DE_ORF_edgeR_results.txt"
+  - de_orf_raw_cpm:
+      type: file
+      description: Raw CPM matrix for ORFs
+      pattern: "*_DE_ORF_edgeR_raw_CPM_matrix.txt"
+  - de_orf_norm_cpm:
+      type: file
+      description: Normalized CPM matrix for ORFs
+      pattern: "*_DE_ORF_edgeR_normalized_CPM_matrix.txt"
+  - de_orf_plot:
+      type: file
+      description: MD plot for differential ORF expression
+      pattern: "*_DE_ORF_MD_plot.pdf"
+  - dtu_summary:
+      type: file
+      description: Differential transcript usage summary from DRIMSeq
+      pattern: "*_DTU_transcript_DRIMSeq_summary.txt"
+  - du_orf_summary:
+      type: file
+      description: Differential ORF usage summary from DRIMSeq
+      pattern: "*_DU_ORF_DRIMSeq_summary.txt"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@mschertzer"
+  - "@JTL-lab"

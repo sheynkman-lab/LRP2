@@ -1,0 +1,79 @@
+name: isoseq_collapse
+description: IsoSeq - Collapse - Collapse consensus isoforms to non-redundant set
+keywords:
+  - collapse
+  - HiFi
+  - isoseq
+  - Pacbio
+  - bam
+  - gff
+  - transcript
+tools:
+  - isoseq:
+      description: IsoSeq - Collapse - Collapse consensus isoforms to non-redundant set
+      homepage: https://github.com/PacificBiosciences/IsoSeq
+      documentation: https://github.com/PacificBiosciences/IsoSeq
+      tool_dev_url: https://github.com/PacificBiosciences/IsoSeq
+      licence: ["BSD-3-Clause-Clear"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test' ]
+    - aligned_bam:
+        type: file
+        description: BAM file from isoseq align
+        pattern: "*.bam"
+        ontologies: []
+    - flnc_bam:
+        type: file
+        description: FLNC BAM file from isoseq merge
+        pattern: "*.bam"
+        ontologies: []
+output:
+  gff:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test', single_end:false ]
+      - "*.collapsed.gff":
+          type: file
+          description: GFF file of collapsed isoforms with annotations
+          pattern: "*.collapsed.gff"
+          ontologies: []
+  flnc_count:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test', single_end:false ]
+      - "*.collapsed.flnc_count.txt":
+          type: file
+          description: Text file containing read count support per isoform
+          pattern: "*.collapsed.flnc_count.txt"
+          ontologies: []
+  group_txt:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test', single_end:false ]
+      - "*.collapsed.group.txt":
+          type: file
+          description: Text file mapping collapsed isoforms to constituent reads
+          pattern: "*.collapsed.group.txt"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software version
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@sheynkmanlab"
+maintainers:
+  - "@sheynkmanlab"

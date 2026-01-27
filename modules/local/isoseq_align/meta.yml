@@ -1,0 +1,67 @@
+name: isoseq_align
+description: IsoSeq - Align - Align consensus sequences to reference genome
+keywords:
+  - align
+  - HiFi
+  - isoseq
+  - Pacbio
+  - bam
+  - mapping
+tools:
+  - pbmm2:
+      description: IsoSeq - Align - Align consensus sequences to reference genome using pbmm2
+      homepage: https://github.com/PacificBiosciences/pbmm2
+      documentation: https://github.com/PacificBiosciences/pbmm2
+      tool_dev_url: https://github.com/PacificBiosciences/pbmm2
+      licence: ["BSD-3-Clause"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test' ]
+    - bam:
+        type: file
+        description: BAM file from isoseq cluster
+        pattern: "*.bam"
+        ontologies: []
+  - - reference_fasta:
+        type: file
+        description: Reference genome FASTA file
+        pattern: "*.fa"
+        ontologies: []
+output:
+  bam:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test', single_end:false ]
+      - "*.aligned.bam":
+          type: file
+          description: BAM file of aligned consensus sequences
+          pattern: "*.aligned.bam"
+          ontologies: []
+  pbi:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test', single_end:false ]
+      - "*.aligned.bam.pbi":
+          type: file
+          description: PacBio Index file for aligned BAM
+          pattern: "*.aligned.bam.pbi"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software version
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@sheynkmanlab"
+maintainers:
+  - "@sheynkmanlab"

@@ -1,0 +1,25 @@
+{
+    "bam": {
+        "content": [
+            [
+                {
+                    "id": "test"
+                },
+                "test.aligned.bam:md5,234d4d0cdc0bf7ee9c4f973ae93d5931"
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.8.4",
+            "nextflow": "24.04.2"
+        }
+    },
+    "versions": {
+        "content": [
+            "versions.yml:md5,2d03c1b8e7f5ca1f5b8f5cd4bbd5c3d9"
+        ],
+        "meta": {
+            "nf-test": "0.8.4",
+            "nextflow": "24.04.2"
+        }
+    }
+}

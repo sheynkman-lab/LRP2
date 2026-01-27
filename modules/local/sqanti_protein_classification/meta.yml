@@ -1,0 +1,55 @@
+name: sqanti_protein_classification
+description: Classify protein isoforms using SQANTI3 protein classification
+keywords:
+  - protein
+  - classification
+  - sqanti3
+  - proteomics
+  - isoforms
+tools:
+  - sqanti3:
+      description: Tool for the Quality Control of Long-Read Defined Transcriptomes
+      homepage: https://github.com/ConesaLab/SQANTI3
+      documentation: https://github.com/ConesaLab/SQANTI3/wiki
+      tool_dev_url: https://github.com/ConesaLab/SQANTI3
+      licence: ["BSD-3-clause"]
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - cds_gtf:
+      type: file
+      description: CDS coordinates in GTF format
+      pattern: "*.gtf"
+  - best_orfs_mapped:
+      type: file
+      description: Best ORFs mapped to transcripts
+      pattern: "*_best_orfs_mapped.tsv"
+  - reference_gtf:
+      type: file
+      description: GENCODE reference GTF file
+      pattern: "*.gtf"
+  - sqanti_protein_script:
+      type: file
+      description: SQANTI3 protein classification Python script
+      pattern: "*.py"
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+  - protein_classification:
+      type: file
+      description: SQANTI3 protein classification results
+      pattern: "*.sqanti_protein_classification.tsv"
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"
