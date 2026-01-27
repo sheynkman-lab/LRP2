@@ -4,6 +4,7 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 include { SQANTI_QC              } from '../../modules/local/sqanti_qc/main'
+include { GENERATE_HASHIDS       } from '../../modules/local/generate_hashids/main'
 include { FILTER_TRANSCRIPTOME   } from '../../modules/local/filter_transcriptome/main'
 
 /*
@@ -17,8 +18,9 @@ workflow TRANSCRIPTOME {
     reference_gtf               // path: reference GENCODE GTF
     reference_fasta             // path: reference GENCODE FASTA
     sample_metadata             // path: sample metadata CSV
-    filter_script               // path: R filtering script
+    filter_script               // path: R filtering script (02_filter_sqanti_transcripts.R)
     hashlib_script              // path: Python hashlib_id_generator script
+    generate_hashids_script     // path: R script for generating hashids (00_generate_hashids.R)
 
     main:
     ch_versions = channel.empty()
@@ -34,19 +36,30 @@ workflow TRANSCRIPTOME {
     ch_versions = ch_versions.mix(SQANTI_QC.out.versions)
 
     //
-    // MODULE: Filter SQANTI3 output
+    // MODULE: Generate hashids for all transcripts
+    //
+    GENERATE_HASHIDS (
+        SQANTI_QC.out.corrected_gtf,
+        hashlib_script,
+        generate_hashids_script
+    )
+    ch_versions = ch_versions.mix(GENERATE_HASHIDS.out.versions)
+
+    //
+    // MODULE: Filter SQANTI3 output (requires hashids_mapping from GENERATE_HASHIDS)
     //
     FILTER_TRANSCRIPTOME (
         SQANTI_QC.out.classification
             .join(SQANTI_QC.out.corrected_gtf, by: 0)
             .join(SQANTI_QC.out.corrected_fasta, by: 0)
-            .map { meta, classification, gtf, fasta ->
-                [meta, classification, gtf, fasta] },
+            .join(GENERATE_HASHIDS.out.hashids_mapping, by: 0)
+            .join(GENERATE_HASHIDS.out.corrected_psl, by: 0)
+            .map { meta, classification, gtf, fasta, hashids, psl ->
+                [meta, classification, gtf, fasta, hashids, psl] },
         reference_gtf,
         reference_fasta,
         sample_metadata,
-        filter_script,
-        hashlib_script
+        filter_script
     )
     ch_versions = ch_versions.mix(FILTER_TRANSCRIPTOME.out.versions)
 

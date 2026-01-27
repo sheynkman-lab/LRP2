@@ -138,7 +138,8 @@ workflow LRP2 {
         ch_gencode_fasta,
         file(sample_metadata_file),
         file(params.filter_script),
-        file(params.hashlib_script)
+        file(params.hashlib_script),
+        file(params.generate_hashids_script)
     )
     ch_versions = ch_versions.mix(TRANSCRIPTOME.out.versions.ifEmpty([]))
 
@@ -207,7 +208,7 @@ workflow LRP2 {
         }
         .filter { db -> db != null }
         .mix(
-            PREDICTED_PROTEOME.out.protein_fasta
+            PREDICTED_PROTEOME.out.protein_all_orfs_fasta
                 .map { _meta, fasta -> fasta }
                 .ifEmpty([])
         )

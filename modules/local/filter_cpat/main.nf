@@ -12,7 +12,6 @@ process FILTER_CPAT {
 
     output:
     tuple val(meta), path("*_predicted_proteome_all_orfs_mapped.tsv"), emit: all_orfs_mapped
-    tuple val(meta), path("*_predicted_proteome_best_orfs_mapped.tsv"), emit: best_orfs_mapped
     tuple val(meta), path("*_predicted_proteome_corrected_filtered_CDS.gtf"), emit: cds_gtf
     path "versions.yml", emit: versions
 
@@ -48,7 +47,6 @@ process FILTER_CPAT {
 
     # Move and rename outputs from orf_calling directory to match expected naming convention
     mv orf_calling/${prefix}_all_orfs_mapped.tsv ${prefix}_predicted_proteome_all_orfs_mapped.tsv
-    mv orf_calling/${prefix}_best_orfs_mapped.tsv ${prefix}_predicted_proteome_best_orfs_mapped.tsv
     mv orf_calling/${prefix}_corrected_filtered_CDS.gtf ${prefix}_predicted_proteome_corrected_filtered_CDS.gtf
 
     cat <<-END_VERSIONS > versions.yml
@@ -61,7 +59,6 @@ process FILTER_CPAT {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}_predicted_proteome_all_orfs_mapped.tsv
-    touch ${prefix}_predicted_proteome_best_orfs_mapped.tsv
     touch ${prefix}_predicted_proteome_corrected_filtered_CDS.gtf
 
     cat <<-END_VERSIONS > versions.yml

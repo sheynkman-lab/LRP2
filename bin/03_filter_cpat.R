@@ -312,11 +312,11 @@ all_orfs       = mapped_orfs_classified
 plausible_orfs = mapped_orfs_classified %>% filter(orf_quality == "Clear Best ORF" | orf_quality == "Plausible ORF")
 best_orfs      = mapped_orfs_classified %>% filter(orf_quality == "Clear Best ORF")
 
-write_tsv(best_orfs, file.path(cpat_dir, paste0(basename, "_best_orfs_mapped.tsv")))
+#write_tsv(best_orfs, file.path(cpat_dir, paste0(basename, "_best_orfs_mapped.tsv")))
 write_tsv(all_orfs, file.path(cpat_dir, paste0(basename, "_all_orfs_mapped.tsv")))
 
 # === STEP 5: Write gtf for best ORFs, including CDS and exon types, no collapsing here ===
-message("\n--- STEP 6: Writing GTF of best ORFs with CDS and exon types ---")
+message("\n--- STEP 5: Writing GTF of best ORFs with CDS and exon types ---")
 all_cds_exons = get_cds_coords(best_orfs, sample_exons)
 # gene_mapping %<>% 
 #   left_join(select(best_orfs, isoform_id, orf_isoform_id)) %>%
@@ -335,28 +335,29 @@ write.table(updated_gtf, file.path(cpat_dir, paste0(basename, "_corrected_filter
 # =============================================================================
 # Summary
 # =============================================================================
+all_sample_transcripts = distinct(sample_gtf, transcript_id, gene_id)
 
-#starting_transcripts = nrow(all_sample_transcripts)
+starting_transcripts = nrow(all_sample_transcripts)
 n_transcripts_orfs   = n_distinct(all_orfs$isoform_id)
-#percent_orfs         = round((n_transcripts_orfs/starting_transcripts) * 100, 4)
+percent_orfs         = round((n_transcripts_orfs/starting_transcripts) * 100, 4)
 
 n_cpat_orfs          = nrow(all_orfs)
 n_plausible_orfs     = nrow(plausible_orfs)
 percent_plausible    = round((n_plausible_orfs/n_cpat_orfs) * 100, 1)
 
 n_best_orfs          = nrow(best_orfs %>% distinct(isoform_id))
-#n_noORFs             = starting_transcripts - n_best_orfs
-#percent_best         = round((n_best_orfs/starting_transcripts) * 100, 1)
-#percent_noORFs       = round((n_noORFs/starting_transcripts) * 100, 1)
+n_noORFs             = starting_transcripts - n_best_orfs
+percent_best         = round((n_best_orfs/starting_transcripts) * 100, 1)
+percent_noORFs       = round((n_noORFs/starting_transcripts) * 100, 1)
 
 
 message("\n=== CPAT FILTER ANALYSIS COMPLETE ===")
-#message(paste0("- CPAT called at least one ORF for ", n_transcripts_orfs, " / ", starting_transcripts, " (", percent_orfs,"%)", " transcripts."))
+message(paste0("- CPAT called at least one ORF for ", n_transcripts_orfs, " / ", starting_transcripts, " (", percent_orfs,"%)", " transcripts."))
 message(paste0("- Based on coding potential, ", n_plausible_orfs, " / ", n_cpat_orfs, " (", percent_plausible,"%)"," of CPAT ORFs were classified as plausible ORFs.")) 
-#message(paste0("- ", n_noORFs, " / ", starting_transcripts, " (", percent_noORFs,"%)", " transcripts do not have a plausible ORF.")) 
-#message(paste0("- After further filtering, a 'Clear Best ORF' was identified for ", n_best_orfs, " / ", starting_transcripts, " (", percent_best,"%)", " transcripts.")) 
+message(paste0("- ", n_noORFs, " / ", starting_transcripts, " (", percent_noORFs,"%)", " transcripts do not have a plausible ORF.")) 
+message(paste0("- After further filtering, a 'Clear Best ORF' was identified for ", n_best_orfs, " / ", starting_transcripts, " (", percent_best,"%)", " transcripts.")) 
 
 message("\n=== CPAT FILTER OUTPUT FILES ===")
 message(paste0("All CPAT ORFs with Quality Metrics: ", basename, "_all_cpat_orfs_mapped.tsv"))
-message(paste0("The single best plausible ORF per transcript: ", basename, "_best_cpat_orfs_mapped.tsv"))
-message(paste0("GTF contains exon type for all transcripts and CDS transcripts with a best plausible ORF: ", basename, "_corrected_filtered_CDS.gtf"))
+#message(paste0("The single best plausible ORF per transcript: ", basename, "_best_cpat_orfs_mapped.tsv"))
+message(paste0("GTF contains exon type for all transcripts and CDS type for transcripts with a best plausible ORF: ", basename, "_corrected_filtered_CDS.gtf"))

@@ -6,7 +6,7 @@ process SQANTI_PROTEIN_CLASSIFICATION {
     container 'docker://docker.io/anaconesalab/sqanti3:v5.5.4'
 
     input:
-    tuple val(meta), path(cds_gtf), path(best_orfs_mapped)
+    tuple val(meta), path(cds_gtf)
     path reference_gtf
     path sqanti_protein_script
 
@@ -36,7 +36,6 @@ process SQANTI_PROTEIN_CLASSIFICATION {
 
     python ./sqanti3_protein_input_full_gtf_patched.py \\
         $cds_gtf \\
-        $best_orfs_mapped \\
         $reference_gtf \\
         -d . \\
         -p $prefix \\

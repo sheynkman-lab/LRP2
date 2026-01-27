@@ -27,7 +27,11 @@ suppressPackageStartupMessages({
   library(tidyverse)
   library(magrittr)
   library(rtracklayer)
+  library(viridis)
+  library(data.table)
 })
+
+options(scipen = 999)
 
 # =============================================================================
 # Get environment variables and check required files
@@ -39,8 +43,9 @@ cpat_dir                        <- file.path(Sys.getenv("OUTPUT_DIR"), "orf_call
 protein_sqanti_dir              <- file.path(Sys.getenv("OUTPUT_DIR"), "protein_sqanti") 
 gencode_gtf_path                <- Sys.getenv("GENCODE_GTF_FILE")
 
+sample_dna_fasta_path  <- file.path(sqanti_transcript_dir, paste0(basename, "_corrected_filtered.fasta"))
 sample_cds_gtf_path    <- file.path(cpat_dir, paste0(basename, "_corrected_filtered_CDS.gtf"))
-sample_cds_fasta_path  <- file.path(cpat_dir, paste0(basename, "_best_orfs_collapsed.fa"))
+mapped_orfs            <- file.path(cpat_dir, paste0(basename, "_all_orfs_mapped.tsv"))
 protein_sqanti_path    <- file.path(protein_sqanti_dir, paste0(basename, ".sqanti_protein_classification.tsv"))
 cpm_file_path          <- file.path(sqanti_transcript_dir, paste0(basename, "_hashids_with_cpm_filtered.txt"))
 
@@ -49,7 +54,7 @@ pclass_base_to_keep            <- strsplit(Sys.getenv("PROTEIN_CLASS_KEEP"), ","
 
 stopifnot("GENCODE gtf file not found" = file.exists(gencode_gtf_path))
 stopifnot("Sample gtf file not found" = file.exists(sample_cds_gtf_path))
-stopifnot("Collapsed best ORF fasta not found" = file.exists(sample_cds_fasta_path))
+#stopifnot("Collapsed best ORF fasta not found" = file.exists(sample_cds_fasta_path))
 stopifnot("Protein classification file not found" = file.exists(protein_sqanti_path))
 
 # =============================================================================
@@ -63,19 +68,21 @@ stopifnot("Protein classification file not found" = file.exists(protein_sqanti_p
 #' @param gc_chains Character vector: GENCODE junction chains for this gene
 #' @return Character: "perfect_subset", "known_protruding", or "novel"
 classify_multiexonic_utr = function(tss, strand, junc_chain, gc_chains) {
+  
   # Check for NA or invalid inputs
   if (is.na(tss) || is.na(strand) || is.na(junc_chain) || is.na(gc_chains)) return("novel")
   if (junc_chain == "" || length(gc_chains) == 0) return("novel")
-
+  
   # Split the concatenated chains
   gc_chains = str_split(gc_chains, "\\|\\|\\|")[[1]]
-
+  
   status = "novel"
-
+  
   for (gc_chain in gc_chains) {
+    
     # Check for NA values in gc_chain
     if (is.na(gc_chain)) next
-
+    
     # Check if junction chain is detected
     match_result = str_detect(gc_chain, fixed(junc_chain))
     if (is.na(match_result) || !match_result) next
@@ -111,6 +118,144 @@ classify_multiexonic_utr = function(tss, strand, junc_chain, gc_chains) {
   return(status)
 }
 
+#' Translate ORF sequences to proteins and group by identical sequences
+#' @param orf_info Data frame with ORF coordinates, classification, counts and cpm
+#' @param full_fasta Named vector of transcript sequences
+#' @return Data frame with protein sequences and grouped transcript IDs
+group_by_protein_sequence <- function(orf_info, full_fasta) {
+  
+  orf_proteins = orf_info %>%
+    left_join(full_fasta, by = "transcript_id") %>%
+    filter(!is.na(full_dna_sequence)) %>%
+    mutate(orf_dna_sequence = substr(full_dna_sequence, ORF_start, ORF_end))
+  
+  # Vectorized translation for speed
+  dna      <- DNAStringSet(orf_proteins$orf_dna_sequence)
+  proteins <- translate(dna, if.fuzzy.codon = "solve")
+  
+  orf_proteins %<>%
+    mutate(orf_aa_sequence = as.character(proteins)) %>%
+    filter(orf_aa_sequence != "") %>%
+    select(-orf_dna_sequence, -full_dna_sequence)
+  
+  # Group transcripts by identical protein sequences, base id should be high confidence isoform with the highest expression
+  orf_groups = orf_proteins %>%
+    mutate(avg_cpm = rowMeans(select(., contains("cpm")), na.rm = TRUE)) %>%
+    mutate(filter_status = factor(filter_status, levels = c("high_confidence", "NMD", "sqanti_classification", "sqanti_atypical"))) %>%
+    group_by(orf_aa_sequence, gene_id) %>%
+    arrange(filter_status, desc(avg_cpm), .by_group = TRUE) %>%
+    mutate(
+      orf_all_isoform_id = paste(transcript_id, collapse = ","),
+      #orf_hc_isoform_id  = na_if(paste(transcript_id[filter_status == "high_confidence"], collapse = ","), ""),
+      orf_base_id        = transcript_id[1]  # First transcript as representative
+    ) %>% 
+    ungroup()
+  
+  return(orf_groups)
+}
+
+#' Convert GTF to colored BED12 for genome browser visualization
+#'
+#' @param gtf_path Path to input GTF file
+#' @param output_bed Path to output BED12 file
+#' @param color_by Column name for coloring (numeric, 0-1). High values = purple, low = yellow. Default: NULL (black)
+gtf_to_bed12 <- function(gtf_path, output_bed, color_by = NULL) {
+  
+  # Import GTF
+  gtf <- import(gtf_path)
+  df <- as.data.frame(gtf)
+  dt <- as.data.table(df)
+  
+  # Get transcripts
+  tx <- dt[type == "transcript"]
+  
+  # Determine what to use for blocks
+  has_exon <- any(dt$type == "exon")
+  has_cds <- any(dt$type == "CDS")
+  
+  if(has_exon) {
+    ex <- dt[type == "exon"]      # Use exons for blocks (shows UTRs)
+  } else {
+    ex <- dt[type == "CDS"]       # Use CDS for blocks (CDS only)
+  }
+  
+  cds <- dt[type == "CDS"]        # Always get CDS for thick regions
+  
+  # Set keys for fast joins
+  setkey(ex, orf_base_id)
+  if(nrow(cds) > 0) setkey(cds, orf_base_id)
+  
+  # Sort transcripts by gene, then by ratio (descending)
+  if(!is.null(color_by)) {
+    tx[, sort_val := as.numeric(get(color_by))]
+    tx <- tx[order(gene_id, -sort_val)]
+  }
+  
+  # Pre-compute colors
+  if(!is.null(color_by)) {
+    vals <- as.numeric(tx[[color_by]])
+    col_idx <- round((1 - vals) * 99) + 1
+    col_idx[is.na(col_idx)] <- 50
+    hex_colors <- viridis::viridis(100)[col_idx]
+    rgb_matrix <- col2rgb(hex_colors)
+    tx$color <- paste(rgb_matrix[1,], rgb_matrix[2,], rgb_matrix[3,], sep=",")
+  } else {
+    tx$color <- "0,0,0"
+  }
+  
+  # Build BED12 rows
+  bed_list <- vector("list", nrow(tx))
+  
+  for(i in 1:nrow(tx)) {
+    t <- tx[i]
+    e <- ex[.(t$orf_base_id)][order(start)]
+    
+    if(nrow(e) == 0) next
+    
+    # Get CDS boundaries for thick regions
+    if(nrow(cds) > 0) {
+      t_cds <- cds[.(t$orf_base_id)]
+      if(nrow(t_cds) > 0) {
+        thick_start <- min(t_cds$start) - 1
+        thick_end <- max(t_cds$end)
+      } else {
+        # Has exons but no CDS = all thin (UTR only)
+        thick_start <- t$start - 1
+        thick_end <- t$start - 1
+      }
+    } else {
+      # No CDS at all = all thin
+      thick_start <- t$start - 1
+      thick_end <- t$start - 1
+    }
+    
+    # Build block strings
+    block_sizes <- paste(e$width, collapse=",")
+    block_starts <- paste(e$start - t$start, collapse=",")
+    
+    # Build BED12 line
+    bed_list[[i]] <- c(
+      as.character(t$seqnames), 
+      as.character(t$start-1), 
+      as.character(t$end), 
+      as.character(t$name), 
+      "0", 
+      as.character(t$strand),
+      as.character(thick_start), 
+      as.character(thick_end), 
+      as.character(t$color), 
+      as.character(nrow(e)),
+      block_sizes,
+      block_starts
+    )
+  }
+  
+  # Remove NULLs and write
+  bed <- do.call(rbind, bed_list[!sapply(bed_list, is.null)])
+  write.table(bed, output_bed, sep="\t", quote=F, row.names=F, col.names=F)
+  
+}
+
 # =============================================================================
 # STEP 1: Process GENCODE reference
 # =============================================================================
@@ -120,26 +265,16 @@ message("\n--- STEP 1: Processing GENCODE reference ---")
 # Load GENCODE GTF
 gencode_gtf = import(gencode_gtf_path) %>% as.data.frame()
 
-# Standardize column names - use transcript_id if transcript_name doesn't exist
-if (!"transcript_name" %in% colnames(gencode_gtf)) {
-  if ("transcript_id" %in% colnames(gencode_gtf)) {
-    message("Note: Using transcript_id as transcript_name (transcript_name column not found in GENCODE GTF)")
-    gencode_gtf$transcript_name <- gencode_gtf$transcript_id
-  } else {
-    stop("ERROR: Neither transcript_name nor transcript_id found in GENCODE GTF")
-  }
-}
-
 # Identify protein-coding transcripts (have CDS)
 pc_transcripts = gencode_gtf %>%
   filter(type == "CDS") %>%
-  pull(transcript_name) %>%
+  pull(transcript_id) %>%
   unique()
 
 # Extract exons and create GRanges for overlap checking
 gencode_exons = gencode_gtf %>%
-  filter(type == "exon", transcript_name %in% pc_transcripts) %>%
-  select(seqnames, start, end, gene_id, transcript_name, strand)
+  filter(type == "exon", transcript_id %in% pc_transcripts) %>%
+  select(seqnames, start, end, gene_id, transcript_id, strand)
 
 gencode_gr = gencode_exons %>%
   select(seqnames, start, end, strand) %>%
@@ -149,8 +284,8 @@ gencode_gr = GenomicRanges::reduce(gencode_gr) # Reduces overlapping exons into 
 
 # Create exon chain strings per gene for junction matching (could potentially be tweaked to mimic collapse logic)
 gencode_chains = gencode_exons %>%
-  arrange(gene_id, transcript_name, start) %>%
-  group_by(gene_id, transcript_name) %>%
+  arrange(gene_id, transcript_id, start) %>%
+  group_by(gene_id, transcript_id) %>%
   summarise(
     exon_chain = paste(paste0(start, "-", end), collapse = "_"),
     .groups = "drop_last"  # Keep gene grouping!
@@ -240,10 +375,16 @@ utr_info = tx_metadata %>%
   )
 
 # =============================================================================
-# STEP 3: Classify 5' UTRs
+# STEP 3: Classify 5' UTRs and merge with SQANTI protein
 # =============================================================================
 
 message("\n--- STEP 3: Classifying 5' UTRs ---")
+
+# Read in SQANTI protein classification to get gene map to reference
+sqanti_class = read_tsv(protein_sqanti_path, show_col_types = FALSE)
+gene_map = sqanti_class %>% 
+  select(transcript_id = isoform_id, reference_gene_id = tx_gene) %>%
+  distinct()
 
 # Check TSS overlap with GENCODE using GRanges 
 tss_gr = GRanges(
@@ -268,7 +409,8 @@ utr_info$distance_to_gc = distances
 
 # Join GENCODE chains for multiexonic comparison
 utr_info = utr_info %>%
-  left_join(gencode_chains, by = "gene_id")
+  left_join(gene_map, by = "transcript_id") %>%
+  left_join(select(gencode_chains, reference_gene_id = gene_id, everything()), by = "reference_gene_id")
 
 # Classify monoexonic UTRs
 utr_info = utr_info %>%
@@ -316,34 +458,32 @@ utr_results = utr_info %>%
       TRUE ~ "unknown"
     )
   ) %>%
-  select(isoform_id = transcript_id, num_5utr_exons, utr_exon_status, tss_in_gc_exons, junc_cat, utr_cat)
+  select(transcript_id, num_5utr_exons, utr_exon_status, tss_in_gc_exons, junc_cat, utr_cat)
 
-# Merge with SQANTI protein classification
-sqanti_class = read_tsv(protein_sqanti_path, show_col_types = FALSE)
-
-# Adjust C term differences since CPAT includes stop codon in coords and gencode does not
+# Merge with SQANTI protein, adjust C term differences since CPAT includes stop codon in coords and gencode does not
 sqanti_class %<>% mutate(
   pr_cterm_diff = ifelse(!is.na(pr_cterm_diff), pr_cterm_diff + 3, pr_cterm_diff),
   pr_cterm_gene_diff = ifelse(!is.na(pr_cterm_gene_diff), pr_cterm_gene_diff - 3, pr_cterm_gene_diff),
   pr_chang = ifelse(!is.na(pr_chang), pr_chang - 3, pr_chang))
 
 utr_output = sqanti_class %>%
-  full_join(utr_results, by = "isoform_id")
+  select(transcript_id = isoform_id, everything()) %>%
+  full_join(utr_results, by = "transcript_id")
 
 # 5' UTR summary statistics
 message("\n--- 5'UTR Classification complete! ---")
 message(sprintf("Total transcripts: %d", nrow(utr_output)))
-message(sprintf("  subset: %d", sum(utr_output$utr_cat == "subset", na.rm = TRUE)))
-message(sprintf("  unique: %d", sum(utr_output$utr_cat == "unique", na.rm = TRUE)))
-message(sprintf("  no_orf: %d", sum(utr_output$utr_cat == "no_orf", na.rm = TRUE)))
-message(sprintf("  no_utr: %d", sum(utr_output$utr_cat == "no_utr", na.rm = TRUE)))
+message(sprintf("  N-terminal truncation (subset): %d", sum(utr_output$utr_cat == "subset", na.rm = TRUE)))
+message(sprintf("  Novel start site (unique): %d", sum(utr_output$utr_cat == "unique", na.rm = TRUE)))
+message(sprintf("  No open reading frame (no_orf): %d", sum(utr_output$utr_cat == "no_orf", na.rm = TRUE)))
+message(sprintf("  No 5' UTR (no_utr): %d", sum(utr_output$utr_cat == "no_utr", na.rm = TRUE)))
 
 
 # =============================================================================
-# STEP 4: Protein classification
+# STEP 4: SQANTI Protein classification
 # =============================================================================
 
-message("\n--- STEP 4: Protein classification ---")
+message("\n--- STEP 4: SQANTI Protein classification ---")
 
 protein_classifications = utr_output %>%
   mutate(
@@ -717,21 +857,23 @@ subclass_lookup = c(
 )
 
 full_protein = protein_classifications %>%
-  filter(!is.na(protein_classification)) %>%
   mutate(
     filter_status = case_when(
       
-      # Check 1: Filter if high NMD signal (applies to ALL)
+      # Check 1: Filter if no ORF found
+      utr_cat == "no_orf" ~ "no_ORF",
+      
+      # Check 2: Filter if high NMD signal (applies to ALL)
       num_junc_after_stop_codon > min_junctions_after_stop_codon ~ "NMD",
       
-      # Check 2: Filter if problematic patterns
-      grepl('intergenic|antisense|fusion|orphan|genic', protein_classification) ~ "atypical",
+      # Check 3: Filter if problematic patterns
+      grepl('intergenic|antisense|fusion|orphan|genic', protein_classification) ~ "sqanti_atypical",
       
       # Check 3: Filter if NOT in keep base classification list
-      !(protein_classification_base %in% pclass_base_to_keep) ~ "pc_base",
+      !(protein_classification_base %in% pclass_base_to_keep) ~ "sqanti_classification",
       
       # Keep everything else
-      TRUE ~ "keep"
+      TRUE ~ "high_confidence"
     ),
     
     # abbreviate
@@ -741,74 +883,113 @@ full_protein = protein_classifications %>%
 
 # Output full table with filter status
 full_protein %<>%
-  dplyr::select(isoform_id, tx_gene, pr_gene, reconciled_gene_id, reconciled_gene_name, num_junc_after_stop_codon, num_5utr_exons,
+  left_join(distinct(sample_gtf, gene_id, transcript_id), by = "transcript_id") %>%
+  dplyr::select(transcript_id, gene_id, reference_gene_id = reconciled_gene_id, reference_gene_name = reconciled_gene_name, tx_transcripts, pr_transcripts, 
+                num_junc_after_stop_codon, num_nt_after_stop_codon, num_5utr_exons, tss_in_gc_exons, utr_cat, 
                 tclass = tx_cat, pclass = protein_classification_base, psubclass = protein_classification_subset, psubclass_short, filter_status)
 
-write_tsv(full_protein, file.path(protein_sqanti_dir, paste0(basename, "_protein_all_isoforms.txt")))
+write_tsv(full_protein, file.path(protein_sqanti_dir, paste0(basename, "_protein_classification_all_isoforms.txt")))
 
-# Output filtered text file
-filtered_protein = full_protein %>% filter(filter_status == "keep")
-write_tsv(filtered_protein, file.path(protein_sqanti_dir, paste0(basename, "_protein_high_confidence.txt")))
+# Generate a matching amino acid fasta for mass spec reference- this will include lower confidence sequences such as NMD
+full = readDNAStringSet(sample_dna_fasta_path) # dna fasta
+full_fasta = tibble(
+  transcript_id = names(full),
+  full_dna_sequence = as.character(full)
+)
 
-# Output filtered gtf 
-gtf          = import(sample_cds_gtf_path)
-gtf_filtered = gtf[gtf$transcript_id %in% filtered_protein$isoform_id]
-gtf_meta     = as.data.frame(mcols(gtf_filtered)) # pull metadata
+# count matrix - include both counts and cpm columns for downstream analysis
+counts = read_tsv(cpm_file_path) %>%
+  select(transcript_id = 1, ends_with("_counts"), ends_with("_cpm"))
 
-new_meta = filtered_protein %>% 
-  mutate(transcript_id = paste(reconciled_gene_name, isoform_id, pclass, sep = "|")) %>%
-  select(isoform_id, gene_id = reconciled_gene_id, gene_name = reconciled_gene_name, transcript_id)
+# orf coords
+orf_info = read_tsv(mapped_orfs) %>%
+  filter(orf_quality == "Clear Best ORF") %>%
+  select(transcript_id = isoform_id, ORF_start, ORF_end) %>%
+  left_join(counts, by = c("transcript_id")) %>%
+  left_join(select(full_protein, 
+                   gene_id, transcript_id, pclass, reference_gene_id, reference_gene_name, filter_status), 
+            by = "transcript_id")
 
-updated_meta = gtf_meta %>% 
-  select(source, type, score, phase, isoform_id = transcript_id, ORF_id) %>%
-  left_join(new_meta, by = "isoform_id") %>%
-  select(-ORF_id, everything(), ORF_id)
+# group by orf
+orf_groups = group_by_protein_sequence(orf_info, full_fasta)
 
-mcols(gtf_filtered) = updated_meta
-export(gtf_filtered, file.path(protein_sqanti_dir, paste0(basename, "_protein_high_confidence.gtf")), format="gtf")
+# write fasta for all protein amino acid sequences for mass spec
+orf_groups %<>%
+  mutate(header = paste0(
+    transcript_id,
+    "|", gene_id, 
+    "|", reference_gene_name,
+    "|", pclass,
+    "|", filter_status))
 
-# Output filtered fasta, and adjust header pb|PB.1001.26|fullname GN=MYCBP
-fa = readAAStringSet(sample_cds_fasta_path)
+protein_seqs        = AAStringSet(orf_groups$orf_aa_sequence)
+names(protein_seqs) = orf_groups$header
+writeXStringSet(protein_seqs, file.path(protein_sqanti_dir, paste0(basename, ".predicted.proteome.all_best_orfs.fa")))
 
-filtered_fa_seqs = data.frame(
-  header   = names(fa),
-  sequence = as.character(fa),
-  length   = width(fa),
-  row.names = NULL
-) %>%
-  separate(header,
-           into = c("isoform_id", "old_gene_id", "old_gene_name"),
-           sep = "\\|") %>%
-  separate_rows(isoform_id, sep = ",") %>%
-  select(isoform_id, sequence, length) %>%
-  distinct() %>%
-  filter(isoform_id %in% filtered_protein$isoform_id)
+# =======================================================================================
+# STEP 7: Write high confidence, ORF centric GTF and count file
+# =======================================================================================
 
-# combine with reconciled naming
-filtered_fa_seqs %<>% 
-  left_join(select(filtered_protein, isoform_id, reconciled_gene_id, reconciled_gene_name))
-  
-# create collapsed cpm table
-cpms = read_tsv(cpm_file_path)
-filtered_fa_seqs %<>% left_join(cpms, by = "isoform_id")
+# table of high confidence orfs with cpm, for multisample analysis
+hc_orf_info = orf_info %>% filter(filter_status == "high_confidence") 
+hc_orf_groups = group_by_protein_sequence(hc_orf_info, full_fasta)
 
-# update orf ids post filtering and summarize cpm
-fasta_out = filtered_fa_seqs %>%
-  group_by(sequence, length) %>%
-  arrange(isoform_id) %>%
-  summarize(orf_isoform_id = paste(isoform_id, collapse = ","), 
-            gene_id = paste(unique(reconciled_gene_id), collapse = ","),
-            gene_name = paste(unique(reconciled_gene_name), collapse = ","),
-            hash_id = paste(hash_id, collapse = ","),
-            across(ends_with("_counts"), sum),
-            across(ends_with("_cpm"), sum)) %>%
-  ungroup()
+name_map = hc_orf_groups %>% distinct(orf_base_id, reference_gene_name)
+hc_collapsed = hc_orf_groups %>%
+  select(-avg_cpm) %>%
+  group_by(orf_all_isoform_id, orf_base_id, gene_id) %>%
+  summarize(across(c(ends_with("_counts"), ends_with("_cpm")), sum, na.rm = TRUE)) %>%
+  ungroup() %>%
+  left_join(name_map, by = "orf_base_id") %>%
+  select(orf_base_id, orf_all_isoform_id, gene_id, reference_gene_name, everything())
 
-fasta_out %>% select(orf_isoform_id, hash_id, gene_id, gene_name, ends_with("_counts"), ends_with("_cpm")) %>%
-  write_tsv(file.path(protein_sqanti_dir, paste0(basename, "_hashids_with_cpm_ORF.txt")))
+write_tsv(hc_collapsed, file.path(protein_sqanti_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF_cpm.txt")))
 
-protein_seqs        = AAStringSet(fasta_out$sequence)
-names(protein_seqs) = paste0(fasta_out$orf_isoform_id, "|", fasta_out$gene_name)
-writeXStringSet(protein_seqs, file.path(protein_sqanti_dir, paste0(basename, "_protein_high_confidence.fa")))
+# write a corresponding ORF centric gtf
+gtf = import(sample_cds_gtf_path) %>%
+  as.data.frame()
 
-message("\nScript complete!")
+new_orf_attributes = hc_collapsed %>% 
+  mutate(avg_orf_cpm = rowMeans(across(contains("cpm")), na.rm = TRUE)) %>%
+  group_by(gene_id) %>%
+  mutate(
+    gene_total_cpm = sum(avg_orf_cpm, na.rm = TRUE),
+    avg_orf_ratio = round(avg_orf_cpm / gene_total_cpm, 3)
+  ) %>%
+  ungroup() %>%
+  select(orf_base_id, orf_all_isoform_id, reference_gene_name, avg_orf_ratio)
+
+hc_gtf = gtf %>% 
+  filter(type %in% c("transcript", "CDS")) %>%
+  filter(transcript_id %in% hc_collapsed$orf_base_id)
+
+orf_boundaries = hc_gtf %>%
+  filter(type == "CDS") %>%
+  group_by(transcript_id) %>%
+  summarize(
+    orf_start = min(start),
+    orf_end = max(end)
+  )
+
+hc_gtf %<>% 
+  left_join(orf_boundaries, by = "transcript_id") %>%
+  mutate(
+    start = if_else(type == "transcript" & !is.na(orf_start), orf_start, start),
+    end   = if_else(type == "transcript" & !is.na(orf_end), orf_end, end)
+  ) %>%
+  select(-orf_start, -orf_end) %>%
+  rename(orf_base_id = transcript_id) %>%
+  left_join(new_orf_attributes, by = c("orf_base_id")) %>%
+  mutate(name = paste0(orf_base_id, "|",
+                       reference_gene_name, "|", 
+                       avg_orf_ratio)) %>%
+  select(-orf_all_isoform_id)
+
+# calculate ratio
+gr_updated = makeGRangesFromDataFrame(hc_gtf, keep.extra.columns = TRUE)
+export(gr_updated, file.path(protein_sqanti_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF.gtf")), format = "gtf")
+
+# convert to bed12
+gtf_to_bed12(gtf_path = file.path(protein_sqanti_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF.gtf")),
+             output_bed = file.path(protein_sqanti_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF.bed")),
+             color_by = "avg_orf_ratio")
