@@ -1,3 +1,9 @@
+<picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/LRP2-Workflow.darkmode.drawio.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/LRP2-Workflow.lightmode.drawio.png">
+    <img alt="LRP2 Workflow Diagram" src="assets/LRP2-Workflow.lightmode.drawio.png">
+</picture>
+
 # LRP2-Lite: Long-Read Proteogenomics Lite Pipeline
 
 [![Nextflow](https://img.shields.io/badge/nextflow%20DSL2-%E2%89%A524.04.2-23aa62.svg)](https://www.nextflow.io/) [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/) [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/) [![run with conda](https://img.shields.io/badge/run%20with-conda-43b02a.svg?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
