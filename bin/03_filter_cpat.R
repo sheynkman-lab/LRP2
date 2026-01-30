@@ -360,8 +360,4 @@ message(paste0("- After further filtering, a 'Clear Best ORF' was identified for
 message("\n=== CPAT FILTER OUTPUT FILES ===")
 message(paste0("All CPAT ORFs with Quality Metrics: ", basename, "_all_cpat_orfs_mapped.tsv"))
 #message(paste0("The single best plausible ORF per transcript: ", basename, "_best_cpat_orfs_mapped.tsv"))
-<<<<<<< HEAD:scripts/03_filter_cpat.R
 message(paste0("GTF contains exon type for all transcripts and CDS type for transcripts with a best plausible ORF: ", basename, "_corrected_filtered_CDS.gtf"))
-=======
-message(paste0("GTF contains exon type for all transcripts and CDS type for transcripts with a best plausible ORF: ", basename, "_corrected_filtered_CDS.gtf"))
->>>>>>> dev:bin/03_filter_cpat.R

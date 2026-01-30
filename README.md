@@ -120,7 +120,7 @@ Now, you can run the pipeline using:
 nextflow run /path/to/LRP2 \
     --input samplesheet.csv \
     --outdir <OUTDIR> \
-    --genome GRCh38 \
+    --genome GRCh38.p14.v46 \
     -profile singularity
 ```
 
@@ -132,7 +132,7 @@ If you are running on an HPC environment, you may also run using SLURM, e.g.:
 nextflow run /path/to/LRP2 \
     --input samplesheet.csv \
     --outdir <OUTDIR> \
-    --genome GRCh38 \
+    --genome GRCh38.p14.v46 \
     -profile singularity,slurm
 ```
 
@@ -142,7 +142,7 @@ nextflow run /path/to/LRP2 \
 nextflow run /path/to/LRP2 \
     --input samplesheet.csv \
     --outdir results \
-    --genome GRCh38 \
+    --genome GRCh38.p14.v46 \
     --species human \
     --protein_coding_filter true \
     --cpat_coding_threshold 0.364 \
@@ -158,7 +158,7 @@ To enable multi-sample differential analysis, use the `--run_differential_analys
 nextflow run /path/to/LRP2 \
     --input samplesheet.csv \
     --outdir results \
-    --genome GRCh38 \
+    --genome GRCh38.p14.v46 \
     --run_differential_analysis \
     --control_group control \
     --experimental_group treatment \
@@ -185,7 +185,7 @@ The pipeline supports multiple execution profiles:
 - `--outdir`: Path to output directory (required)
 
 **Reference Genome:**
-- `--genome`: Reference genome version (default: `GRCh38`)
+- `--genome`: Reference genome version (default: `GRCh38.p14.v46`)
 - `--fasta`: Path to reference FASTA (auto-set from iGenomes)
 - `--gencode_gtf`: Path to GENCODE GTF annotation (auto-set from iGenomes)
 
@@ -260,7 +260,7 @@ mv *.flnc.bam sample_data/
 nextflow run /path/to/LRP2 \
     --input sample_data/samplesheet.csv \
     --outdir results \
-    --genome GRCh38 \
+    --genome GRCh38.p14.v46 \
     -profile singularity
 ```
 

@@ -136,9 +136,5 @@ convert_gtf_to_psl(gtf_input_path  = gtf,
 
 # Run python script for hash ids- generates mapping file with transcript_id and hash_id
 mapping_file = file.path(dir, paste0(basename, "_hashids_mapping.txt"))
-<<<<<<< HEAD:scripts/00_generate_hashids.R
-system2("python", args = c("scripts/hashlib_id_generator.py", psl, mapping_file))
-=======
 hashlib_script = Sys.getenv("HASHLIB_SCRIPT")
 system2("python", args = c(hashlib_script, psl, mapping_file))
->>>>>>> dev:bin/00_generate_hashids.R

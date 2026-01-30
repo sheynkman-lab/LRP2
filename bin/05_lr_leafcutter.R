@@ -373,8 +373,6 @@ write.table(out,
 
 # create the group text file required for ds (use sample sheet)
 sample_metadata = as.data.frame(fread(metadata_file_path, header = TRUE))
-<<<<<<< HEAD:scripts/05_lr_leafcutter.R
-=======
 
 # Handle both 'name'/'group' and 'sample_name'/'condition' column naming conventions
 if ("sample_name" %in% colnames(sample_metadata) && !("name" %in% colnames(sample_metadata))) {
@@ -384,6 +382,5 @@ if ("condition" %in% colnames(sample_metadata) && !("group" %in% colnames(sample
   sample_metadata$group <- sample_metadata$condition
 }
 
->>>>>>> dev:bin/05_lr_leafcutter.R
 sample_metadata %>% select(name, group) %>%
   write_tsv(file.path(leafcutter_analysis_dir, paste0(basename, "_groups_file.txt")), col_names = FALSE)

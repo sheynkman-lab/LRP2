@@ -67,8 +67,6 @@ if (!identical(count_sample_names, orf_count_sample_names)) {
 
 # reorder sample sheet
 sample_metadata = as.data.frame(fread(metadata_file_path, header = TRUE))
-<<<<<<< HEAD:scripts/05_multisample_analysis.R
-=======
 
 # Handle both 'name'/'group' and 'sample_name'/'condition' column naming conventions
 if ("sample_name" %in% colnames(sample_metadata) && !("name" %in% colnames(sample_metadata))) {
@@ -78,7 +76,6 @@ if ("condition" %in% colnames(sample_metadata) && !("group" %in% colnames(sample
   sample_metadata$group <- sample_metadata$condition
 }
 
->>>>>>> dev:bin/05_multisample_analysis.R
 sample_metadata = sample_metadata[match(count_sample_names, sample_metadata$name), ] # reorders
 
 # Check for any mismatches
@@ -93,8 +90,6 @@ experimental = experimental_group
 group        = factor(sample_metadata$group, levels = c(control, experimental))
 sample_names = sample_metadata$name
 
-<<<<<<< HEAD:scripts/05_multisample_analysis.R
-=======
 # Check for biological replicates?
 #has_replicates = any(table(group) > 1)
 #if (!has_replicates) {
@@ -102,7 +97,6 @@ sample_names = sample_metadata$name
 #  cat("Results should be interpreted with caution as statistical power is very limited.\n\n")
 #}
 
->>>>>>> dev:bin/05_multisample_analysis.R
 # =============================================================================
 # Differential Gene Expression with edgeR
 # =============================================================================
