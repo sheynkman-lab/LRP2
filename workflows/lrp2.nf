@@ -190,47 +190,60 @@ workflow LRP2 {
         .filter { count, _samples -> count > 0 }
         .flatMap { _count, samples -> samples }
 
-    // Determine protein database source
-    // If RNA samples were processed, use predicted proteome; otherwise use provided reference
-    ch_rna_count
-        .map { count ->
-            if (count == 0) {
-                // No RNA samples - must use provided protein database
-                if (params.gencode_protein_fasta) {
+    //
+    // SUBWORKFLOW: Run proteomics analysis
+    // Only runs if --gencode_protein_fasta parameter is provided
+    // This ensures users explicitly opt-in to proteomics analysis
+    //
+    ch_protein_count
+        .subscribe { count ->
+            if (params.gencode_protein_fasta && count > 0) {
+                log.info "Detected ${count} protein sample(s) and --gencode_protein_fasta provided - PROTEOMICS subworkflow will run"
+            } else if (params.gencode_protein_fasta && count == 0) {
+                log.warn "--gencode_protein_fasta provided but no protein samples detected - skipping PROTEOMICS subworkflow"
+            } else if (!params.gencode_protein_fasta && count > 0) {
+                log.warn "Protein samples detected but --gencode_protein_fasta not provided - skipping PROTEOMICS subworkflow"
+            } else {
+                log.info "No protein samples detected - skipping PROTEOMICS subworkflow"
+            }
+        }
+
+    // note: pipeline will only execute PROTEOMICS if gencode_protein_fasta parameter is provided by user!
+    if (params.gencode_protein_fasta) {
+        // If RNA samples were processed, use predicted proteome; otherwise use provided reference
+        ch_protein_db = ch_rna_count
+            .map { count ->
+                if (count == 0) {
+                    // No RNA samples - must use provided protein database
                     log.info "No RNA samples detected - using provided protein database: ${params.gencode_protein_fasta}"
                     return file(params.gencode_protein_fasta)
                 } else {
-                    error "ERROR: No protein database available. For protein-only analysis, you must specify --gencode_protein_fasta"
+                    // Signal to use predicted proteome from RNA analysis
+                    return null
                 }
-            } else {
-                return null
             }
-        }
-        .filter { db -> db != null }
-        .mix(
-            PREDICTED_PROTEOME.out.protein_all_orfs_fasta
-                .map { _meta, fasta -> fasta }
-                .ifEmpty([])
+            .filter { db -> db != null }
+            .mix(
+                PREDICTED_PROTEOME.out.protein_all_orfs_fasta
+                    .map { _meta, fasta -> fasta }
+            )
+            .first()
+
+        ch_metamorpheus_config = channel.value(
+            params.metamorpheus_config ?
+                file(params.metamorpheus_config) :
+                file("${projectDir}/sample_data/SearchTask.toml")
         )
-        .first()
-        .set { ch_protein_db }
+        ch_mm_writable = channel.value(file("${projectDir}/assets/mm_writable_placeholder"))
 
-    // Prepare MetaMorpheus config file as channel
-    ch_metamorpheus_config = channel.value(
-        params.metamorpheus_config ?
-            file(params.metamorpheus_config) :
-            file("${projectDir}/sample_data/SearchTask.toml")
-    )
-    // Prepare mm_writable directory as a channel
-    ch_mm_writable = channel.value(file("${projectDir}/assets/mm_writable_placeholder"))
-
-    PROTEOMICS (
-        ch_protein_samples_filtered,
-        ch_protein_db,
-        ch_metamorpheus_config,
-        ch_mm_writable
-    )
-    ch_versions = ch_versions.mix(PROTEOMICS.out.versions.ifEmpty([]))
+        PROTEOMICS (
+            ch_protein_samples_filtered,
+            ch_protein_db,
+            ch_metamorpheus_config,
+            ch_mm_writable
+        )
+        ch_versions = ch_versions.mix(PROTEOMICS.out.versions.ifEmpty([]))
+    }
 
     //
     // SUBWORKFLOW: Run differential analysis (optional - requires RNA samples)
