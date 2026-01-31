@@ -199,11 +199,7 @@ print(summary(decideTests(result_dte)))
 
 # Save results
 transcript_cpms = counts_raw %>%
-<<<<<<< HEAD:scripts/05_multisample_analysis.R
-  select(isoform_id, hash_id, ensg_gene_id, gene_name, enst_transcript_id, transcript_name, all_of(cpm_cols)) %>%
-=======
   select(isoform_id, hash_id, ensg_gene_id, gene_name, enst_transcript_id, any_of("transcript_name"), all_of(cpm_cols)) %>%
->>>>>>> dev:bin/05_multisample_analysis.R
   distinct()
 
 dte_results %>%
@@ -377,11 +373,7 @@ dtu_summary = dtu_tx_results %>%
   left_join(dtu_gene_results, by = "gene_id") %>%
   left_join(group_props, by = c("gene_id", "isoform_id" = "feature_id")) %>%
   left_join(transript_usage_table, by = c("gene_id" = "ensg_gene_id", "isoform_id")) %>%
-<<<<<<< HEAD:scripts/05_multisample_analysis.R
-  select(isoform_id, enst_transcript_id, transcript_name, hash_id, lr_transcript, pvalue_transcript, adj_pvalue_transcript, ends_with("_cpm"), ends_with("_prop"), starts_with("group_prop_"), delta_proportion,
-=======
   select(isoform_id, enst_transcript_id, any_of("transcript_name"), hash_id, lr_transcript, pvalue_transcript, adj_pvalue_transcript, ends_with("_cpm"), ends_with("_prop"), starts_with("group_prop_"), delta_proportion,
->>>>>>> dev:bin/05_multisample_analysis.R
          gene_id, gene_name, lr_gene, df_gene, pvalue_gene, adj_pvalue_gene)
 # Summary
 cat(sprintf("Genes with DTU (adj_pvalue < 0.05): %d\n", 
