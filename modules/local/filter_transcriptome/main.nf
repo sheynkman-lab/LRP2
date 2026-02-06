@@ -23,9 +23,6 @@ process FILTER_TRANSCRIPTOME {
     tuple val(meta), path("*_transcriptome_hashids_mapping.txt"), emit: hashids_mapping
     tuple val(meta), path("*_transcriptome_hashids_with_cpm_filtered.txt"), emit: hashids_filtered
     tuple val(meta), path("*_transcriptome_all_hashids_with_cpm.txt"), emit: hashids_all
-    tuple val(meta), path("*_transcriptome_dropout_transcripts.tsv"), emit: dropout_transcripts
-    tuple val(meta), path("*_transcriptome_corrected_dropout.fasta"), emit: corrected_dropout_fasta
-    tuple val(meta), path("*_transcriptome_corrected_dropout.gtf"), emit: corrected_dropout_gtf
     path "versions.yml", emit: versions
 
     when:
@@ -42,7 +39,7 @@ process FILTER_TRANSCRIPTOME {
 
     """
     # Create directory structure expected by the R script
-    mkdir -p sqanti_transcript sqanti_transcript/dropout
+    mkdir -p sqanti_transcript
 
     # Link the SQANTI_QC output files and hashids_mapping with expected naming
     ln -sf \$(pwd)/$classification_file sqanti_transcript/${prefix}_classification.txt
@@ -80,9 +77,6 @@ process FILTER_TRANSCRIPTOME {
     mv sqanti_transcript/${prefix}_corrected_filtered.fasta ${prefix}_transcriptome_corrected_filtered.fasta
     mv sqanti_transcript/${prefix}_hashids_with_cpm_filtered.txt ${prefix}_transcriptome_hashids_with_cpm_filtered.txt
     mv sqanti_transcript/${prefix}_all_hashids_with_cpm.txt ${prefix}_transcriptome_all_hashids_with_cpm.txt
-    mv sqanti_transcript/dropout/${prefix}_dropout_transcripts.tsv ${prefix}_transcriptome_dropout_transcripts.tsv
-    mv sqanti_transcript/dropout/${prefix}_corrected_dropout.fasta ${prefix}_transcriptome_corrected_dropout.fasta
-    mv sqanti_transcript/dropout/${prefix}_corrected_dropout.gtf ${prefix}_transcriptome_corrected_dropout.gtf
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -103,9 +97,6 @@ process FILTER_TRANSCRIPTOME {
     touch ${prefix}_transcriptome_hashids_mapping.txt
     touch ${prefix}_transcriptome_hashids_with_cpm_filtered.txt
     touch ${prefix}_transcriptome_all_hashids_with_cpm.txt
-    touch ${prefix}_transcriptome_dropout_transcripts.tsv
-    touch ${prefix}_transcriptome_corrected_dropout.fasta
-    touch ${prefix}_transcriptome_corrected_dropout.gtf
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
