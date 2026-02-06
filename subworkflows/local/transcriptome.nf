@@ -86,9 +86,6 @@ workflow TRANSCRIPTOME {
     hashids_mapping         = FILTER_TRANSCRIPTOME.out.hashids_mapping               // [meta, *_transcriptome_hashids_mapping.txt]
     hashids_filtered        = FILTER_TRANSCRIPTOME.out.hashids_filtered              // [meta, *_hashids_with_cpm_filtered.txt]
     hashids_all             = FILTER_TRANSCRIPTOME.out.hashids_all                   // [meta, *_all_hashids_with_cpm.txt]
-    dropout_transcripts     = FILTER_TRANSCRIPTOME.out.dropout_transcripts           // [meta, *_dropout_transcripts.tsv]
-    corrected_dropout_fasta = FILTER_TRANSCRIPTOME.out.corrected_dropout_fasta       // [meta, *_corrected_dropout.fasta]
-    corrected_dropout_gtf   = FILTER_TRANSCRIPTOME.out.corrected_dropout_gtf         // [meta, *_corrected_dropout.gtf]
 
     versions                = ch_versions.unique().collectFile(name: 'versions.yml')
 }

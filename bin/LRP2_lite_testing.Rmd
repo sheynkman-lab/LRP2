@@ -3926,6 +3926,77 @@ write.table(updated_gtf, file.path(cpat_dir, paste0(basename, "_corrected_filter
             col.names = FALSE)
 
 ```
+
+
+February 2, 2026
+Working on feature branch with sqanti transcript R code
+- remove dropout folder, add filtering rationle in table
+- add bed conversion function
+- ensure that code works with new hash code
+
+```{r}
+dir                     <- "/home/cwp5au/megan/AML_project/LRP2_lite/results/sqanti_transcript"
+basename                <- "all_AML"
+gencode_gtf             <- "/project/sheynkman/external_data/GENCODE_v47/gencode.v47.annotation.gtf"
+metadata_path           <- "/home/cwp5au/megan/AML_project/LRP2_lite/config/sample_metadata.txt"
+
+
+filter_protein_coding   <- as.logical(Sys.getenv("PROTEIN_CODING_FILTER", "TRUE"))
+filter_internal_priming <- as.logical(Sys.getenv("INTERNAL_PRIMING_FILTER", "TRUE"))
+filter_RTS              <- as.logical(Sys.getenv("TEMPLATE_SWITCHING_FILTER", "TRUE"))
+percent_polyA_threshold <- as.numeric(Sys.getenv("PERCENT_POLYA_THRESHOLD", "60"))
+tclass_to_keep          <- Sys.getenv("TRANSCRIPT_CLASS_KEEP", "FSM,ISM,NIC,NNC")
+
+classification_file = paste0(dir, "/", basename, "_classification.txt")
+sqanti_gtf          = paste0(dir, "/", basename, "_corrected.gtf")
+sqanti_fasta        = paste0(dir, "/", basename, "_corrected.fasta")
+mapping_file        = paste0(dir, "/", basename, "_hashids_mapping.txt")
+
+```
+
+```{r}
+df = read_tsv(classification_file, show_col_types = FALSE)
+df %>% filter(!is.na(associated_gene), str_starts(associated_gene, "ENS")) #1,206,432
+df %>% filter(!is.na(associated_gene), !str_starts(associated_gene, "novelGene"))
+
+
+
+# sample gtf
+gtf = import(sqanti_gtf) %>%
+  as.data.frame()
+
+filtered_gtf = gtf[gtf$transcript_id %in% kept_ids, ]
+gtf_ids = filtered_gtf %>% distinct(gene_id, transcript_id)
+
+new_attributes = all_ids %>%
+  filter(isoform_id %in% kept_ids) %>%
+  select(transcript_id = isoform_id, everything()) %>%
+  left_join(gtf_ids) %>%
+  mutate(avg_cpm = rowMeans(across(contains("cpm")), na.rm = TRUE)) %>%
+  group_by(gene_id) %>%
+  mutate(
+    gene_total_cpm = sum(avg_cpm, na.rm = TRUE),
+    avg_ratio = round(avg_cpm / gene_total_cpm, 3)
+  ) %>%
+  ungroup() %>%
+  select(transcript_id, reference_gene_name = gene_name, avg_ratio)
+
+filtered_gtf %<>% 
+  left_join(new_attributes, by = c("transcript_id")) %>%
+  mutate(name = paste0(transcript_id, "|",
+                       reference_gene_name, "|", 
+                       avg_ratio))
+
+# calculate ratio
+gr_updated = makeGRangesFromDataFrame(filtered_gtf, keep.extra.columns = TRUE)
+export(gr_updated, file.path(dir, paste0(basename, "_corrected_filtered.gtf")), format = "gtf")
+
+```
+
+
+
+
+
 =======
 
 >>>>>>> dev:bin/LRP2_lite_testing.Rmd
