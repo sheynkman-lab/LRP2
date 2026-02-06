@@ -193,6 +193,14 @@
                     "help_text": "Sample metadata file used for SQANTI3 filtering.",
                     "fa_icon": "fas fa-file-csv"
                 },
+                "generate_hashids_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to hash ID generation R script.",
+                    "help_text": "R script used to generate hash IDs for transcripts.",
+                    "fa_icon": "far fa-file-code"
+                },
                 "filter_script": {
                     "type": "string",
                     "format": "file-path",
