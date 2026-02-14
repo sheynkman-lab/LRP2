@@ -92,7 +92,15 @@ workflow PIPELINE_INITIALISATION {
 
     if (input_type == "sample_path") {
         def samplesheet_list = samplesheetToList(params.input, "${projectDir}/assets/schema_input_bam.json")
-        // Expected structure: [meta, sample_path] where meta contains: id, bam_id, condition, replicate, sample_type
+        // Expected structure: [meta, sample_path] where meta contains: sample_name, condition, sample_type, mass_spec_type
+
+        // Group samples by sample_name + condition
+        def grouped_samples = samplesheet_list.groupBy { row ->
+            def sample_name = row[0].sample_name
+            def condition = row[0].condition
+            return "${sample_name}_${condition}"
+        }
+
         def rna_samples = samplesheet_list.findAll { row ->
             def sample_type = row[0].containsKey('sample_type') ? row[0].sample_type : 'unknown'
             sample_type.toLowerCase() == 'rna'
@@ -120,30 +128,24 @@ workflow PIPELINE_INITIALISATION {
             error "ERROR: No samples found in samplesheet. Please provide at least one RNA or protein sample."
         }
 
-        // Calculate condition statistics (using all samples)
+        // Calculate sample group statistics (using sample_name + condition groupings)
+        def unique_sample_groups = grouped_samples.keySet()
+        def sample_groups_per_condition = grouped_samples.collectEntries { group_key, samples ->
+            // samples is a list of [meta, path] tuples
+            // Access the first sample's metadata to get condition
+            def first_meta = samples[0][0]
+            def condition = first_meta.condition ?: 'unknown'
+            [(group_key): [condition: condition, sample_count: samples.size()]]
+        }
+
+        // Count unique biological replicates (unique sample_names)
+        def unique_sample_names = samplesheet_list.collect { row -> row[0].sample_name }.unique()
+
+        // Count unique conditions
         def all_conditions = samplesheet_list.collect { row ->
             row[0].containsKey('condition') ? row[0].condition : 'unknown'
         }
         def unique_conditions = all_conditions.unique()
-        def samples_per_condition = all_conditions.groupBy { cond -> cond }.collectEntries { condition, samples ->
-            [(condition): samples.size()]
-        }
-
-        // Calculate replicate statistics per condition
-        def condition_replicate_map = [:]
-        samplesheet_list.each { row ->
-            def condition = row[0].containsKey('condition') ? row[0].condition : 'unknown'
-            def replicate = row[0].containsKey('replicate') ? row[0].replicate : 'unknown'
-            if (!condition_replicate_map.containsKey(condition)) {
-                condition_replicate_map[condition] = []
-            }
-            condition_replicate_map[condition] << replicate
-        }
-
-        def replicates_per_condition = condition_replicate_map.collectEntries { condition, reps ->
-            [(condition): reps.unique().size()]
-        }
-        def avg_replicates = replicates_per_condition.values().sum() / replicates_per_condition.size()
 
         // Display QC Summary with colors
         def colors = logColours(params.monochrome_logs)
@@ -153,62 +155,68 @@ workflow PIPELINE_INITIALISATION {
         log.info "${colors.blue}======================================================================${colors.reset}"
         log.info ""
         log.info "${colors.cyan}Sample Overview:${colors.reset}"
-        log.info "  ${colors.dim}Total unique samples detected    :${colors.reset} ${colors.green}${total_samples}${colors.reset}"
-        log.info "  ${colors.dim}Total RNA samples detected       :${colors.reset} ${colors.green}${rna_count}${colors.reset}"
-        log.info "  ${colors.dim}Total protein samples detected   :${colors.reset} ${protein_count > 0 ? colors.yellow : colors.dim}${protein_count}${colors.reset}"
+        log.info "  ${colors.dim}Total files detected              :${colors.reset} ${colors.green}${total_samples}${colors.reset}"
+        log.info "  ${colors.dim}Total RNA files detected          :${colors.reset} ${colors.green}${rna_count}${colors.reset}"
+        log.info "  ${colors.dim}Total protein files detected      :${colors.reset} ${protein_count > 0 ? colors.yellow : colors.dim}${protein_count}${colors.reset}"
+        log.info "  ${colors.dim}Unique biological replicates      :${colors.reset} ${colors.green}${unique_sample_names.size()}${colors.reset}"
         log.info ""
-        log.info "${colors.cyan}Condition Summary:${colors.reset}"
-        log.info "  ${colors.dim}Total unique conditions detected :${colors.reset} ${colors.green}${unique_conditions.size()}${colors.reset}"
-        unique_conditions.each { condition ->
-            def count = samples_per_condition[condition]
-            def reps = replicates_per_condition[condition]
-            log.info "    ${colors.purple}-${colors.reset} ${colors.bold}${condition.padRight(20)}${colors.reset}         : ${colors.green}${count}${colors.reset} sample(s), ${colors.green}${reps}${colors.reset} replicate(s)"
+        log.info "${colors.cyan}Sample Groups (sample_name + condition):${colors.reset}"
+        log.info "  ${colors.dim}Total unique sample groups        :${colors.reset} ${colors.green}${unique_sample_groups.size()}${colors.reset}"
+        unique_sample_groups.each { group_key ->
+            def group_info = sample_groups_per_condition[group_key]
+            if (group_info) {
+                def condition = group_info.condition
+                def count = group_info.sample_count
+                log.info "    ${colors.purple}-${colors.reset} ${colors.bold}${group_key.padRight(30)}${colors.reset} : ${colors.green}${count}${colors.reset} file(s)"
+            }
         }
         log.info ""
-        log.info "${colors.cyan}Replicate Statistics:${colors.reset}"
-        log.info "  ${colors.dim}Average replicates per condition :${colors.reset} ${colors.green}${String.format('%.1f', avg_replicates)}${colors.reset}"
+        log.info "${colors.cyan}Condition Summary:${colors.reset}"
+        log.info "  ${colors.dim}Total unique conditions detected  :${colors.reset} ${colors.green}${unique_conditions.size()}${colors.reset}"
+        unique_conditions.each { condition ->
+            log.info "    ${colors.purple}-${colors.reset} ${colors.bold}${condition}${colors.reset}"
+        }
         log.info ""
         log.info "${colors.blue}======================================================================${colors.reset}"
         log.info ""
 
-        // Extract fields from RNA samples only
+        // Create RNA channel data - one entry per sample_name + condition group
         if (rna_samples.size() > 0) {
-            def sample_paths = rna_samples.collect { row -> row[1] }
-            def sample_names = rna_samples.collect { row -> row[0].id }
-
-            def ids = rna_samples.collect { row ->
-                row[0].containsKey('bam_id') ? row[0].bam_id : row[0].id
+            def rna_grouped = rna_samples.groupBy { row ->
+                def sample_name = row[0].sample_name
+                def condition = row[0].condition
+                return "${sample_name}_${condition}"
             }
 
-            def conditions = rna_samples.collect { row ->
-                row[0].containsKey('condition') ? row[0].condition : 'unknown'
-            }
-            def replicates = rna_samples.collect { row ->
-                row[0].containsKey('replicate') ? row[0].replicate : 'unknown'
-            }
-            def sample_types = rna_samples.collect { row ->
-                row[0].containsKey('sample_type') ? row[0].sample_type : 'RNA'
-            }
+            rna_grouped.each { group_key, group_samples ->
+                def sample_paths = group_samples.collect { row -> row[1] }
+                def sample_name = group_samples[0][0].sample_name
+                def condition = group_samples[0][0].condition
+                def meta = [
+                    id: group_key,  // Use group_key as id (e.g., "A_control")
+                    sample_name: sample_name,
+                    condition: condition,
+                    sample_type: 'RNA'
+                ]
 
-            // Create a single meta map for the merged dataset
-            def meta = [
-                id: params.dataset_name,
-                sample_names: sample_names,
-                bam_ids: ids,
-                conditions: conditions,
-                replicates: replicates,
-                sample_types: sample_types
-            ]
-
-            rna_channel_data = [[meta, sample_paths]]
+                rna_channel_data.add([meta, sample_paths])
+            }
         }
 
         // Populate protein channel data - keep as individual samples with sample_type = 'protein'
+        // Add group_key to metadata for matching with RNA samples later
         protein_channel_data = protein_samples.collect { row ->
             def meta = row[0]
-            if (!meta.containsKey('sample_type')) {
-                meta = meta + [sample_type: 'protein']
-            }
+            def sample_name = meta.sample_name
+            def condition = meta.condition
+            def group_key = "${sample_name}_${condition}"
+
+            // Add group_key to metadata for later (need for matching with RNA groups)
+            meta = meta + [
+                sample_type: 'protein',
+                group_key: group_key,
+                id: "${meta.sample_name}_${new File(row[1].toString()).name.replaceAll(/\.(raw|mzML|mzml)$/, '')}"
+            ]
             return [meta, row[1]]
         }
 

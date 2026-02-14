@@ -3,8 +3,10 @@
     IMPORT MODULES / SUBWORKFLOWS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { MSCONVERT_MZML } from '../../modules/local/msconvert_mzml/main'
-include { METAMORPHEUS   } from '../../modules/local/metamorpheus/main'
+include { MSCONVERT_MZML         } from '../../modules/local/msconvert_mzml/main'
+include { METAMORPHEUS           } from '../../modules/local/metamorpheus/main'
+include { FRAGPIPE               } from '../../modules/local/fragpipe/main'
+include { FRAGPIPE_AUTHENTICATE  } from '../../modules/local/fragpipe_authenticate/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -13,18 +15,31 @@ include { METAMORPHEUS   } from '../../modules/local/metamorpheus/main'
 */
 workflow PROTEOMICS {
     take:
-    ch_ms_files                 // channel: [meta, raw_or_mzml_file]
-    protein_fasta               // path: protein database FASTA file (shared across all samples)
+    ch_ms_files_with_db         // channel: [meta, raw_or_mzml_file, protein_fasta]
     metamorpheus_config         // path: MetaMorpheus TOML configuration file
     mm_writable                 // path: writable directory for MetaMorpheus
+    protein_search              // val: protein search engine ('fragpipe' or 'metamorpheus')
+    fragpipe_workflow           // path: FragPipe workflow file (optional, null triggers auto-download)
+
+    // FragPipe authentication parameters (only needed if protein_search='fragpipe')
+    fragpipe_first_name         // val: User's first name
+    fragpipe_last_name          // val: User's last name
+    fragpipe_email              // val: User's email
+    fragpipe_institution        // val: User's institution
+    fragpipe_token              // val: 6-digit verification token
+    fragpipe_license_accept     // val: License acceptance confirmation
 
     main:
     ch_versions = channel.empty()
 
+    // Extract [meta, file] and protein_db from input channel
+    ch_ms_files = ch_ms_files_with_db.map { meta, file, db -> [meta, file] }
+    ch_protein_dbs = ch_ms_files_with_db.map { meta, file, db -> [meta.id, db] }
+
     //
     // MODULE: Convert any protein sample files to .mzML format if needed
     //
-    // Separate files that are already mzML from those that need conversion (note: .raw if thermo fisher, may be other extensions as well depending on vendor)
+    // Separate files that are already mzML from those that need conversion
     ch_ms_files
         .branch { meta, file ->
             mzml: file.name.endsWith('.mzML') || file.name.endsWith('.mzml')
@@ -49,29 +64,140 @@ workflow PROTEOMICS {
     ch_mzml_grouped = ch_mzml_files
         .groupTuple(by: 0)
         .map { meta, files ->
-            // If single file, unwrap from list
-            def file_input = files.size() == 1 ? files[0] : files
-            [meta, file_input]
+            // Keep files as list (FragPipe module handles both single and multiple files)
+            [meta, files]
         }
 
     //
-    // MODULE: Run MetaMorpheus database search, with all samples searched against same protein database
+    // Filter samples based on protein search engine and mass_spec_type compatibility
     //
-    METAMORPHEUS(
-        ch_mzml_grouped,
-        protein_fasta,
-        metamorpheus_config,
-        mm_writable
-    )
-    ch_versions = ch_versions.mix(METAMORPHEUS.out.versions)
+    ch_mzml_grouped
+        .branch { meta, files ->
+            // For FragPipe: accept both DDA and DIA
+            fragpipe: protein_search == 'fragpipe' && (meta.mass_spec_type == 'DDA' || meta.mass_spec_type == 'DIA')
+                return [meta, files]
+            // For MetaMorpheus: only accept DDA (cannot handle DIA)
+            metamorpheus: protein_search == 'metamorpheus' && meta.mass_spec_type == 'DDA'
+                return [meta, files]
+            // logging: samples that cannot be processed
+            incompatible: true
+                if (protein_search == 'metamorpheus' && meta.mass_spec_type == 'DIA') {
+                    log.warn "INCOMPATIBLE: Sample ${meta.id} has mass_spec_type='DIA' but protein_search='metamorpheus'. MetaMorpheus cannot process DIA data. Please use --protein_search fragpipe for DIA samples. Skipping sample."
+                } else {
+                    log.warn "INCOMPATIBLE: Sample ${meta.id} with mass_spec_type='${meta.mass_spec_type}' cannot be processed with protein_search='${protein_search}'. Skipping sample."
+                }
+                return null
+        }
+        .set { ch_mzml_branched }
+
+    //
+    // MODULE: Run protein database search based on selected engine
+    // Join mzML files with their corresponding protein databases
+    //
+    ch_mzml_with_db = ch_mzml_branched.fragpipe
+        .mix(ch_mzml_branched.metamorpheus)
+        .map { meta, files -> [meta.id, meta, files] }
+        .join(ch_protein_dbs, by: 0)
+        .map { id, meta, files, protein_db -> [meta, files, protein_db] }
+
+    if (protein_search == 'fragpipe') {
+        //
+        // FRAGPIPE WORKFLOW
+        //
+
+        // Step 1: Authenticate and download tools (runs once, cached for future runs)
+        // Convert null values to empty strings for Nextflow compatibility
+        def fp_first_name = fragpipe_first_name ?: ''
+        def fp_last_name = fragpipe_last_name ?: ''
+        def fp_email = fragpipe_email ?: ''
+        def fp_institution = fragpipe_institution ?: ''
+        def fp_token = fragpipe_token ?: ''
+        def fp_license = fragpipe_license_accept ?: false
+
+        FRAGPIPE_AUTHENTICATE(
+            fp_first_name,
+            fp_last_name,
+            fp_email,
+            fp_institution,
+            fp_token,
+            fp_license
+        )
+        ch_versions = ch_versions.mix(FRAGPIPE_AUTHENTICATE.out.versions)
+
+        // Step 2: Group samples by sample_name for FragPipe
+        // All files with the same sample_name run together in one FragPipe process
+        ch_mzml_with_db
+            .filter { meta, files, protein_db -> meta.mass_spec_type == 'DDA' || meta.mass_spec_type == 'DIA' }
+            .map { meta, files, protein_db ->
+                def sample_name = meta.sample_name
+                return [sample_name, meta, files, protein_db]
+            }
+            .groupTuple(by: 0)
+            .flatMap { sample_name, metas, files_list, protein_dbs ->
+                // Run FragPipe once for each unique sample_name
+                // Use the first meta but update id to be the sample_name for the grouped run
+                def grouped_meta = metas[0] + [id: sample_name]
+                def protein_db = protein_dbs[0]  // All samples with same sample_name should have same protein_db
+                def all_files = files_list.flatten()
+                return [[grouped_meta, all_files, protein_db]]
+            }
+            .set { ch_fragpipe_grouped }
+
+        // Step 3: Run FragPipe
+        // Prepare custom workflow file path or use null for auto-download
+        def custom_workflow_file = fragpipe_workflow ? file(fragpipe_workflow) : file('NO_FILE')
+
+        FRAGPIPE(
+            ch_fragpipe_grouped,
+            FRAGPIPE_AUTHENTICATE.out.msfragger_jar.first(),
+            FRAGPIPE_AUTHENTICATE.out.ionquant_jar.first(),
+            FRAGPIPE_AUTHENTICATE.out.diatracer_jar.first(),
+            custom_workflow_file
+        )
+        ch_versions = ch_versions.mix(FRAGPIPE.out.versions)
+        ch_psm_table = FRAGPIPE.out.psm_table
+        ch_search_results = FRAGPIPE.out.results
+    }
+    else {
+        //
+        // METAMORPHEUS WORKFLOW
+        //
+        // Group samples by sample_name
+        ch_mzml_with_db
+            .filter { meta, files, protein_db -> meta.mass_spec_type == 'DDA' }
+            .map { meta, files, protein_db ->
+                def sample_name = meta.sample_name
+                return [sample_name, meta, files, protein_db]
+            }
+            .groupTuple(by: 0)
+            .flatMap { sample_name, metas, files_list, protein_dbs ->
+                // Run MetaMorpheus once for each unique sample_name
+                // Use the first meta but update id to be the sample_name for the grouped run
+                def grouped_meta = metas[0] + [id: sample_name]
+                def protein_db = protein_dbs[0]  // All samples with same sample_name should have same protein_db
+                def all_files = files_list.flatten()
+                return [[grouped_meta, all_files, protein_db]]
+            }
+            .set { ch_metamorpheus_grouped }
+
+        METAMORPHEUS(
+            ch_metamorpheus_grouped.map { meta, files, db -> [meta, files] },
+            ch_metamorpheus_grouped.map { meta, files, db -> db }.first(),
+            metamorpheus_config,
+            mm_writable
+        )
+        ch_versions = ch_versions.mix(METAMORPHEUS.out.versions)
+        ch_psm_table = METAMORPHEUS.out.psm_table
+        ch_search_results = METAMORPHEUS.out.results
+    }
 
     emit:
     // MSCONVERT outputs
     mzml_files                  = ch_mzml_files                     // [meta, *.mzML]
 
-    // METAMORPHEUS outputs
-    psm_table                   = METAMORPHEUS.out.psm_table        // [meta, *.psmtsv]
-    search_results              = METAMORPHEUS.out.results          // [meta, results/*]
+    // Protein search outputs
+    psm_table                   = ch_psm_table                      // [meta, *.psmtsv or *.tsv]
+    search_results              = ch_search_results                 // [meta, results/*]
 
     versions                    = ch_versions.unique().collectFile(name: 'versions.yml')
 }

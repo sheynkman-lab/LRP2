@@ -1,0 +1,61 @@
+name: fragpipe_authenticate
+description: One-time authentication and tool download for FragPipe (MSFragger + IonQuant)
+keywords:
+  - proteomics
+  - mass spectrometry
+  - fragpipe
+  - msfragger
+  - ionquant
+  - authentication
+  - download
+tools:
+  - curl:
+      description: Command line tool for transferring data with URLs
+      homepage: https://curl.se/
+      documentation: https://curl.se/docs/
+      tool_dev_url: https://github.com/curl/curl
+      licence: ["curl License"]
+
+input:
+  - first_name:
+      type: string
+      description: User's first name for registration
+  - last_name:
+      type: string
+      description: User's last name for registration
+  - email:
+      type: string
+      description: User's email address (will receive verification token)
+  - institution:
+      type: string
+      description: User's institution/organization
+  - token:
+      type: string
+      description: 6-digit verification token from email
+      pattern: "\\d{6}"
+  - license_accept:
+      type: boolean
+      description: Confirmation that user accepted license terms
+
+output:
+  - msfragger_jar:
+      type: file
+      description: Downloaded MSFragger JAR file
+      pattern: "msfragger/MSFragger*.jar"
+  - ionquant_jar:
+      type: file
+      description: Downloaded IonQuant JAR file
+      pattern: "ionquant/IonQuant*.jar"
+  - ready:
+      type: val
+      description: Boolean confirmation that all tools are ready
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@mschertzer"
+
+maintainers:
+  - "@mschertzer"

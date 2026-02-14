@@ -434,11 +434,11 @@
                     "help_text": "When enabled, applies vendor peak picking algorithm during conversion from raw to mzML format.",
                     "fa_icon": "fas fa-chart-line"
                 },
-                "gencode_protein_fasta": {
+                "protein_fasta": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "Path to GENCODE reference protein FASTA file.",
-                    "help_text": "Reference protein database for MetaMorpheus searches.",
+                    "description": "Path to reference protein FASTA file.",
+                    "help_text": "Reference protein database for proteomics searches. If not provided and a GENCODE genome is specified, will automatically use the protein FASTA from the GENCODE genome configuration.",
                     "fa_icon": "far fa-file-code"
                 }
             }

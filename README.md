@@ -62,7 +62,7 @@ The LRP2 pipeline consists of five major stages:
   - Generates peptide-spectrum match (PSM) tables
   - Outputs comprehensive protein search results and statistics
 
-> **Note**: The PROTEOMICS subworkflow can only run when protein samples (sample_type='protein') are provided in the samplesheet. It will search against the predicted proteome from Stage 3 if RNA samples were processed, and otherwise use a provided reference protein database via `--gencode_protein_fasta`. 
+> **Note**: The PROTEOMICS subworkflow can only run when protein samples (sample_type='protein') are provided in the samplesheet. When both RNA and protein samples are present, it searches against a concatenated database of the predicted proteome from Stage 3 plus the reference protein FASTA. For protein-only samples, it uses only the reference protein database via `--protein_fasta` (or auto-detected from the GENCODE genome if specified). 
 
 ### Key Features:
 - **Full isoform resolution**: Leverages PacBio long reads for complete transcript characterization
@@ -93,23 +93,46 @@ First, prepare a samplesheet with your input data that looks as follows:
 **samplesheet.csv:**
 
 ```csv
-sample_name,sample_path,condition,replicate,sample_type
-control_chr22,/path/to/sample_data/230801_pacbio_rbfox2_control_chr22.flnc.bam,control,rep1,RNA
-treatment_chr22,/path/to/sample_data/230801_pacbio_rbfox2_RB-G5_chr22.flnc.bam,treatment,rep1,RNA
+sample_name,sample_path,condition,sample_type,mass_spec_type
+A,A.01.isoseq.flnc.bam,control,RNA,none
+A,A.02.isoseq.flnc.bam,control,RNA,none
+C,C.01.isoseq.flnc.bam,disease,RNA,none
+D,D.01.isoseq.flnc.bam,disease,RNA,none
+A,A_injection1.raw,control,protein,DIA
+A,A_injection2.raw,control,protein,DIA
+A,A_injection3.raw,control,protein,DIA
+C,C_injection1.raw,disease,protein,DIA
+C,C_injection2.raw,disease,protein,DIA
+C,C_injection3.raw,disease,protein,DIA
 ```
 
-Each row represents a PacBio Iso-Seq FLNC (Full-Length Non-Chimeric) BAM file, OR a Mass Spectrometry protein .raw or .mzML file. The columns are:
+Each row represents either a PacBio Iso-Seq FLNC (Full-Length Non-Chimeric) BAM file OR a Mass Spectrometry protein .raw or .mzML file.
 
-**Required:**
-- `sample_name`: Unique sample identifier (no spaces)
-- `sample_path`: Absolute path to the sample (*.bam if RNA, *.raw or .mzML if protein)
-- `sanple_type`: Data type of the sample, which may be either 'RNA' or 'protein'
+**Required columns:**
+- `sample_name`: Biological replicate identifier. RNA and protein samples with matching `sample_name` and `condition` will be grouped together for analysis. (no spaces)
+- `sample_path`: Absolute path to the sample file (*.bam if RNA, *.raw or .mzML if protein)
+- `condition`: Sample condition or group (e.g., "control", "disease"). Used for grouping samples and differential analysis. (no spaces)
+- `sample_type`: Data type of the sample - must be either 'RNA' or 'protein'
 
-**Optional (required for differential analysis):**
-- `condition`: Sample condition or group (e.g., "control", "treatment")
-- `replicate`: Replicate identifier (e.g., "rep1", "rep2")
+**Optional columns:**
+- `mass_spec_type`: Mass spectrometry data acquisition type - 'DDA', 'DIA', or 'none'. Required for protein samples (must be 'DDA' or 'DIA'). For RNA samples, use 'none'.
 
-> **Note**: The `condition` column (or alternatively `group`) is required if you want to run differential analysis with `--run_differential_analysis`. The column can also be named `group` instead of `condition`.
+### Sample Grouping Logic:
+
+**Biological Replicates**: Samples with unique `sample_name` values are treated as distinct biological replicates. In the example above, A, C, and D are three biological replicates.
+
+**Technical Replicates**: Multiple files with the same `sample_name` and `condition` are treated as technical replicates and will be processed together. For example:
+- RNA technical replicates: `A.01.isoseq.flnc.bam` and `A.02.isoseq.flnc.bam` (both have sample_name=A, condition=control, sample_type=RNA)
+- Protein technical replicates: `A_injection1.raw`, `A_injection2.raw`, `A_injection3.raw` (all have sample_name=A, condition=control, sample_type=protein)
+
+**RNA-Protein Sample Groups**: RNA and protein samples are matched by identical `sample_name` and `condition` values. The predicted proteome from RNA samples will be used as the protein database for matching protein samples. In the example above:
+- **Group A_control**: RNA files `A.01` and `A.02` + protein files `A_injection1`, `A_injection2`, `A_injection3`
+- **Group C_disease**: RNA file `C.01` + protein files `C_injection1`, `C_injection2`, `C_injection3`
+- **Group D_disease**: RNA file `D.01` only (no matching protein samples - RNA analysis only)
+
+**RNA-only samples**: Sample groups with only RNA samples (like D in the example) will run through all RNA subworkflows but skip proteomics analysis.
+
+> **Note**: The `condition` column is required for all samples. It is used both for grouping samples and for differential analysis (when enabled with `--run_differential_analysis`).
 
 
 ### Running the Pipeline
@@ -217,11 +240,11 @@ The pipeline supports multiple execution profiles:
 - `--min_usage_ratio`: Minimum junction usage ratio for filtering (default: `0.01`)
 
 **Proteomics Analysis (Optional):**
-- `--gencode_protein_fasta`: Path to reference protein database FASTA (required for protein-only analysis without RNA samples)
+- `--protein_fasta`: Path to reference protein database FASTA (optional - auto-detected from GENCODE genome if not provided)
 - `--metamorpheus_config`: Path to MetaMorpheus TOML configuration file (default: uses built-in ``sample_data/SearchTask.toml``)
 - `--msconvert_peak_picking`: Enable peak picking during mzML conversion (default: `true`)
 
-> **Note**: When both RNA and protein samples are provided, the pipeline automatically uses the predicted proteome from Stage 3 as the search database. For protein-only analysis (no RNA samples), you must provide `--gencode_protein_fasta`.
+> **Note**: When both RNA and protein samples are provided, the pipeline concatenates the predicted proteome from Stage 3 with the reference protein FASTA (either user-provided via `--protein_fasta` or auto-detected from GENCODE genome) to create a comprehensive search database. For protein-only analysis (no RNA samples), only the reference protein FASTA will be used.
 
 For a complete list of parameters, run:
 

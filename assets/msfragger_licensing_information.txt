@@ -1,0 +1,44 @@
+=====================================================================
+           ADDITIONAL MSFRAGGER LICENSE INFORMATION
+=====================================================================
+
+MSFragger includes components for reading vendor-specific file formats.
+By proceeding, you also agree to the following terms:
+
+---------------------------------------------------------------------
+1. Thermo RawFileReader License
+---------------------------------------------------------------------
+For reading Thermo Fisher .raw files, MSFragger uses the RawFileReader
+library, which is subject to the Thermo Fisher Scientific software
+license agreement.
+
+License: https://github.com/thermofisher-tfs/RawFileReader/blob/main/LICENSE
+
+Key Terms:
+- Provided "as is" without warranty
+- Subject to Thermo Fisher EULA
+- For research use only
+- Cannot redistribute
+
+---------------------------------------------------------------------
+2. Bruker SDK License
+---------------------------------------------------------------------
+For reading Bruker files, MSFragger may use Bruker SDK components,
+which are subject to Bruker's license terms.
+
+Key Terms:
+- Licensed for use with Bruker instruments
+- Cannot redistribute SDK components
+- Subject to Bruker's software license agreement
+
+---------------------------------------------------------------------
+
+By accepting this license agreement, you confirm that:
+
+1. You have read and understood the vendor-specific license terms
+2. Your use of vendor file readers complies with their restrictions
+3. You will not redistribute vendor-specific libraries
+
+=====================================================================
+
+Do you accept these additional license terms? (yes/no):

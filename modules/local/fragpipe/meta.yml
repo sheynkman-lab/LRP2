@@ -1,0 +1,82 @@
+name: fragpipe
+description: |
+  Comprehensive proteomics analysis with FragPipe including manifest generation,
+  database preparation with decoys, workflow selection, and headless execution
+keywords:
+  - mass spectrometry
+  - proteomics
+  - database search
+  - peptide identification
+  - fragpipe
+  - msfragger
+  - ionquant
+  - philosopher
+  - DIA
+  - DDA
+tools:
+  - fragpipe:
+      description: A comprehensive proteomics analysis pipeline with MSFragger search engine
+      homepage: https://fragpipe.nesvilab.org/
+      documentation: https://fragpipe.nesvilab.org/docs/
+      tool_dev_url: https://github.com/Nesvilab/FragPipe
+      doi: "10.1038/s41592-020-0967-9"
+      licence: ["Academic Free License"]
+  - philosopher:
+      description: Philosopher provides easy access to third-party tools and custom algorithms
+      homepage: https://philosopher.nesvilab.org/
+      documentation: https://github.com/Nesvilab/philosopher/wiki
+      tool_dev_url: https://github.com/Nesvilab/philosopher
+      doi: "10.1038/s41592-020-0912-y"
+      licence: ["GPL v3"]
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information including mass_spec_type (DDA or DIA), replicate number
+        e.g. [ id:'sample1', mass_spec_type:'DDA', replicate:'1' ]
+  - mzml_files:
+      type: file
+      description: Mass spectrometry data file(s) in mzML format (single file or list for fractionated samples)
+      pattern: "*.{mzML,mzml}"
+  - protein_fasta:
+      type: file
+      description: Protein sequence database in FASTA format (decoys will be added automatically if not present)
+      pattern: "*.{fasta,fa,fas}"
+  - msfragger_jar:
+      type: file
+      description: MSFragger JAR file (obtained via FRAGPIPE_AUTHENTICATE)
+      pattern: "MSFragger*.jar"
+  - ionquant_jar:
+      type: file
+      description: IonQuant JAR file (obtained via FRAGPIPE_AUTHENTICATE)
+      pattern: "IonQuant*.jar"
+  - custom_workflow:
+      type: file
+      description: |
+        Optional custom FragPipe workflow configuration file.
+        If not provided, the module will automatically download the appropriate workflow from GitHub:
+        - DIA samples: DIA_SpecLib_Quant.workflow
+        - DDA samples: LFQ-MBR.workflow
+      pattern: "*.workflow"
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+  - psm_table:
+      type: file
+      description: Peptide-spectrum matches (PSMs) table with identification results
+      pattern: "*.tsv"
+  - results:
+      type: directory
+      description: Complete FragPipe search results including all output files
+      pattern: "results/**"
+authors:
+  - "@mschertzer"
+maintainers:
+  - "@mschertzer"
