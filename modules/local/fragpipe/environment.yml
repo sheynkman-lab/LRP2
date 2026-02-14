@@ -1,0 +1,9 @@
+name: fragpipe
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - conda-forge::openjdk=17.0.3
+  - wget=1.20.3
+  - curl=8.1.2

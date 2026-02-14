@@ -1,0 +1,7 @@
+name: fragpipe_authenticate
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - curl=8.1.2
+  - unzip=6.0

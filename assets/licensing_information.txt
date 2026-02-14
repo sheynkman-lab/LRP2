@@ -1,0 +1,58 @@
+=====================================================================
+                    FRAGPIPE LICENSE INFORMATION
+=====================================================================
+
+This pipeline uses FragPipe, which includes several licensed components.
+By proceeding, you agree to the following license terms:
+
+---------------------------------------------------------------------
+1. MSFragger License
+---------------------------------------------------------------------
+MSFragger is licensed for academic use only under the Apache License 2.0.
+For commercial use, please contact the University of Michigan Office of
+Technology Transfer.
+
+Academic License: https://msfragger.nesvilab.org/
+Full License: https://github.com/Nesvilab/MSFragger/blob/master/LICENSE
+
+Key Terms:
+- Free for academic research and educational purposes
+- Commercial use requires a separate license
+- Cannot redistribute the software
+
+---------------------------------------------------------------------
+2. IonQuant License
+---------------------------------------------------------------------
+IonQuant is licensed under the Apache License 2.0 for academic use.
+
+License: https://github.com/Nesvilab/IonQuant/blob/master/LICENSE
+
+Key Terms:
+- Free for academic research
+- Commercial use requires separate licensing
+- Cannot redistribute the software
+
+---------------------------------------------------------------------
+3. Additional Components
+---------------------------------------------------------------------
+FragPipe may include additional components with their own licenses:
+- Philosopher: BSD 3-Clause License
+- PeptideProphet/ProteinProphet: LGPL
+- PTMProphet: LGPL
+
+---------------------------------------------------------------------
+
+By accepting this license agreement, you confirm that:
+
+1. You have read and understood the license terms above
+2. Your use of FragPipe complies with the academic use restrictions
+3. You will not redistribute MSFragger or IonQuant binaries
+4. For commercial use, you will obtain appropriate licenses
+
+For more information:
+- Academic users: https://msfragger.nesvilab.org/
+- Commercial users: https://fragmatics.com/ or info@fragmatics.com
+
+=====================================================================
+
+Do you accept these license terms? (yes/no):

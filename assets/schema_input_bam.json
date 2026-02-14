@@ -10,41 +10,34 @@
             "sample_name": {
                 "type": "string",
                 "pattern": "^\\S+$",
-                "errorMessage": "Sample name must be provided and cannot contain spaces",
-                "meta": ["id"]
+                "errorMessage": "Sample name must be provided and cannot contain spaces. RNA and protein samples with matching sample_name and condition will be grouped together.",
+                "meta": ["sample_name"]
             },
             "sample_path": {
                 "type": "string",
                 "format": "file-path",
-                "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(bam|raw|mzML|mzml)$",
-                "errorMessage": "Sample file must be provided, cannot contain spaces and must have extension '.bam', '.raw', '.mzML', or '.mzml'"
-            },
-            "bam_id": {
-                "type": "string",
-                "pattern": "^(\\S+|none)$",
-                "errorMessage": "BAM ID must be provided for RNA samples and cannot contain spaces. For protein samples, use 'none'. For RNA samples, this should match the name in the BAM header (e.g., BioSample_1)",
-                "meta": ["bam_id"]
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(bam|raw|mzML|mzml|fasta)$",
+                "errorMessage": "Sample file must be provided, cannot contain spaces and must have extension '.bam', '.raw', '.mzML', '.mzml', or '.fasta' (for testing)"
             },
             "condition": {
                 "type": "string",
                 "pattern": "^\\S+$",
-                "errorMessage": "Condition must be provided and cannot contain spaces",
+                "errorMessage": "Condition must be provided and cannot contain spaces. RNA and protein samples with matching sample_name and condition will be grouped together.",
                 "meta": ["condition"]
-            },
-            "replicate": {
-                "type": "string",
-                "pattern": "^\\S+$",
-                "errorMessage": "Replicate label must be provided and cannot contain spaces",
-                "meta": ["replicate"]
             },
             "sample_type": {
                 "type": "string",
                 "pattern": "^(?i)(RNA|protein)$",
                 "errorMessage": "Sample type must be either 'RNA' or 'protein'",
                 "meta": ["sample_type"]
+            },
+            "mass_spec_type": {
+                "type": "string",
+                "pattern": "^(?i)(DDA|DIA|none)?$",
+                "errorMessage": "Mass spec type must be 'DDA', 'DIA', 'none', or left empty. Required for protein samples (must be 'DDA' or 'DIA'). For RNA samples, use 'none'.",
+                "meta": ["mass_spec_type"]
             }
         },
-        "required": ["sample_name", "sample_path", "bam_id", "condition", "replicate", "sample_type"]
+        "required": ["sample_name", "sample_path", "condition", "sample_type"]
     }
 }

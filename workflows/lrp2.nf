@@ -6,6 +6,8 @@
 include { GUNZIP as GUNZIP_FASTA         } from '../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_GTF           } from '../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_GENCODE_FASTA } from '../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_PROTEIN_FASTA } from '../modules/nf-core/gunzip/main'
+include { CAT_CAT                        } from '../modules/nf-core/cat/cat/main'
 include { PACBIO_ISOSEQ                  } from '../subworkflows/local/pacbio_isoseq'
 include { TRANSCRIPTOME                  } from '../subworkflows/local/transcriptome'
 include { PREDICTED_PROTEOME             } from '../subworkflows/local/predicted_proteome'
@@ -72,21 +74,11 @@ workflow LRP2 {
     //
     // Separate RNA and protein samples based on sample_type metadata
     //
-    def isRnaSample = { meta ->
-        if (meta.containsKey('sample_types')) {
-            return meta.sample_types.any { type -> type.toLowerCase() == 'rna' }
-        }
-        else if (meta.containsKey('sample_type')) {
-            return meta.sample_type.toLowerCase() == 'rna'
-        }
-        else {
-            return true
-        }
-    }
-
     // Create separate RNA and protein channels using filter
     ch_rna_samples = ch_samplesheet
-        .filter { meta, data -> isRnaSample(meta) }
+        .filter { meta, data ->
+            meta.containsKey('sample_type') && meta.sample_type.toLowerCase() == 'rna'
+        }
 
     ch_protein_samples = ch_samplesheet
         .filter { meta, data ->
@@ -191,44 +183,47 @@ workflow LRP2 {
         .flatMap { _count, samples -> samples }
 
     //
+    // Determine protein FASTA for proteomics analysis
+    // Priority: 1) User-provided --protein_fasta, 2) Auto-detect from GENCODE genome, 3) Skip if neither available
+    //
+    def protein_fasta_path = params.protein_fasta
+
+    // If not provided by user, get from GENCODE genome default
+    if (!protein_fasta_path && params.gencode_refs?.containsKey(params.genome)) {
+        protein_fasta_path = params.gencode_refs[params.genome].protein_fasta
+        log.info "Auto-detected protein FASTA from GENCODE genome ${params.genome}: ${protein_fasta_path}"
+    }
+
+    def protein_fasta_file = protein_fasta_path ? file(protein_fasta_path) : null
+    def is_protein_fasta_gzipped = protein_fasta_file && protein_fasta_file.name.endsWith('.gz')
+
+    if (is_protein_fasta_gzipped) {
+        ch_protein_fasta_input = channel.of([[ id: 'protein_fasta' ], protein_fasta_file])
+        GUNZIP_PROTEIN_FASTA(ch_protein_fasta_input)
+        ch_protein_fasta = GUNZIP_PROTEIN_FASTA.out.gunzip.map { _meta, file -> file }
+    } else {
+        ch_protein_fasta = protein_fasta_file ? channel.value(protein_fasta_file) : channel.empty()
+    }
+
+    //
     // SUBWORKFLOW: Run proteomics analysis
-    // Only runs if --gencode_protein_fasta parameter is provided
-    // This ensures users explicitly opt-in to proteomics analysis
+    // Runs if protein_fasta is available (either user-provided or auto-detected) AND protein samples are present
     //
     ch_protein_count
         .subscribe { count ->
-            if (params.gencode_protein_fasta && count > 0) {
-                log.info "Detected ${count} protein sample(s) and --gencode_protein_fasta provided - PROTEOMICS subworkflow will run"
-            } else if (params.gencode_protein_fasta && count == 0) {
-                log.warn "--gencode_protein_fasta provided but no protein samples detected - skipping PROTEOMICS subworkflow"
-            } else if (!params.gencode_protein_fasta && count > 0) {
-                log.warn "Protein samples detected but --gencode_protein_fasta not provided - skipping PROTEOMICS subworkflow"
+            if (protein_fasta_path && count > 0) {
+                log.info "Detected ${count} protein sample(s) and protein FASTA available - PROTEOMICS subworkflow will run"
+            } else if (protein_fasta_path && count == 0) {
+                log.warn "Protein FASTA available but no protein samples detected - skipping PROTEOMICS subworkflow"
+            } else if (!protein_fasta_path && count > 0) {
+                log.warn "Protein samples detected but no protein FASTA available (neither --protein_fasta provided nor auto-detected from GENCODE genome) - skipping PROTEOMICS subworkflow"
             } else {
                 log.info "No protein samples detected - skipping PROTEOMICS subworkflow"
             }
         }
 
-    // note: pipeline will only execute PROTEOMICS if gencode_protein_fasta parameter is provided by user!
-    if (params.gencode_protein_fasta) {
-        // If RNA samples were processed, use predicted proteome; otherwise use provided reference
-        ch_protein_db = ch_rna_count
-            .map { count ->
-                if (count == 0) {
-                    // No RNA samples - must use provided protein database
-                    log.info "No RNA samples detected - using provided protein database: ${params.gencode_protein_fasta}"
-                    return file(params.gencode_protein_fasta)
-                } else {
-                    // Signal to use predicted proteome from RNA analysis
-                    return null
-                }
-            }
-            .filter { db -> db != null }
-            .mix(
-                PREDICTED_PROTEOME.out.protein_all_orfs_fasta
-                    .map { _meta, fasta -> fasta }
-            )
-            .first()
-
+    // note: pipeline will only execute PROTEOMICS if protein_fasta is available (user-provided or auto-detected)
+    if (protein_fasta_path) {
         ch_metamorpheus_config = channel.value(
             params.metamorpheus_config ?
                 file(params.metamorpheus_config) :
@@ -236,11 +231,77 @@ workflow LRP2 {
         )
         ch_mm_writable = channel.value(file("${projectDir}/assets/mm_writable_placeholder"))
 
+        // Prepare protein samples - check if matching RNA samples exist:
+        // 1) For RNA+protein samplesheets with matching sample names, concatenate predicted proteome with reference
+        // 2) For protein-only samples, just use reference FASTA
+
+        // Create a channel from predicted proteome FASTAs keyed by sample_name
+        // This will be empty if no RNA samples were processed
+        ch_predicted_proteomes = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
+            .map { meta, fasta -> [meta.sample_name, fasta] }
+            .ifEmpty([])
+
+        // Join protein samples with predicted proteomes by sample_name
+        // This will only match samples that have both RNA and protein data
+        ch_protein_with_predicted = ch_protein_samples_filtered
+            .map { meta, file -> [meta.sample_name, meta, file] }
+            .join(ch_predicted_proteomes, by: 0, remainder: true)
+            .branch { _sample_name, meta, file, predicted_fasta ->
+                has_rna: predicted_fasta != null
+                    return [meta, file, predicted_fasta]
+                no_rna: true
+                    return [meta, file]
+            }
+
+        // For samples WITH matching RNA data: concatenate predicted proteome + reference FASTA
+        ch_concat_input = ch_protein_with_predicted.has_rna
+            .combine(ch_protein_fasta)
+            .map { meta, _file, predicted_fasta, reference_fasta ->
+                // Create input for CAT_CAT: [meta, [file1, file2]]
+                def cat_meta = meta + [id: "${meta.sample_name}_combined_proteome"]
+                log.info "Protein sample ${meta.id} has matching RNA sample - concatenating predicted proteome with reference FASTA"
+                return [cat_meta, [reference_fasta, predicted_fasta]]
+            }
+
+        // Concatenate FASTAs for samples with RNA data (only if there are any)
+        CAT_CAT(ch_concat_input)
+
+        // Combine concatenated FASTAs back with original protein sample metadata
+        ch_protein_with_concat = ch_protein_with_predicted.has_rna
+            .map { meta, file, _predicted_fasta -> [meta.sample_name, meta, file] }
+            .join(
+                CAT_CAT.out.file_out.map { meta, fasta -> [meta.id.replaceAll('_combined_proteome$', ''), fasta] },
+                by: 0
+            )
+            .map { _sample_name, meta, file, concatenated_fasta ->
+                [meta, file, concatenated_fasta]
+            }
+
+        // For samples WITHOUT matching RNA data: use reference FASTA
+        ch_protein_no_rna = ch_protein_with_predicted.no_rna
+            .combine(ch_protein_fasta)
+            .map { meta, file, protein_fasta ->
+                log.info "Protein sample ${meta.id} has no matching RNA sample - using reference protein FASTA"
+                return [meta, file, protein_fasta]
+            }
+
+        // Combine both branches
+        ch_protein_for_proteomics = ch_protein_with_concat.mix(ch_protein_no_rna)
+
+        // Pass protein samples with their corresponding protein databases to PROTEOMICS
         PROTEOMICS (
-            ch_protein_samples_filtered,
-            ch_protein_db,
+            ch_protein_for_proteomics,  // [meta, file, protein_db]
             ch_metamorpheus_config,
-            ch_mm_writable
+            ch_mm_writable,
+            params.protein_search,
+            params.fragpipe_workflow,
+            // FragPipe authentication parameters
+            params.fragpipe_first_name,
+            params.fragpipe_last_name,
+            params.fragpipe_email,
+            params.fragpipe_institution,
+            params.fragpipe_token,
+            params.fragpipe_license_accept
         )
         ch_versions = ch_versions.mix(PROTEOMICS.out.versions.ifEmpty([]))
     }

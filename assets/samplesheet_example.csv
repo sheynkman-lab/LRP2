@@ -1,0 +1,11 @@
+sample_name,sample_path,condition,sample_type,mass_spec_type
+A,A.01.isoseq.flnc.bam,control,RNA,none
+A,A.02.isoseq.flnc.bam,control,RNA,none
+C,C.01.isoseq.flnc.bam,disease,RNA,none
+D,D.01.isoseq.flnc.bam,disease,RNA,none
+A,A_injection1.raw,control,protein,DIA
+A,A_injection2.raw,control,protein,DIA
+A,A_injection3.raw,control,protein,DIA
+C,C_injection1.raw,disease,protein,DIA
+C,C_injection2.raw,disease,protein,DIA
+C,C_injection3.raw,disease,protein,DIA
