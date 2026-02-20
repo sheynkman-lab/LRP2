@@ -94,13 +94,6 @@ workflow PIPELINE_INITIALISATION {
         def samplesheet_list = samplesheetToList(params.input, "${projectDir}/assets/schema_input_bam.json")
         // Expected structure: [meta, sample_path] where meta contains: sample_name, condition, sample_type, mass_spec_type
 
-        // Group samples by sample_name + condition
-        def grouped_samples = samplesheet_list.groupBy { row ->
-            def sample_name = row[0].sample_name
-            def condition = row[0].condition
-            return "${sample_name}_${condition}"
-        }
-
         def rna_samples = samplesheet_list.findAll { row ->
             def sample_type = row[0].containsKey('sample_type') ? row[0].sample_type : 'unknown'
             sample_type.toLowerCase() == 'rna'
@@ -108,6 +101,23 @@ workflow PIPELINE_INITIALISATION {
         def protein_samples = samplesheet_list.findAll { row ->
             def sample_type = row[0].containsKey('sample_type') ? row[0].sample_type : 'unknown'
             sample_type.toLowerCase() == 'protein'
+        }
+
+        // =====================================================================
+        // VALIDATE bam_id FOR RNA SAMPLES
+        // bam_id must be present and non-empty/non-none for every RNA row because
+        // isoseq collapse embeds it as the SM tag in the BAM header, and SQANTI3
+        // uses those SM tags as column names in the counts matrix.
+        // =====================================================================
+        rna_samples.each { row ->
+            def bam_id = row[0].containsKey('bam_id') ? row[0].bam_id : null
+            def sample_name = row[0].sample_name
+            if (!bam_id || bam_id.trim() == '' || bam_id.toLowerCase() == 'none') {
+                error "ERROR: RNA sample '${sample_name}' is missing a valid bam_id. " +
+                      "bam_id must match the SM tag in the BAM header (e.g., BioSample_1) " +
+                      "and is used to name per-sample count columns in SQANTI3 output. " +
+                      "Please add a bam_id for this sample in your samplesheet."
+            }
         }
 
         // =====================================================================
@@ -128,17 +138,7 @@ workflow PIPELINE_INITIALISATION {
             error "ERROR: No samples found in samplesheet. Please provide at least one RNA or protein sample."
         }
 
-        // Calculate sample group statistics (using sample_name + condition groupings)
-        def unique_sample_groups = grouped_samples.keySet()
-        def sample_groups_per_condition = grouped_samples.collectEntries { group_key, samples ->
-            // samples is a list of [meta, path] tuples
-            // Access the first sample's metadata to get condition
-            def first_meta = samples[0][0]
-            def condition = first_meta.condition ?: 'unknown'
-            [(group_key): [condition: condition, sample_count: samples.size()]]
-        }
-
-        // Count unique biological replicates (unique sample_names)
+        // Count unique biological replicates (unique sample_names across all samples)
         def unique_sample_names = samplesheet_list.collect { row -> row[0].sample_name }.unique()
 
         // Count unique conditions
@@ -146,6 +146,13 @@ workflow PIPELINE_INITIALISATION {
             row[0].containsKey('condition') ? row[0].condition : 'unknown'
         }
         def unique_conditions = all_conditions.unique()
+
+        // Calculate protein-only grouping statistics (protein samples grouped by sample_name + condition)
+        def protein_groups = protein_samples.groupBy { row ->
+            def sample_name = row[0].sample_name
+            def condition = row[0].condition
+            return "${sample_name}_${condition}"
+        }
 
         // Display QC Summary with colors
         def colors = logColours(params.monochrome_logs)
@@ -156,22 +163,18 @@ workflow PIPELINE_INITIALISATION {
         log.info ""
         log.info "${colors.cyan}Sample Overview:${colors.reset}"
         log.info "  ${colors.dim}Total files detected              :${colors.reset} ${colors.green}${total_samples}${colors.reset}"
-        log.info "  ${colors.dim}Total RNA files detected          :${colors.reset} ${colors.green}${rna_count}${colors.reset}"
-        log.info "  ${colors.dim}Total protein files detected      :${colors.reset} ${protein_count > 0 ? colors.yellow : colors.dim}${protein_count}${colors.reset}"
+        log.info "  ${colors.dim}Total RNA files                   :${colors.reset} ${colors.green}${rna_count}${colors.reset}"
+        log.info "  ${colors.dim}Total protein files               :${colors.reset} ${protein_count > 0 ? colors.yellow : colors.dim}${protein_count}${colors.reset}"
         log.info "  ${colors.dim}Unique biological replicates      :${colors.reset} ${colors.green}${unique_sample_names.size()}${colors.reset}"
         log.info ""
-        log.info "${colors.cyan}Sample Groups (sample_name + condition):${colors.reset}"
-        log.info "  ${colors.dim}Total unique sample groups        :${colors.reset} ${colors.green}${unique_sample_groups.size()}${colors.reset}"
-        unique_sample_groups.each { group_key ->
-            def group_info = sample_groups_per_condition[group_key]
-            if (group_info) {
-                def condition = group_info.condition
-                def count = group_info.sample_count
-                log.info "    ${colors.purple}-${colors.reset} ${colors.bold}${group_key.padRight(30)}${colors.reset} : ${colors.green}${count}${colors.reset} file(s)"
-            }
+        log.info "${colors.cyan}Protein Sample Overview:${colors.reset}"
+        log.info "  ${colors.dim}Total unique sample groups       :${colors.reset} ${colors.green}${protein_groups.size()}${colors.reset}"
+        protein_groups.each { group_key, group_samples ->
+            def count = group_samples.size()
+            log.info "    ${colors.purple}-${colors.reset} ${colors.bold}${group_key.padRight(30)}${colors.reset} : ${colors.green}${count}${colors.reset} file(s)"
         }
         log.info ""
-        log.info "${colors.cyan}Condition Summary:${colors.reset}"
+        log.info "${colors.cyan}Sample Conditions Summary:${colors.reset}"
         log.info "  ${colors.dim}Total unique conditions detected  :${colors.reset} ${colors.green}${unique_conditions.size()}${colors.reset}"
         unique_conditions.each { condition ->
             log.info "    ${colors.purple}-${colors.reset} ${colors.bold}${condition}${colors.reset}"
@@ -180,27 +183,31 @@ workflow PIPELINE_INITIALISATION {
         log.info "${colors.blue}======================================================================${colors.reset}"
         log.info ""
 
-        // Create RNA channel data - one entry per sample_name + condition group
+        // Create RNA channel data - ALL RNA samples merged into a single channel entry
+        // for joint processing through subworkflows 1-4 (IsoSeq, SQANTI, predicted proteome)
         if (rna_samples.size() > 0) {
-            def rna_grouped = rna_samples.groupBy { row ->
-                def sample_name = row[0].sample_name
-                def condition = row[0].condition
-                return "${sample_name}_${condition}"
+            def sample_paths = rna_samples.collect { row -> row[1] }
+            def sample_names = rna_samples.collect { row -> row[0].sample_name }
+
+            // Collect bam_ids from each row (must match SM tag in BAM header)
+            // Used later to rename count columns in SQANTI output
+            def bam_ids = rna_samples.collect { row ->
+                row[0].containsKey('bam_id') && row[0].bam_id ? row[0].bam_id : null
+            }.findAll { bam_id -> bam_id != null }
+
+            def conditions = rna_samples.collect { row ->
+                row[0].containsKey('condition') ? row[0].condition : 'unknown'
             }
 
-            rna_grouped.each { group_key, group_samples ->
-                def sample_paths = group_samples.collect { row -> row[1] }
-                def sample_name = group_samples[0][0].sample_name
-                def condition = group_samples[0][0].condition
-                def meta = [
-                    id: group_key,  // Use group_key as id (e.g., "A_control")
-                    sample_name: sample_name,
-                    condition: condition,
-                    sample_type: 'RNA'
-                ]
+            def meta = [
+                id: params.dataset_name,
+                sample_names: sample_names,
+                bam_ids: bam_ids,       // List of SM tags matching each BAM file's header
+                conditions: conditions,
+                sample_type: 'RNA'
+            ]
 
-                rna_channel_data.add([meta, sample_paths])
-            }
+            rna_channel_data = [[meta, sample_paths]]
         }
 
         // Populate protein channel data - keep as individual samples with sample_type = 'protein'
@@ -272,11 +279,9 @@ workflow PIPELINE_COMPLETION {
     outdir          //    path: Path to output directory where results will be published
     monochrome_logs // boolean: Disable ANSI colour codes in log output
     hook_url        //  string: hook URL for notifications
-    multiqc_report  //  string: Path to MultiQC report
 
     main:
     summary_params = paramsSummaryMap(workflow, parameters_schema: "nextflow_schema.json")
-    def multiqc_reports = multiqc_report.toList()
 
     //
     // Completion email and summary
@@ -290,7 +295,7 @@ workflow PIPELINE_COMPLETION {
                 plaintext_email,
                 outdir,
                 monochrome_logs,
-                multiqc_reports.getVal(),
+                null  // No MultiQC report - pipeline doesn't use MultiQC
             )
         }
 
