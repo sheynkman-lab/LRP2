@@ -440,6 +440,81 @@
                     "description": "Path to reference protein FASTA file.",
                     "help_text": "Reference protein database for proteomics searches. If not provided and a GENCODE genome is specified, will automatically use the protein FASTA from the GENCODE genome configuration.",
                     "fa_icon": "far fa-file-code"
+                },
+                "protein_search": {
+                    "type": "string",
+                    "default": "fragpipe",
+                    "description": "Protein search engine to use for proteomics analysis.",
+                    "help_text": "Choose between 'fragpipe' (supports DDA and DIA) or 'metamorpheus' (DDA only).",
+                    "fa_icon": "fas fa-search",
+                    "enum": ["fragpipe", "metamorpheus"]
+                },
+                "fragpipe_version": {
+                    "type": "string",
+                    "default": "24.0",
+                    "description": "FragPipe version to use.",
+                    "help_text": "Specify the FragPipe version for proteomics analysis.",
+                    "fa_icon": "fas fa-tag"
+                },
+                "fragpipe_tools_dir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Directory to store FragPipe tools (MSFragger, IonQuant, DiaTracer).",
+                    "help_text": "Location where FragPipe JAR files will be cached. These files are downloaded once and reused in future runs.",
+                    "fa_icon": "fas fa-folder"
+                },
+                "fragpipe_first_name": {
+                    "type": "string",
+                    "description": "User's first name for FragPipe registration (optional for interactive mode).",
+                    "help_text": "Required for non-interactive FragPipe setup. Leave empty for interactive mode.",
+                    "fa_icon": "fas fa-user"
+                },
+                "fragpipe_last_name": {
+                    "type": "string",
+                    "description": "User's last name for FragPipe registration (optional for interactive mode).",
+                    "help_text": "Required for non-interactive FragPipe setup. Leave empty for interactive mode.",
+                    "fa_icon": "fas fa-user"
+                },
+                "fragpipe_email": {
+                    "type": "string",
+                    "description": "Email address for FragPipe registration (optional for interactive mode).",
+                    "help_text": "Required for non-interactive FragPipe setup. Leave empty for interactive mode.",
+                    "fa_icon": "fas fa-envelope",
+                    "pattern": "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$"
+                },
+                "fragpipe_institution": {
+                    "type": "string",
+                    "description": "Institution/organization for FragPipe registration (optional for interactive mode).",
+                    "help_text": "Required for non-interactive FragPipe setup. Leave empty for interactive mode.",
+                    "fa_icon": "fas fa-university"
+                },
+                "fragpipe_token": {
+                    "type": "string",
+                    "description": "6-digit verification token for FragPipe (optional for interactive mode).",
+                    "help_text": "Required for non-interactive FragPipe setup. You'll receive this via email after registration. Leave empty for interactive mode.",
+                    "fa_icon": "fas fa-key",
+                    "pattern": "^[0-9]{6}$"
+                },
+                "fragpipe_license_accept": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Accept FragPipe license terms (required for non-interactive mode).",
+                    "help_text": "Set to true to accept FragPipe license terms for non-interactive setup.",
+                    "fa_icon": "fas fa-file-contract"
+                },
+                "fragpipe_workflow": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to custom FragPipe workflow file (optional).",
+                    "help_text": "Custom .workflow file for FragPipe. If not provided, default workflows will be auto-downloaded (LFQ-MBR for DDA, DIA_SpecLib_Quant for DIA).",
+                    "fa_icon": "fas fa-file"
+                },
+                "fragpipe_decoy_tag": {
+                    "type": "string",
+                    "default": "rev_",
+                    "description": "Decoy tag prefix for protein database.",
+                    "help_text": "Prefix used to identify decoy sequences in the protein database.",
+                    "fa_icon": "fas fa-tag"
                 }
             }
         },

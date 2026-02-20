@@ -149,9 +149,9 @@ workflow PROTEOMICS {
 
         FRAGPIPE(
             ch_fragpipe_grouped,
-            FRAGPIPE_AUTHENTICATE.out.msfragger_jar.first(),
-            FRAGPIPE_AUTHENTICATE.out.ionquant_jar.first(),
-            FRAGPIPE_AUTHENTICATE.out.diatracer_jar.first(),
+            FRAGPIPE_AUTHENTICATE.out.msfragger_jar,
+            FRAGPIPE_AUTHENTICATE.out.ionquant_jar,
+            FRAGPIPE_AUTHENTICATE.out.diatracer_jar,
             custom_workflow_file
         )
         ch_versions = ch_versions.mix(FRAGPIPE.out.versions)
@@ -182,7 +182,7 @@ workflow PROTEOMICS {
 
         METAMORPHEUS(
             ch_metamorpheus_grouped.map { meta, files, db -> [meta, files] },
-            ch_metamorpheus_grouped.map { meta, files, db -> db }.first(),
+            ch_metamorpheus_grouped.map { meta, files, db -> db },
             metamorpheus_config,
             mm_writable
         )

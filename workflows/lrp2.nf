@@ -16,6 +16,7 @@ include { MULTISAMPLE_ANALYSIS           } from '../subworkflows/local/multisamp
 include { paramsSummaryMap               } from 'plugin/nf-schema'
 include { paramsSummaryMultiqc           } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { softwareVersionsToYAML         } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+include { logColours                     } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { methodsDescriptionText         } from '../subworkflows/local/utils_nfcore_lrp2_pipeline'
 
 /*
@@ -32,6 +33,9 @@ workflow LRP2 {
     main:
 
     ch_versions = channel.empty()
+
+    // Setup color codes for logging
+    def colors = logColours(params.monochrome_logs)
 
     //
     // Decompress reference files if they are gzipped (e.g. GENCODE files gzipped by default)
@@ -76,12 +80,12 @@ workflow LRP2 {
     //
     // Create separate RNA and protein channels using filter
     ch_rna_samples = ch_samplesheet
-        .filter { meta, data ->
+        .filter { meta, _data ->
             meta.containsKey('sample_type') && meta.sample_type.toLowerCase() == 'rna'
         }
 
     ch_protein_samples = ch_samplesheet
-        .filter { meta, data ->
+        .filter { meta, _data ->
             meta.containsKey('sample_type') && meta.sample_type.toLowerCase() == 'protein'
         }
 
@@ -93,9 +97,9 @@ workflow LRP2 {
         .map { samples ->
             def count = samples.size()
             if (count > 0) {
-                log.info "Detected ${count} RNA sample(s) - RNA analysis subworkflows will run"
+                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.green} Detected ${count} RNA sample(s) - RNA analysis subworkflows will run${colors.reset}-"
             } else {
-                log.info "No RNA samples detected - skipping RNA analysis subworkflows (PACBIO_ISOSEQ, TRANSCRIPTOME, PREDICTED_PROTEOME)"
+                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No RNA samples detected - skipping RNA analysis subworkflows (PACBIO_ISOSEQ, TRANSCRIPTOME, PREDICTED_PROTEOME)${colors.reset}-"
             }
             return tuple(count, samples)
         }
@@ -169,9 +173,9 @@ workflow LRP2 {
         .map { samples ->
             def count = samples.size()
             if (count > 0) {
-                log.info "Detected ${count} protein sample(s) - PROTEOMICS subworkflow will run"
+                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.green} Detected ${count} protein sample(s) - PROTEOMICS subworkflow will run${colors.reset}-"
             } else {
-                log.info "No protein samples detected - skipping PROTEOMICS subworkflow"
+                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No protein samples detected - skipping PROTEOMICS subworkflow${colors.reset}-"
             }
             return tuple(count, samples)
         }
@@ -191,7 +195,7 @@ workflow LRP2 {
     // If not provided by user, get from GENCODE genome default
     if (!protein_fasta_path && params.gencode_refs?.containsKey(params.genome)) {
         protein_fasta_path = params.gencode_refs[params.genome].protein_fasta
-        log.info "Auto-detected protein FASTA from GENCODE genome ${params.genome}: ${protein_fasta_path}"
+        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Auto-detected protein FASTA from GENCODE genome ${params.genome}: ${protein_fasta_path}${colors.reset}-"
     }
 
     def protein_fasta_file = protein_fasta_path ? file(protein_fasta_path) : null
@@ -211,14 +215,12 @@ workflow LRP2 {
     //
     ch_protein_count
         .subscribe { count ->
-            if (protein_fasta_path && count > 0) {
-                log.info "Detected ${count} protein sample(s) and protein FASTA available - PROTEOMICS subworkflow will run"
-            } else if (protein_fasta_path && count == 0) {
-                log.warn "Protein FASTA available but no protein samples detected - skipping PROTEOMICS subworkflow"
+            if (protein_fasta_path && count == 0) {
+                log.warn "-${colors.purple}[sheynkmanlab/lrp2]${colors.yellow} Protein FASTA available but no protein samples detected - skipping PROTEOMICS subworkflow${colors.reset}-"
             } else if (!protein_fasta_path && count > 0) {
-                log.warn "Protein samples detected but no protein FASTA available (neither --protein_fasta provided nor auto-detected from GENCODE genome) - skipping PROTEOMICS subworkflow"
-            } else {
-                log.info "No protein samples detected - skipping PROTEOMICS subworkflow"
+                log.warn "-${colors.purple}[sheynkmanlab/lrp2]${colors.yellow} Protein samples detected but no protein FASTA available (neither --protein_fasta provided nor auto-detected from GENCODE genome) - skipping PROTEOMICS subworkflow${colors.reset}-"
+            } else if (!protein_fasta_path && count == 0) {
+                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No protein samples detected - skipping PROTEOMICS subworkflow${colors.reset}-"
             }
         }
 
@@ -231,62 +233,50 @@ workflow LRP2 {
         )
         ch_mm_writable = channel.value(file("${projectDir}/assets/mm_writable_placeholder"))
 
-        // Prepare protein samples - check if matching RNA samples exist:
-        // 1) For RNA+protein samplesheets with matching sample names, concatenate predicted proteome with reference
-        // 2) For protein-only samples, just use reference FASTA
+        // Prepare the single global protein database for all protein groups:
+        // - If RNA samples were processed: concatenate the single predicted proteome with the reference FASTA
+        // - If no RNA samples: use the reference FASTA alone
+        // The resulting ch_protein_db is a single value broadcast to all protein sample groups.
+        ch_predicted_proteome_fasta = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
+            .map { _meta, fasta -> fasta }
 
-        // Create a channel from predicted proteome FASTAs keyed by sample_name
-        // This will be empty if no RNA samples were processed
-        ch_predicted_proteomes = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
-            .map { meta, fasta -> [meta.sample_name, fasta] }
-            .ifEmpty([])
-
-        // Join protein samples with predicted proteomes by sample_name
-        // This will only match samples that have both RNA and protein data
-        ch_protein_with_predicted = ch_protein_samples_filtered
-            .map { meta, file -> [meta.sample_name, meta, file] }
-            .join(ch_predicted_proteomes, by: 0, remainder: true)
-            .branch { _sample_name, meta, file, predicted_fasta ->
-                has_rna: predicted_fasta != null
-                    return [meta, file, predicted_fasta]
-                no_rna: true
-                    return [meta, file]
-            }
-
-        // For samples WITH matching RNA data: concatenate predicted proteome + reference FASTA
-        ch_concat_input = ch_protein_with_predicted.has_rna
+        // Build the protein DB channel:
+        // When RNA count > 0, concatenate predicted proteome + reference FASTA (one CAT_CAT run for the whole dataset)
+        // When RNA count == 0, use reference FASTA alone
+        ch_cat_input = ch_rna_count
+            .filter { count -> count > 0 }
+            .combine(ch_predicted_proteome_fasta)
             .combine(ch_protein_fasta)
-            .map { meta, _file, predicted_fasta, reference_fasta ->
-                // Create input for CAT_CAT: [meta, [file1, file2]]
-                def cat_meta = meta + [id: "${meta.sample_name}_combined_proteome"]
-                log.info "Protein sample ${meta.id} has matching RNA sample - concatenating predicted proteome with reference FASTA"
+            .map { _count, predicted_fasta, reference_fasta ->
+                def cat_meta = [id: 'combined_proteome']
                 return [cat_meta, [reference_fasta, predicted_fasta]]
             }
 
-        // Concatenate FASTAs for samples with RNA data (only if there are any)
-        CAT_CAT(ch_concat_input)
+        CAT_CAT(ch_cat_input)
 
-        // Combine concatenated FASTAs back with original protein sample metadata
-        ch_protein_with_concat = ch_protein_with_predicted.has_rna
-            .map { meta, file, _predicted_fasta -> [meta.sample_name, meta, file] }
-            .join(
-                CAT_CAT.out.file_out.map { meta, fasta -> [meta.id.replaceAll('_combined_proteome$', ''), fasta] },
-                by: 0
+        // Select the protein DB:
+        // - Use concatenated FASTA when RNA was processed
+        // - Fall back to reference FASTA when no RNA samples
+        ch_protein_db = ch_rna_count
+            .branch { count ->
+                has_rna: count > 0
+                no_rna:  count == 0
+            }
+
+        ch_protein_db_final = ch_protein_db.has_rna
+            .combine(CAT_CAT.out.file_out.map { _meta, fasta -> fasta })
+            .map { _count, fasta -> fasta }
+            .mix(
+                ch_protein_db.no_rna
+                    .combine(ch_protein_fasta)
+                    .map { _count, fasta -> fasta }
             )
-            .map { _sample_name, meta, file, concatenated_fasta ->
-                [meta, file, concatenated_fasta]
-            }
+            .first()
 
-        // For samples WITHOUT matching RNA data: use reference FASTA
-        ch_protein_no_rna = ch_protein_with_predicted.no_rna
-            .combine(ch_protein_fasta)
-            .map { meta, file, protein_fasta ->
-                log.info "Protein sample ${meta.id} has no matching RNA sample - using reference protein FASTA"
-                return [meta, file, protein_fasta]
-            }
-
-        // Combine both branches
-        ch_protein_for_proteomics = ch_protein_with_concat.mix(ch_protein_no_rna)
+        // Attach the global protein DB to every protein sample
+        ch_protein_for_proteomics = ch_protein_samples_filtered
+            .combine(ch_protein_db_final)
+            .map { meta, file, protein_db -> [meta, file, protein_db] }
 
         // Pass protein samples with their corresponding protein databases to PROTEOMICS
         PROTEOMICS (
@@ -313,9 +303,9 @@ workflow LRP2 {
     ch_rna_count
         .subscribe { count ->
             if (params.run_differential_analysis && count > 0) {
-                log.info "Differential analysis enabled and RNA samples detected - will run MULTISAMPLE_ANALYSIS"
+                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.green} Differential analysis enabled and RNA samples detected - will run MULTISAMPLE_ANALYSIS${colors.reset}-"
             } else if (params.run_differential_analysis && count == 0) {
-                log.warn "Differential analysis enabled but no RNA samples detected - skipping MULTISAMPLE_ANALYSIS"
+                log.warn "-${colors.purple}[sheynkmanlab/lrp2]${colors.yellow} Differential analysis enabled but no RNA samples detected - skipping MULTISAMPLE_ANALYSIS${colors.reset}-"
             }
         }
 
