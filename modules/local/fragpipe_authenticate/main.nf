@@ -282,6 +282,49 @@ process FRAGPIPE_AUTHENTICATE {
             exit 1
         fi
 
+        # Check if the downloaded file is actually a ZIP file; if not prompt for new token since expired
+        if ! file msfragger.zip | grep -q "Zip archive"; then
+            echo ""
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo -e "\${RED}                    AUTHENTICATION TOKEN EXPIRED\${RESET}"
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo ""
+            echo -e "\${YELLOW}Your 6-digit verification code (\$USER_TOKEN) has expired or is invalid.\${RESET}"
+            echo ""
+            echo "To fix this issue:"
+            echo ""
+            echo -e "  \${CYAN}1.\${RESET} Check your email (\$USER_EMAIL) for a \${CYAN}NEW\${RESET} verification code"
+            echo -e "     \${YELLOW}(The code expires quickly - usually within minutes to hours)\${RESET}"
+            echo ""
+            echo -e "  \${CYAN}2.\${RESET} If you don't have a recent email, request a new token by running:"
+            echo ""
+            echo -e "\${GREEN}"
+            echo "     curl --location --request POST \\\\"
+            echo "       'https://msfragger-upgrader.nesvilab.org/upgrader/upgrade_download.php' \\\\"
+            echo "       --form 'transfer=\"academic\"' \\\\"
+            echo "       --form 'agreement2=\"true\"' \\\\"
+            echo "       --form 'agreement3=\"true\"' \\\\"
+            echo "       --form 'first_name=\$USER_FIRST_NAME' \\\\"
+            echo "       --form 'last_name=\$USER_LAST_NAME' \\\\"
+            echo "       --form 'email=\$USER_EMAIL' \\\\"
+            echo "       --form 'organization=\$USER_INSTITUTION' \\\\"
+            echo "       --form 'download=\${MSFRAGGER_VERSION}\\\$zip' \\\\"
+            echo "       --form 'is_fragpipe=\"true\"'"
+            echo -e "\${RESET}"
+            echo ""
+            echo -e "  \${CYAN}3.\${RESET} Update your pipeline command with the new token:"
+            echo ""
+            echo -e "     \${GREEN}--fragpipe_token XXXXXX\${RESET}"
+            echo ""
+            echo -e "  \${CYAN}4.\${RESET} Resume the pipeline run:"
+            echo ""
+            echo -e "     \${GREEN}nextflow run <your_pipeline> -resume [other parameters]\${RESET}"
+            echo ""
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo ""
+            exit 1
+        fi
+
         unzip -q msfragger.zip
         find . -maxdepth 3 -name "MSFragger*.jar" -exec mv {} msfragger/ \\;
         rm -f msfragger.zip
@@ -294,16 +337,33 @@ process FRAGPIPE_AUTHENTICATE {
 
         echo "\${GREEN}✓ MSFragger downloaded: \$(ls msfragger/MSFragger*.jar)\${RESET}"
 
-        # Download IonQuant
         echo "Downloading IonQuant..."
         IONQUANT_VERSION=\$(curl -s https://msfragger-upgrader.nesvilab.org/ionquant/latest_version.php)
-
         curl --fail --silent --show-error --location --output ionquant.zip \\
             "https://msfragger-upgrader.nesvilab.org/ionquant/download.php?token=\$USER_TOKEN&download=\${IONQUANT_VERSION}%24zip"
 
         if [ ! -f ionquant.zip ] || [ ! -s ionquant.zip ]; then
             echo "\${RED}ERROR: Failed to download IonQuant\${RESET}"
             echo "Please check your token is correct: \$USER_TOKEN"
+            exit 1
+        fi
+
+        # Check if token worked
+        if ! file ionquant.zip | grep -q "Zip archive"; then
+            echo ""
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo -e "\${RED}                    AUTHENTICATION TOKEN EXPIRED\${RESET}"
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo ""
+            echo -e "\${YELLOW}Your 6-digit verification code (\$USER_TOKEN) has expired or is invalid.\${RESET}"
+            echo ""
+            echo "The token expired while downloading IonQuant."
+            echo "Please obtain a fresh verification code and try again."
+            echo ""
+            echo "See instructions above for how to get a new token."
+            echo ""
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo ""
             exit 1
         fi
 
@@ -319,16 +379,33 @@ process FRAGPIPE_AUTHENTICATE {
 
         echo "\${GREEN}✓ IonQuant downloaded: \$(ls ionquant/IonQuant*.jar)\${RESET}"
 
-        # Download DiaTracer
         echo "Downloading DiaTracer..."
         DIATRACER_VERSION=\$(curl -s https://msfragger-upgrader.nesvilab.org/diatracer/latest_version.php)
-
         curl --fail --silent --show-error --location --output diatracer.zip \
             "https://msfragger-upgrader.nesvilab.org/diatracer/download.php?token=\$USER_TOKEN&download=\${DIATRACER_VERSION}%24zip"
 
         if [ ! -f diatracer.zip ] || [ ! -s diatracer.zip ]; then
             echo "\${RED}ERROR: Failed to download DiaTracer\${RESET}"
             echo "Please check your token is correct: \$USER_TOKEN"
+            exit 1
+        fi
+
+        # Check if token worked
+        if ! file diatracer.zip | grep -q "Zip archive"; then
+            echo ""
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo -e "\${RED}                    AUTHENTICATION TOKEN EXPIRED\${RESET}"
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo ""
+            echo -e "\${YELLOW}Your 6-digit verification code (\$USER_TOKEN) has expired or is invalid.\${RESET}"
+            echo ""
+            echo "The token expired while downloading DiaTracer."
+            echo "Please obtain a fresh verification code and try again."
+            echo ""
+            echo "See instructions above for how to get a new token."
+            echo ""
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo ""
             exit 1
         fi
 
