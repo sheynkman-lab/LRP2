@@ -7,14 +7,12 @@
  *   - Checks if tools already exist
  *   - If not: displays license, collects user info, sends registration, prompts for token
  *   - If yes: skips download, uses cached tools
- *   - Everything happens in ONE pipeline run
  *
  * MODE 2 - NON-INTERACTIVE (For HPC batch jobs):
  *   - User provides all parameters via command line
  *   - No prompts, fully automated
- *   - Useful for automated workflows
  *
- * Based on FragNFlow implementation
+ * Based on FragNFlow implementation: https://github.com/ronalabrcns/FragNFlow
  */
 
 //***************
@@ -31,9 +29,6 @@ process FRAGPIPE_AUTHENTICATE {
     tag "FragPipe setup"
     label 'process_single'
     storeDir "${params.fragpipe_tools_dir}"
-
-    // No container needed - runs natively on host (like FragNFlow)
-    // Requires curl and unzip to be available on the system
 
     input:
     val first_name      // Can be null for interactive mode
@@ -73,7 +68,6 @@ process FRAGPIPE_AUTHENTICATE {
     echo "==========================================================================\${RESET}"
     echo ""
 
-    # Create directories
     mkdir -p msfragger ionquant diatracer
 
     #
@@ -167,7 +161,6 @@ process FRAGPIPE_AUTHENTICATE {
                 esac
             done
 
-            # Collect user information
             echo ""
             echo "\${CYAN}=========================================================================="
             echo "                    USER INFORMATION"
@@ -175,12 +168,10 @@ process FRAGPIPE_AUTHENTICATE {
             echo ""
             echo "Please enter your contact information for registration:"
             echo ""
-
             read -p "First Name: " USER_FIRST_NAME
             read -p "Last Name: " USER_LAST_NAME
             read -p "Email: " USER_EMAIL
             read -p "Institution/Organization: " USER_INSTITUTION
-
             echo ""
             echo "Registration information:"
             echo "  Name: \$USER_FIRST_NAME \$USER_LAST_NAME"
@@ -213,7 +204,6 @@ process FRAGPIPE_AUTHENTICATE {
         # STEP 3: Send registration to Nesvilab
         #
         echo "\${YELLOW}Registering with Nesvilab upgrader server...\${RESET}"
-
         MSFRAGGER_VERSION=\$(curl -s https://msfragger-upgrader.nesvilab.org/upgrader/latest_version.php)
         echo "Latest MSFragger version: \$MSFRAGGER_VERSION"
 
@@ -267,8 +257,6 @@ process FRAGPIPE_AUTHENTICATE {
         #
         echo "\${YELLOW}Downloading MSFragger and IonQuant...\${RESET}"
         echo ""
-
-        # Download MSFragger
         echo "Downloading MSFragger..."
         MSFRAGGER_VERSION_ENCODED=\${MSFRAGGER_VERSION// /%20}
 
@@ -282,7 +270,7 @@ process FRAGPIPE_AUTHENTICATE {
             exit 1
         fi
 
-        # Check if the downloaded file is actually a ZIP file; if not prompt for new token since expired
+        # Check if download worked (downloaded software is in ZIP format); if not prompt for new token since expired
         if ! file msfragger.zip | grep -q "Zip archive"; then
             echo ""
             echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
