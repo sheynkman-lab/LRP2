@@ -7,14 +7,12 @@
  *   - Checks if tools already exist
  *   - If not: displays license, collects user info, sends registration, prompts for token
  *   - If yes: skips download, uses cached tools
- *   - Everything happens in ONE pipeline run
  *
  * MODE 2 - NON-INTERACTIVE (For HPC batch jobs):
  *   - User provides all parameters via command line
  *   - No prompts, fully automated
- *   - Useful for automated workflows
  *
- * Based on FragNFlow implementation
+ * Based on FragNFlow implementation: https://github.com/ronalabrcns/FragNFlow
  */
 
 //***************
@@ -31,9 +29,6 @@ process FRAGPIPE_AUTHENTICATE {
     tag "FragPipe setup"
     label 'process_single'
     storeDir "${params.fragpipe_tools_dir}"
-
-    // No container needed - runs natively on host (like FragNFlow)
-    // Requires curl and unzip to be available on the system
 
     input:
     val first_name      // Can be null for interactive mode
@@ -73,7 +68,6 @@ process FRAGPIPE_AUTHENTICATE {
     echo "==========================================================================\${RESET}"
     echo ""
 
-    # Create directories
     mkdir -p msfragger ionquant diatracer
 
     #
@@ -167,7 +161,6 @@ process FRAGPIPE_AUTHENTICATE {
                 esac
             done
 
-            # Collect user information
             echo ""
             echo "\${CYAN}=========================================================================="
             echo "                    USER INFORMATION"
@@ -175,12 +168,10 @@ process FRAGPIPE_AUTHENTICATE {
             echo ""
             echo "Please enter your contact information for registration:"
             echo ""
-
             read -p "First Name: " USER_FIRST_NAME
             read -p "Last Name: " USER_LAST_NAME
             read -p "Email: " USER_EMAIL
             read -p "Institution/Organization: " USER_INSTITUTION
-
             echo ""
             echo "Registration information:"
             echo "  Name: \$USER_FIRST_NAME \$USER_LAST_NAME"
@@ -213,7 +204,6 @@ process FRAGPIPE_AUTHENTICATE {
         # STEP 3: Send registration to Nesvilab
         #
         echo "\${YELLOW}Registering with Nesvilab upgrader server...\${RESET}"
-
         MSFRAGGER_VERSION=\$(curl -s https://msfragger-upgrader.nesvilab.org/upgrader/latest_version.php)
         echo "Latest MSFragger version: \$MSFRAGGER_VERSION"
 
@@ -267,8 +257,6 @@ process FRAGPIPE_AUTHENTICATE {
         #
         echo "\${YELLOW}Downloading MSFragger and IonQuant...\${RESET}"
         echo ""
-
-        # Download MSFragger
         echo "Downloading MSFragger..."
         MSFRAGGER_VERSION_ENCODED=\${MSFRAGGER_VERSION// /%20}
 
@@ -279,6 +267,49 @@ process FRAGPIPE_AUTHENTICATE {
             echo "\${RED}ERROR: Failed to download MSFragger\${RESET}"
             echo "Please check your token is correct: \$USER_TOKEN"
             echo "Token should be sent to: \$USER_EMAIL"
+            exit 1
+        fi
+
+        # Check if download worked (downloaded software is in ZIP format); if not prompt for new token since expired
+        if ! file msfragger.zip | grep -q "Zip archive"; then
+            echo ""
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo -e "\${RED}                    AUTHENTICATION TOKEN EXPIRED\${RESET}"
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo ""
+            echo -e "\${YELLOW}Your 6-digit verification code (\$USER_TOKEN) has expired or is invalid.\${RESET}"
+            echo ""
+            echo "To fix this issue:"
+            echo ""
+            echo -e "  \${CYAN}1.\${RESET} Check your email (\$USER_EMAIL) for a \${CYAN}NEW\${RESET} verification code"
+            echo -e "     \${YELLOW}(The code expires quickly - usually within minutes to hours)\${RESET}"
+            echo ""
+            echo -e "  \${CYAN}2.\${RESET} If you don't have a recent email, request a new token by running:"
+            echo ""
+            echo -e "\${GREEN}"
+            echo "     curl --location --request POST \\\\"
+            echo "       'https://msfragger-upgrader.nesvilab.org/upgrader/upgrade_download.php' \\\\"
+            echo "       --form 'transfer=\"academic\"' \\\\"
+            echo "       --form 'agreement2=\"true\"' \\\\"
+            echo "       --form 'agreement3=\"true\"' \\\\"
+            echo "       --form 'first_name=\$USER_FIRST_NAME' \\\\"
+            echo "       --form 'last_name=\$USER_LAST_NAME' \\\\"
+            echo "       --form 'email=\$USER_EMAIL' \\\\"
+            echo "       --form 'organization=\$USER_INSTITUTION' \\\\"
+            echo "       --form 'download=\${MSFRAGGER_VERSION}\\\$zip' \\\\"
+            echo "       --form 'is_fragpipe=\"true\"'"
+            echo -e "\${RESET}"
+            echo ""
+            echo -e "  \${CYAN}3.\${RESET} Update your pipeline command with the new token:"
+            echo ""
+            echo -e "     \${GREEN}--fragpipe_token XXXXXX\${RESET}"
+            echo ""
+            echo -e "  \${CYAN}4.\${RESET} Resume the pipeline run:"
+            echo ""
+            echo -e "     \${GREEN}nextflow run <your_pipeline> -resume [other parameters]\${RESET}"
+            echo ""
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo ""
             exit 1
         fi
 
@@ -294,16 +325,33 @@ process FRAGPIPE_AUTHENTICATE {
 
         echo "\${GREEN}✓ MSFragger downloaded: \$(ls msfragger/MSFragger*.jar)\${RESET}"
 
-        # Download IonQuant
         echo "Downloading IonQuant..."
         IONQUANT_VERSION=\$(curl -s https://msfragger-upgrader.nesvilab.org/ionquant/latest_version.php)
-
         curl --fail --silent --show-error --location --output ionquant.zip \\
             "https://msfragger-upgrader.nesvilab.org/ionquant/download.php?token=\$USER_TOKEN&download=\${IONQUANT_VERSION}%24zip"
 
         if [ ! -f ionquant.zip ] || [ ! -s ionquant.zip ]; then
             echo "\${RED}ERROR: Failed to download IonQuant\${RESET}"
             echo "Please check your token is correct: \$USER_TOKEN"
+            exit 1
+        fi
+
+        # Check if token worked
+        if ! file ionquant.zip | grep -q "Zip archive"; then
+            echo ""
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo -e "\${RED}                    AUTHENTICATION TOKEN EXPIRED\${RESET}"
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo ""
+            echo -e "\${YELLOW}Your 6-digit verification code (\$USER_TOKEN) has expired or is invalid.\${RESET}"
+            echo ""
+            echo "The token expired while downloading IonQuant."
+            echo "Please obtain a fresh verification code and try again."
+            echo ""
+            echo "See instructions above for how to get a new token."
+            echo ""
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo ""
             exit 1
         fi
 
@@ -319,16 +367,33 @@ process FRAGPIPE_AUTHENTICATE {
 
         echo "\${GREEN}✓ IonQuant downloaded: \$(ls ionquant/IonQuant*.jar)\${RESET}"
 
-        # Download DiaTracer
         echo "Downloading DiaTracer..."
         DIATRACER_VERSION=\$(curl -s https://msfragger-upgrader.nesvilab.org/diatracer/latest_version.php)
-
         curl --fail --silent --show-error --location --output diatracer.zip \
             "https://msfragger-upgrader.nesvilab.org/diatracer/download.php?token=\$USER_TOKEN&download=\${DIATRACER_VERSION}%24zip"
 
         if [ ! -f diatracer.zip ] || [ ! -s diatracer.zip ]; then
             echo "\${RED}ERROR: Failed to download DiaTracer\${RESET}"
             echo "Please check your token is correct: \$USER_TOKEN"
+            exit 1
+        fi
+
+        # Check if token worked
+        if ! file diatracer.zip | grep -q "Zip archive"; then
+            echo ""
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo -e "\${RED}                    AUTHENTICATION TOKEN EXPIRED\${RESET}"
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo ""
+            echo -e "\${YELLOW}Your 6-digit verification code (\$USER_TOKEN) has expired or is invalid.\${RESET}"
+            echo ""
+            echo "The token expired while downloading DiaTracer."
+            echo "Please obtain a fresh verification code and try again."
+            echo ""
+            echo "See instructions above for how to get a new token."
+            echo ""
+            echo -e "\${RED}════════════════════════════════════════════════════════════════════════\${RESET}"
+            echo ""
             exit 1
         fi
 

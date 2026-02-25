@@ -6,8 +6,6 @@
  * 2. Prepare protein database (add decoys with philosopher if needed)
  * 3. Download or use custom workflow file (DDA: LFQ-MBR, DIA: DIA_SpecLib_Quant)
  * 4. Execute FragPipe in headless mode
- *
- * Designed to be nf-core compatible with external tool dependencies
  */
 
 process FRAGPIPE {
@@ -80,26 +78,22 @@ process FRAGPIPE {
         cp ${protein_fasta} database_with_decoys.fasta
     else
         echo "No decoys found - generating decoys with philosopher..."
-
-        # Find philosopher executable in FragPipe tools directory
         PHILOSOPHER=\$(find /fragpipe_bin -name "philosopher*" -type f -executable 2>/dev/null | head -1)
         if [ -z "\$PHILOSOPHER" ]; then
             echo "ERROR: Philosopher not found in FragPipe installation"
             exit 1
         fi
-        echo "Using philosopher: \$PHILOSOPHER"
 
-        # Use philosopher to add decoys (following FragNFlow approach)
+        echo "Using philosopher: \$PHILOSOPHER"
         cp ${protein_fasta} reference_proteome.fasta
 
         \$PHILOSOPHER workspace --init
         \$PHILOSOPHER database --custom reference_proteome.fasta --prefix ${decoy_tag}
         \$PHILOSOPHER workspace --clean
 
-        # Philosopher outputs a .fas file
         mv *.fas database_with_decoys.fasta
 
-        echo "✓ Decoys added successfully"
+        echo "Decoys added successfully!"
     fi
 
     # Report database statistics
@@ -133,7 +127,7 @@ process FRAGPIPE {
             WORKFLOW_URL="https://raw.githubusercontent.com/Nesvilab/FragPipe/develop/workflows/LFQ-MBR.workflow"
         fi
 
-        # Download workflow (try multiple methods)
+        # Download workflow (try multiple methods)I
         if command -v wget &> /dev/null; then
             wget -q -O workflow.workflow "\$WORKFLOW_URL"
         elif command -v curl &> /dev/null; then
@@ -150,7 +144,7 @@ process FRAGPIPE {
             exit 1
         fi
 
-        echo "✓ Workflow downloaded: ${workflow_name}.workflow"
+        echo "Workflow downloaded: ${workflow_name}.workflow"
     fi
 
     # Update workflow with database path and decoy tag
@@ -166,11 +160,9 @@ process FRAGPIPE {
     echo "[4/4] Running FragPipe..."
     echo ""
 
-    # Create writable directories for FragPipe (following FragNFlow structure)
-    mkdir -p results fragpipe_tools/msfragger fragpipe_tools/ionquant fragpipe_tools/diatracer
-
-    # Copy JAR files to tools directory with FragPipe expected structure
+    # Create writable directories needed for FragPipe
     # FragPipe expects: config_tools/msfragger/*.jar, config_tools/ionquant/*.jar, config_tools/diatracer/*.jar
+    mkdir -p results fragpipe_tools/msfragger fragpipe_tools/ionquant fragpipe_tools/diatracer
     cp ${msfragger_jar} fragpipe_tools/msfragger/
     cp ${ionquant_jar} fragpipe_tools/ionquant/
     cp ${diatracer_jar} fragpipe_tools/diatracer/
@@ -208,7 +200,6 @@ process FRAGPIPE {
     echo "Starting FragPipe headless execution..."
     echo "----------------------------------------------------------------------"
 
-    # Run FragPipe
     \$FRAGPIPE_CMD --headless \\
         --workflow \$WORK_DIR/workflow.workflow \\
         --manifest \$WORK_DIR/manifest.fp-manifest \\
@@ -222,7 +213,6 @@ process FRAGPIPE {
 
     echo "----------------------------------------------------------------------"
 
-    # Check if FragPipe succeeded
     if [ \$EXIT_CODE -ne 0 ]; then
         echo ""
         echo "ERROR: FragPipe failed with exit code \$EXIT_CODE"
@@ -240,7 +230,7 @@ process FRAGPIPE {
     fi
 
     echo ""
-    echo "✓ FragPipe completed successfully!"
+    echo "FragPipe completed successfully!"
     echo ""
 
     #
@@ -250,16 +240,16 @@ process FRAGPIPE {
 
     # Try different PSM table names (depends on workflow type)
     if find results -name "psm.tsv" -exec cp {} ${prefix}.tsv \\; 2>/dev/null; then
-        echo "✓ PSM table found: psm.tsv"
+        echo "PSM table found: psm.tsv"
     elif find results -name "*_psm.tsv" -exec cp {} ${prefix}.tsv \\; 2>/dev/null; then
-        echo "✓ PSM table found: *_psm.tsv"
+        echo "PSM table found: *_psm.tsv"
     elif find results -name "combined_peptide.tsv" -exec cp {} ${prefix}.tsv \\; 2>/dev/null; then
-        echo "✓ Output table found: combined_peptide.tsv"
+        echo "Output table found: combined_peptide.tsv"
     elif find results -name "combined_protein.tsv" -exec cp {} ${prefix}.tsv \\; 2>/dev/null; then
-        echo "✓ Output table found: combined_protein.tsv"
+        echo "Output table found: combined_protein.tsv"
     else
-        echo "Note: No standard PSM table found (may be normal for some workflows)"
-        echo "All results are available in the results directory"
+        echo "Note: No standard PSM table found."
+        echo "All results are available in the results directory."
     fi
 
     echo ""
@@ -270,7 +260,6 @@ process FRAGPIPE {
     echo "FragPipe analysis completed for: ${meta.id}"
     echo "=========================================================================="
 
-    # Generate versions file
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         fragpipe: \$(\$FRAGPIPE_CMD --version 2>&1 | grep -oP 'FragPipe \\K[0-9.]+' || echo "${params.fragpipe_version}")
