@@ -13,7 +13,7 @@ process FRAGPIPE {
     label 'process_high'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/fcyucn/fragpipe:${params.fragpipe_version}"
+    container "library://jtllab/default/fragpipe:latest"
 
     input:
     tuple val(meta), path(mzml_files), path(protein_fasta)

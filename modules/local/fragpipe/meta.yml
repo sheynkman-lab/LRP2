@@ -77,6 +77,6 @@ output:
       description: Complete FragPipe search results including all output files
       pattern: "results/**"
 authors:
-  - "@mschertzer"
+  - "@JTL-lab"
 maintainers:
-  - "@mschertzer"
+  - "@JTL-lab"
