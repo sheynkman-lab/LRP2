@@ -70,9 +70,22 @@ process METAMORPHEUS {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def mzml_list = mzml_files instanceof List ? mzml_files.join(' ') : mzml_files
+
+    // Rename mzML files to simple names based on meta.id
+    def mzml_array = mzml_files instanceof List ? mzml_files : [mzml_files]
+    def symlink_commands = []
+    def renamed_files = []
+    mzml_array.eachWithIndex { file, idx ->
+        def simple_name = mzml_array.size() > 1 ? "${prefix}_${idx + 1}.mzML" : "${prefix}.mzML"
+        symlink_commands.add("ln -s ${file} ${simple_name}")
+        renamed_files.add(simple_name)
+    }
+    def mzml_list = renamed_files.join(' ')
 
     """
+    # Rename mzML files to simple names for cleaner MetaMorpheus output
+    ${symlink_commands.join('\n    ')}
+
     dotnet /MetaMorpheus/CMD.dll \\
         -t $config_toml \\
         -s $mzml_list \\
