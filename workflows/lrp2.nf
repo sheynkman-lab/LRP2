@@ -7,8 +7,9 @@ include { GUNZIP as GUNZIP_FASTA         } from '../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_GTF           } from '../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_GENCODE_FASTA } from '../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_PROTEIN_FASTA } from '../modules/nf-core/gunzip/main'
+include { GZIP as GZIP_GTF               } from '../modules/local/gzip/main'
 include { CAT_CAT                        } from '../modules/nf-core/cat/cat/main'
-include { PACBIO_ISOSEQ                  } from '../subworkflows/local/pacbio_isoseq'
+include { PACBIO_ISOCALL                 } from '../subworkflows/local/pacbio_isocall'
 include { TRANSCRIPTOME                  } from '../subworkflows/local/transcriptome'
 include { PREDICTED_PROTEOME             } from '../subworkflows/local/predicted_proteome'
 include { PROTEOMICS                     } from '../subworkflows/local/proteomics'
@@ -46,21 +47,33 @@ workflow LRP2 {
     if (is_fasta_gzipped) {
         ch_fasta_input = channel.of([[ id: 'genome_fasta' ], fasta_file])
         GUNZIP_FASTA(ch_fasta_input)
-        ch_fasta = GUNZIP_FASTA.out.gunzip.map { _meta, file -> file }
+        ch_fasta = GUNZIP_FASTA.out.gunzip.map { _meta, file -> file }.first()
     } else {
         ch_fasta = fasta_file ? channel.value(fasta_file) : channel.empty()
     }
 
-    // Handle GTF decompression
+    // Handle GTF decompression and create both uncompressed and gzipped versions
+    // ch_gtf: uncompressed GTF for TRANSCRIPTOME (SQANTI3)
+    // ch_gtf_gz: gzipped GTF for PACBIO_ISOCALL (ISOCALL_PREP)
     def gtf_file = params.gencode_gtf ? file(params.gencode_gtf) : null
     def is_gtf_gzipped = gtf_file && gtf_file.name.endsWith('.gz')
 
     if (is_gtf_gzipped) {
+        // GTF is already gzipped - decompress for TRANSCRIPTOME and keep original for PACBIO_ISOCALL
         ch_gtf_input = channel.of([[ id: 'gencode_gtf' ], gtf_file])
         GUNZIP_GTF(ch_gtf_input)
-        ch_gtf = GUNZIP_GTF.out.gunzip.map { _meta, file -> file }
+        ch_gtf = GUNZIP_GTF.out.gunzip.map { _meta, file -> file }.first()
+        ch_gtf_gz = channel.value(gtf_file)
     } else {
+        // GTF is not gzipped - use as-is for TRANSCRIPTOME and compress for PACBIO_ISOCALL
         ch_gtf = gtf_file ? channel.value(gtf_file) : channel.empty()
+        if (gtf_file) {
+            ch_gtf_gzip_input = channel.of([[ id: 'gencode_gtf' ], gtf_file])
+            GZIP_GTF(ch_gtf_gzip_input)
+            ch_gtf_gz = GZIP_GTF.out.gzip.map { _meta, file -> file }.first()
+        } else {
+            ch_gtf_gz = channel.empty()
+        }
     }
 
     // Handle gencode_fasta decompression (used by TRANSCRIPTOME)
@@ -70,7 +83,7 @@ workflow LRP2 {
     if (is_gencode_fasta_gzipped) {
         ch_gencode_fasta_input = channel.of([[ id: 'gencode_fasta' ], gencode_fasta_file])
         GUNZIP_GENCODE_FASTA(ch_gencode_fasta_input)
-        ch_gencode_fasta = GUNZIP_GENCODE_FASTA.out.gunzip.map { _meta, file -> file }
+        ch_gencode_fasta = GUNZIP_GENCODE_FASTA.out.gunzip.map { _meta, file -> file }.first()
     } else {
         ch_gencode_fasta = gencode_fasta_file ? channel.value(gencode_fasta_file) : channel.empty()
     }
@@ -91,33 +104,39 @@ workflow LRP2 {
 
     //
     // Count RNA samples to determine if RNA subworkflows should run
+    // Branch the channel into two: one for counting, one for processing
     //
     ch_rna_samples
+        .tap { ch_rna_for_count }
+        .set { ch_rna_samples_filtered }
+
+    // Count the samples
+    ch_rna_for_count
         .toList()
         .map { samples ->
             def count = samples.size()
             if (count > 0) {
                 log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.green} Detected ${count} RNA sample(s) - RNA analysis subworkflows will run${colors.reset}-"
             } else {
-                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No RNA samples detected - skipping RNA analysis subworkflows (PACBIO_ISOSEQ, TRANSCRIPTOME, PREDICTED_PROTEOME)${colors.reset}-"
+                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No RNA samples detected - skipping RNA analysis subworkflows (PACBIO_ISOCALL, TRANSCRIPTOME, PREDICTED_PROTEOME)${colors.reset}-"
             }
-            return tuple(count, samples)
+            return count
         }
-        .set { ch_rna_data }
-
-    ch_rna_count = ch_rna_data.map { count, _samples -> count }
-    ch_rna_samples_filtered = ch_rna_data
-        .filter { count, _samples -> count > 0 }
-        .flatMap { _count, samples -> samples }
+        .set { ch_rna_count }
 
     //
-    // SUBWORKFLOW: Run PacBio IsoSeq analysis (only if RNA samples present)
+    // SUBWORKFLOW: Run PacBio IsoCall analysis (only if RNA samples present)
     //
-    PACBIO_ISOSEQ (
+    // IsoCall requires config TOML and gzipped GTF reference
+    ch_isocall_config = channel.value(file("${projectDir}/bin/isocall_config.toml"))
+
+    PACBIO_ISOCALL (
         ch_rna_samples_filtered,
-        ch_fasta
+        ch_fasta,
+        ch_gtf_gz,
+        ch_isocall_config
     )
-    ch_versions = ch_versions.mix(PACBIO_ISOSEQ.out.versions.ifEmpty([]))
+    ch_versions = ch_versions.mix(PACBIO_ISOCALL.out.versions.ifEmpty([]))
 
     //
     // SUBWORKFLOW: Run SQANTI3 QC and filtering (only if RNA samples present)
@@ -126,10 +145,10 @@ workflow LRP2 {
     sample_metadata_file = params.sample_metadata ?: params.input
 
     TRANSCRIPTOME (
-        PACBIO_ISOSEQ.out.collapsed_gff
-            .join(PACBIO_ISOSEQ.out.collapsed_count, by: 0)
-            .map { meta, gff, count ->
-                [meta, gff, count] },
+        PACBIO_ISOCALL.out.called_gtf
+            .join(PACBIO_ISOCALL.out.count_matrix, by: 0)
+            .map { meta, gtf, count ->
+                [meta, gtf, count] },
         ch_gtf,
         ch_gencode_fasta,
         file(sample_metadata_file),
@@ -168,7 +187,13 @@ workflow LRP2 {
     // SUBWORKFLOW: Run proteomics analysis (only if protein samples are present)
     //
     // Count protein samples to determine if PROTEOMICS should run
+    // Branch the channel into two: one for counting, one for processing
     ch_protein_samples
+        .tap { ch_protein_for_count }
+        .set { ch_protein_samples_filtered }
+
+    // Count the samples
+    ch_protein_for_count
         .toList()
         .map { samples ->
             def count = samples.size()
@@ -177,14 +202,9 @@ workflow LRP2 {
             } else {
                 log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No protein samples detected - skipping PROTEOMICS subworkflow${colors.reset}-"
             }
-            return tuple(count, samples)
+            return count
         }
-        .set { ch_protein_data }
-
-    ch_protein_count = ch_protein_data.map { count, _samples -> count }
-    ch_protein_samples_filtered = ch_protein_data
-        .filter { count, _samples -> count > 0 }
-        .flatMap { _count, samples -> samples }
+        .set { ch_protein_count }
 
     //
     // Determine protein FASTA for proteomics analysis
@@ -353,4 +373,3 @@ workflow LRP2 {
     THE END
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-

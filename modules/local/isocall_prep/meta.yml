@@ -1,0 +1,42 @@
+name: isocall_prep
+description: Isocall - Prep-Isoforms - Prepare known isoforms database from GTF annotation
+keywords:
+  - prep
+  - HiFi
+  - isocall
+  - Pacbio
+  - isoform
+  - annotation
+  - gtf
+tools:
+  - isocall:
+      description: Isocall - Prep-Isoforms - Process GTF annotation to create known isoforms database
+      homepage: https://github.com/PacificBiosciences/isocall
+      documentation: https://github.com/PacificBiosciences/isocall
+      tool_dev_url: https://github.com/PacificBiosciences/isocall
+      licence: ["BSD-3-Clause-Clear"]
+      identifier: ""
+input:
+  - - gtf:
+        type: file
+        description: Reference genome GTF annotation file
+        pattern: "*.gtf"
+        ontologies: []
+output:
+  isoforms:
+    - - "*.isoforms.gz":
+          type: file
+          description: Prepared known isoforms database file
+          pattern: "*.isoforms.gz"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software version
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

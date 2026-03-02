@@ -15,11 +15,14 @@ The pipeline combines state-of-the-art tools for long-read RNA sequencing analys
 
 The LRP2 pipeline consists of five major stages:
 
-### 1. PacBio Iso-Seq Processing (`01_pacbio_isoseq`)
-- Merge FLNC BAM files per sample (**pbtk pbmerge**)
-- Cluster merged reads into consensus isoforms (**isoseq cluster**)
-- Align clustered consensus isoforms to reference genome (**pbmm2**)
-- Collapse redundant isoforms (**isoseq collapse**)
+### 1. PacBio Long-Read Isoform Processing (`01_pacbio_isocall`)
+
+**PacBio Isocall is used for long-read processing.** Isocall is PacBio's up-and-coming successor to Isoseq for isoform discovery and quantification. It offers excellent scalability to large datasets with drastically reduced runtime and improved accuracy in isoform detection.
+- Align FLNC BAM files to reference genome (**pbmm2 align**)
+- Profile aligned reads to create junction chain profiles per sample (**isocall profile**)
+- Merge profiles from all samples (**isocall merge**)
+- Prepare known isoforms database from reference GTF (**isocall prep-isoforms**)
+- Call both known and novel isoforms using merged profiles (**isocall call**)
 
 ### 2. Transcript Quality Control and Filtering (`02_transcriptome`)
 - Perform comprehensive quality control and classification (**sqanti_qc**)
@@ -57,18 +60,24 @@ The LRP2 pipeline consists of five major stages:
 - Convert raw MS data to mzML format (**msconvert**)
   - Supports .raw mass spectrometry files
   - Applies peak picking for centroid data
-- Perform peptide-spectrum matching (**MetaMorpheus**):
-  - Supports database search against predicted or reference proteome
-  - Generates peptide-spectrum match (PSM) tables
-  - Outputs comprehensive protein search results and statistics
+- Perform peptide-spectrum matching with **FragPipe** or **MetaMorpheus**:
+  - **FragPipe** (default, recommended and can run on DDA or DIA samples): Ultra-fast proteomics search pipeline
+    - MSFragger for peptide identification
+    - IonQuant for label-free quantification
+    - DIA-NN integration for DIA data analysis
+    - Supports both DDA and DIA acquisition modes
+  - **MetaMorpheus** (alternative, only runnable on DDA samples): Comprehensive open-source proteomics tool
+    - Database search against predicted or reference proteome
+    - Generates peptide-spectrum match (PSM) tables
+    - Outputs comprehensive protein search results and statistics
 
-> **Note**: The PROTEOMICS subworkflow can only run when protein samples (sample_type='protein') are provided in the samplesheet. When both RNA and protein samples are present, it searches against a concatenated database of the predicted proteome from Stage 3 plus the reference protein FASTA. For protein-only samples, it uses only the reference protein database via `--protein_fasta` (or auto-detected from the GENCODE genome if specified). 
+> **Note**: The PROTEOMICS subworkflow can only run when protein samples (sample_type='protein') are provided in the samplesheet. When both RNA and protein samples are present, it searches against a concatenated database of the predicted proteome from Stage 3 plus the reference protein FASTA. For protein-only samples, it uses only the reference protein database via `--protein_fasta` (or auto-detected from the GENCODE genome if specified). Select the search engine with `--protein_search` (options: `fragpipe` or `metamorpheus`, default: `fragpipe`). 
 
 ### Key Features:
 - **Full isoform resolution**: Leverages PacBio long reads for complete transcript characterization
 - **Quality-based filtering**: Multi-stage artifact removal and quality control
 - **Protein-level analysis**: ORF prediction and protein classification
-- **Proteomics integration**: Mass spectrometry protein search and analysis with MetaMorpheus
+- **Proteomics integration**: Mass spectrometry protein search with FragPipe or MetaMorpheus
 - **Multi-omics support**: Combined, integrated RNA-level and protein-level analysis
 - **Flexible genome support**: RefSeq genomes (via iGenomes) and GENCODE genomes with multiple release versions
 - **Reproducible**: Fully containerized with Docker/Singularity support
@@ -93,46 +102,32 @@ First, prepare a samplesheet with your input data that looks as follows:
 **samplesheet.csv:**
 
 ```csv
-sample_name,sample_path,condition,sample_type,mass_spec_type
-A,A.01.isoseq.flnc.bam,control,RNA,none
-A,A.02.isoseq.flnc.bam,control,RNA,none
-C,C.01.isoseq.flnc.bam,disease,RNA,none
-D,D.01.isoseq.flnc.bam,disease,RNA,none
-A,A_injection1.raw,control,protein,DIA
-A,A_injection2.raw,control,protein,DIA
-A,A_injection3.raw,control,protein,DIA
-C,C_injection1.raw,disease,protein,DIA
-C,C_injection2.raw,disease,protein,DIA
-C,C_injection3.raw,disease,protein,DIA
+sample_name,sample_path,bam_id,condition,sample_type,mass_spec_type
+control_rep1,/path/to/control_rep1.flnc.bam,biosample_ctrl_1,control,RNA,none
+control_rep2,/path/to/control_rep2.flnc.bam,biosample_ctrl_2,control,RNA,none
+control_rep3,/path/to/control_rep3.flnc.bam,biosample_ctrl_3,control,RNA,none
+treatment_rep1,/path/to/treatment_rep1.flnc.bam,biosample_treat_1,treatment,RNA,none
+treatment_rep2,/path/to/treatment_rep2.flnc.bam,biosample_treat_2,treatment,RNA,none
+treatment_rep3,/path/to/treatment_rep3.flnc.bam,biosample_treat_3,treatment,RNA,none
+control_protein,/path/to/control_injection1.raw,none,control,protein,DDA
+control_protein,/path/to/control_injection2.raw,none,control,protein,DDA
+control_protein,/path/to/control_injection3.raw,none,control,protein,DDA
+treatment_protein,/path/to/treatment_frac1.mzML,none,treatment,protein,DIA
+treatment_protein,/path/to/treatment_frac2.mzML,none,treatment,protein,DIA
 ```
 
-Each row represents either a PacBio Iso-Seq FLNC (Full-Length Non-Chimeric) BAM file OR a Mass Spectrometry protein .raw or .mzML file.
+Each row with sample_type ``RNA`` represents a PacBio IsoSeq FLNC (Full-Length Non-Chimeric) ``.bam`` file.
+Each row with sample_type ``protein`` represents a mass spectrometry sample containing protein data in either ``.raw`` or ``.mzML`` format.
 
 **Required columns:**
-- `sample_name`: Biological replicate identifier. RNA and protein samples with matching `sample_name` and `condition` will be grouped together for analysis. (no spaces)
-- `sample_path`: Absolute path to the sample file (*.bam if RNA, *.raw or .mzML if protein)
-- `condition`: Sample condition or group (e.g., "control", "disease"). Used for grouping samples and differential analysis. (no spaces)
-- `sample_type`: Data type of the sample - must be either 'RNA' or 'protein'
+- `sample_name`: Unique identifier for each biological replicate. **Each RNA sample must have a distinct `sample_name` value.** Protein samples with matching `sample_name` and `condition` will be grouped together for proteomics analysis. Do not include any spaces in this value.
+- `sample_path`: Absolute or relative path to the sample file.
+- `bam_id`: For RNA samples, this is the biosample ID that matches the SM (sample) tag in the BAM header. This ID is used by IsoCall to track read counts per sample and is required for generating the count matrix. For protein samples, use `none`.
+- `condition`: Sample condition or group (e.g., "control", "treatment"). Used for grouping samples and differential analysis. Do not include any spaces in this value.
+- `sample_type`: Sample data type, which must be either ``RNA`` or ``protein``.
 
 **Optional columns:**
-- `mass_spec_type`: Mass spectrometry data acquisition type - 'DDA', 'DIA', or 'none'. Required for protein samples (must be 'DDA' or 'DIA'). For RNA samples, use 'none'.
-
-### Sample Grouping Logic:
-
-**Biological Replicates**: Samples with unique `sample_name` values are treated as distinct biological replicates. In the example above, A, C, and D are three biological replicates.
-
-**Technical Replicates**: Multiple files with the same `sample_name` and `condition` are treated as technical replicates and will be processed together. For example:
-- RNA technical replicates: `A.01.isoseq.flnc.bam` and `A.02.isoseq.flnc.bam` (both have sample_name=A, condition=control, sample_type=RNA)
-- Protein technical replicates: `A_injection1.raw`, `A_injection2.raw`, `A_injection3.raw` (all have sample_name=A, condition=control, sample_type=protein)
-
-**RNA-Protein Sample Groups**: RNA and protein samples are matched by identical `sample_name` and `condition` values. The predicted proteome from RNA samples will be used as the protein database for matching protein samples. In the example above:
-- **Group A_control**: RNA files `A.01` and `A.02` + protein files `A_injection1`, `A_injection2`, `A_injection3`
-- **Group C_disease**: RNA file `C.01` + protein files `C_injection1`, `C_injection2`, `C_injection3`
-- **Group D_disease**: RNA file `D.01` only (no matching protein samples - RNA analysis only)
-
-**RNA-only samples**: Sample groups with only RNA samples (like D in the example) will run through all RNA subworkflows but skip proteomics analysis.
-
-> **Note**: The `condition` column is required for all samples. It is used both for grouping samples and for differential analysis (when enabled with `--run_differential_analysis`).
+- `mass_spec_type`: Mass spectrometry data acquisition type, which should be one of ``DDA`` or ``DIA``. This value is required for protein samples. For RNA samples, specify ``none``.
 
 
 ### Running the Pipeline
@@ -191,6 +186,26 @@ nextflow run /path/to/LRP2 \
 
 > **Important**: For differential analysis, your samplesheet must include a `condition` column (or `group` column) with at least two groups. Biological replicates are strongly recommended for robust statistical analysis.
 
+### Example Command with Proteomics (FragPipe)
+
+To analyze protein samples with FragPipe, include the required FragPipe registration parameters:
+
+```bash
+nextflow run /path/to/LRP2 \
+    --input samplesheet.csv \
+    --outdir results \
+    --genome GRCh38.p14.v46 \
+    --protein_search fragpipe \
+    --fragpipe_first_name John \
+    --fragpipe_last_name Doe \
+    --fragpipe_email john.doe@example.org \
+    --fragpipe_institution 'Example University' \
+    --fragpipe_token 123456 \
+    --fragpipe_license_accept true \
+    -profile singularity \
+    -resume
+```
+
 ### Available Profiles
 
 The pipeline supports multiple execution profiles:
@@ -225,10 +240,10 @@ The pipeline supports multiple execution profiles:
 - `--cpat_coding_threshold`: Coding probability threshold (default: human=0.364, mouse=0.44)
 - `--protein_class_keep`: Protein categories to retain (default: `FPM,IPM,NPC,NPE`)
 
-**Iso-Seq Collapse Parameters:**
-- `--max_fuzzy_junction`: Maximum junction position difference (default: `0`)
-- `--max_5p_diff`: Max base-pair difference at 5' end (default: `100`)
-- `--max_3p_diff`: Max base-pair difference at 3' end (default: `200`)
+**PacBio Long-Read Processing (ISOCALL):**
+- `--min_read_support`: Minimum read support required for calling novel transcripts (default: `3`)
+- `--max_bundles_per_gene`: Maximum bundles per gene during read sampling (default: `100`)
+- `--isocall_config`: Path to Isocall configuration TOML file (default: `bin/isocall_config.toml`)
 
 **Differential Analysis (Optional):**
 - `--run_differential_analysis`: Enable multi-sample differential analysis (default: `false`)
@@ -240,9 +255,20 @@ The pipeline supports multiple execution profiles:
 - `--min_usage_ratio`: Minimum junction usage ratio for filtering (default: `0.01`)
 
 **Proteomics Analysis (Optional):**
+- `--protein_search`: Proteomics search engine - `fragpipe` or `metamorpheus` (default: `fragpipe`)
 - `--protein_fasta`: Path to reference protein database FASTA (optional - auto-detected from GENCODE genome if not provided)
-- `--metamorpheus_config`: Path to MetaMorpheus TOML configuration file (default: uses built-in ``sample_data/SearchTask.toml``)
 - `--msconvert_peak_picking`: Enable peak picking during mzML conversion (default: `true`)
+
+**FragPipe-specific parameters** (when `--protein_search fragpipe`):
+- `--fragpipe_first_name`: User first name for FragPipe registration (required)
+- `--fragpipe_last_name`: User last name for FragPipe registration (required)
+- `--fragpipe_email`: User email for FragPipe registration (required)
+- `--fragpipe_institution`: Institution name for FragPipe registration (required)
+- `--fragpipe_token`: FragPipe license token (required - obtain from [fragpipe.nesvilab.org](https://fragpipe.nesvilab.org))
+- `--fragpipe_license_accept`: Accept FragPipe academic license (required: `true`)
+
+**MetaMorpheus-specific parameters** (when `--protein_search metamorpheus`):
+- `--metamorpheus_config`: Path to MetaMorpheus TOML configuration file (default: uses built-in `sample_data/SearchTask.toml`)
 
 > **Note**: When both RNA and protein samples are provided, the pipeline concatenates the predicted proteome from Stage 3 with the reference protein FASTA (either user-provided via `--protein_fasta` or auto-detected from GENCODE genome) to create a comprehensive search database. For protein-only analysis (no RNA samples), only the reference protein FASTA will be used.
 
@@ -298,20 +324,21 @@ The pipeline generates comprehensive outputs organized in the following director
 
 ```
 <outdir>/
-├── S1_PACBIO_ISOSEQ/                    # Stage 1: Iso-Seq processing results
-│   ├── M1_ISOSEQ_MERGE/                 # Merged FLNC BAM files
-│   ├── M2_ISOSEQ_CLUSTER/               # Clustered consensus isoforms
-│   ├── M3_ISOSEQ_ALIGN/                 # Aligned clustered isoforms
-│   └── M4_ISOSEQ_COLLAPSE/              # Collapsed isoform GFF files
-├── S2_TRANSCRIPTOME/                    # Stage 2: Transcript QC and filtering
+├── S1_PACBIO_ISOCALL/                   # STAGE 1: Isocall processing results
+│   ├── M1_ISOCALL_ALIGN/                # Align FLNC BAM files per sample in parallel
+│   ├── M2_ISOCALL_PROFILE/              # Junction chain profiles per sample in parallel
+│   ├── M3_ISOCALL_PREP/                 # Build known isoforms database from GTF
+│   ├── M4_ISOCALL_MERGE/                # Merge profiles from all samples together
+│   └── M5_ISOCALL_CALL/                 # Called isoforms using merged profiles and reference
+├── S2_TRANSCRIPTOME/                    # STAGE 2: Transcript QC and filtering
 │   ├── M1_SQANTI_QC/                    # SQANTI3 classification reports
 │   └── M2_FILTER_TRANSCRIPTOME/         # Filtered transcript sets
-├── S3_PREDICTED_PROTEOME/               # Stage 3: Protein predictions
+├── S3_PREDICTED_PROTEOME/               # STAGE 3: Protein predictions
 │   ├── M1_CPAT_ORF/                     # ORF predictions
 │   ├── M2_FILTER_CPAT/                  # Filtered ORFs and CDS
 │   ├── M3_SQANTI_PROTEIN_CLASSIFICATION/# Protein classifications
 │   └── M4_PROTEIN_UTR_CLASSIFICATION/   # High-confidence proteins
-├── S4_MULTISAMPLE_ANALYSIS/             # Stage 4: Differential analysis (optional)
+├── S4_MULTISAMPLE_ANALYSIS/             # STAGE 4: Differential analysis (optional)
 │   ├── M1_LEAFCUTTER_LONGREAD/          # Differential splicing results
 │   │   ├── *_intron_coords.txt
 │   │   ├── *_exon_coords.txt
@@ -334,10 +361,16 @@ The pipeline generates comprehensive outputs organized in the following director
 │       │   └── *_DTU_transcript_DRIMSeq_summary.txt
 │       └── differential_ORF_usage/
 │           └── *_DU_ORF_DRIMSeq_summary.txt
-├── S5_PROTEOMICS/                       # Stage 5: Proteomics analysis (optional)
-│   ├── M1_MSCONVERT_MZML/               # .raw -> .mzML file conversion
+├── S5_PROTEOMICS/                       # STAGE 5: Proteomics analysis (optional)
+│   ├── M1_MSCONVERT_MZML/               # .raw -> .mzML file conversion if needed
 │   │   └── *.mzML
-│   └── M2_METAMORPHEUS/                 # MetaMorpheus search results
+│   ├── M2_FRAGPIPE/                     # FragPipe search results (if --protein_search fragpipe)
+│   │   ├── psm.tsv                      # Peptide-spectrum matches
+│   │   ├── peptide.tsv                  # Identified peptides
+│   │   ├── protein.tsv                  # Identified proteins
+│   │   ├── ion.tsv                      # Ion-level quantification
+│   │   └── combined_protein.tsv         # Combined protein quantification
+│   └── M2_METAMORPHEUS/                 # MetaMorpheus search results (if --protein_search metamorpheus)
 │       ├── *.psmtsv                     # Peptide-spectrum match tables
 │       └── results/                     # Detailed search results
 └── pipeline_info/                       # Execution reports and logs
@@ -361,17 +394,18 @@ The pipeline generates comprehensive outputs organized in the following director
 - Protein-to-transcript mappings
 - High-confidence proteome sets
 
-**Proteomics (if protein samples provided):**
+**Proteomics:**
 - Converted mzML files from raw MS data
-- Peptide-spectrum match (PSM) tables
-- MetaMorpheus search results and statistics
-- Identified peptides and proteins
-
-**Quality Control:**
-- SQANTI3 QC reports and plots
-- FLNC read counts
-- Gene discovery statistics
-- Junction analysis
+- **FragPipe outputs**:
+  - Peptide-spectrum match (PSM) tables with confidence scores
+  - Peptide-level identifications and quantification
+  - Protein-level identifications and quantification
+  - Ion-level quantification for label-free analysis
+  - Combined protein reports across sample groups
+- **MetaMorpheus outputs**:
+  - Peptide-spectrum match (PSM) tables
+  - Protein search results and statistics
+  - Identified peptides and proteins
 
 **Differential Analysis (if enabled):**
 - **Leafcutter long-read splicing:**
@@ -397,10 +431,11 @@ For detailed information about output files, please refer to the [output documen
 
 The LRP2 pipeline was developed by the Sheynkman Lab and Knowles Lab:
 
-- **Megan Schertzer**, Sheynkman Lab - Pipeline and module code development
-- **Julia Lewandowski**, Knowles Lab - Nextflow workflow implementation
+- **Megan Schertzer**, Sheynkman Lab - Module code development
+- **Julia Lewandowski**, Knowles Lab - Pipeline implementation
 
 We thank the following people for their extensive assistance in the development of this pipeline...
+- **Will Rosenow**, Sheynkman Lab - Pipeline testing and feedback
 
 ## License
 
