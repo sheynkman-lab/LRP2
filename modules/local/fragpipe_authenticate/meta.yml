@@ -55,7 +55,7 @@ output:
       pattern: "versions.yml"
 
 authors:
-  - "@mschertzer"
+  - "@JTL-lab"
 
 maintainers:
-  - "@mschertzer"
+  - "@JTL-lab"

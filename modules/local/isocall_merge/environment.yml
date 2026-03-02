@@ -1,0 +1,6 @@
+name: isocall_merge
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - bioconda::isocall=0.14.0
