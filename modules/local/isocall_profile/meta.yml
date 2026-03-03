@@ -1,0 +1,51 @@
+name: isocall_profile
+description: Isocall - Profile - Create junction chain profiles from aligned BAMs
+keywords:
+  - profile
+  - HiFi
+  - isocall
+  - Pacbio
+  - isoform
+  - transcriptome
+tools:
+  - isocall:
+      description: Isocall - Profile - Create junction chain profiles for isoform calling
+      homepage: https://github.com/PacificBiosciences/isocall
+      documentation: https://github.com/PacificBiosciences/isocall
+      tool_dev_url: https://github.com/PacificBiosciences/isocall
+      licence: ["BSD-3-Clause-Clear"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test' ]
+    - aligned_bam:
+        type: file
+        description: Aligned BAM file
+        pattern: "*.aligned.bam"
+        ontologies: []
+output:
+  profile:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - "*_profile.gz":
+          type: file
+          description: Gzipped junction chain profile file
+          pattern: "*_profile.gz"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software version
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

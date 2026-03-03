@@ -1,0 +1,52 @@
+name: isocall_merge
+description: Isocall - Merge - Merge multiple transcriptome profiles into a single merged profile
+keywords:
+  - merge
+  - HiFi
+  - isocall
+  - Pacbio
+  - isoform
+  - transcriptome
+  - profile
+tools:
+  - isocall:
+      description: Isocall - Merge - Combine multiple sample profiles for unified isoform calling
+      homepage: https://github.com/PacificBiosciences/isocall
+      documentation: https://github.com/PacificBiosciences/isocall
+      tool_dev_url: https://github.com/PacificBiosciences/isocall
+      licence: ["BSD-3-Clause-Clear"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'merged' ]
+    - profiles:
+        type: file
+        description: List of profile files to merge
+        pattern: "*_profile.gz"
+        ontologies: []
+output:
+  merged_profile:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'merged' ]
+      - "*_merged_profiles.gz":
+          type: file
+          description: Merged profile file containing all sample profiles
+          pattern: "*_merged_profiles.gz"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software version
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"
