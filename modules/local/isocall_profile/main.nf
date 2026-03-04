@@ -20,10 +20,11 @@ process ISOCALL_PROFILE {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
+    def sample_id = meta.bam_id ?: prefix
     """
     isocall profile \\
         --reads $aligned_bam \\
-        --sample ${prefix} \\
+        --sample ${sample_id} \\
         --output ${prefix}_profile.gz \\
         $args
 
