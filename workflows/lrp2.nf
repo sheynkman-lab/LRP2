@@ -8,7 +8,7 @@ include { GUNZIP as GUNZIP_GTF           } from '../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_GENCODE_FASTA } from '../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_PROTEIN_FASTA } from '../modules/nf-core/gunzip/main'
 include { GZIP as GZIP_GTF               } from '../modules/local/gzip/main'
-include { CAT_CAT                        } from '../modules/nf-core/cat/cat/main'
+include { BUILD_PROTEOME_REFERENCE       } from '../modules/local/build_proteome_reference/main'
 include { PACBIO_ISOCALL                 } from '../subworkflows/local/pacbio_isocall'
 include { TRANSCRIPTOME                  } from '../subworkflows/local/transcriptome'
 include { PREDICTED_PROTEOME             } from '../subworkflows/local/predicted_proteome'
@@ -253,50 +253,75 @@ workflow LRP2 {
         )
         ch_mm_writable = channel.value(file("${projectDir}/assets/mm_writable_placeholder"))
 
-        // Prepare the single global protein database for all protein groups:
-        // - If RNA samples were processed: concatenate the single predicted proteome with the reference FASTA
-        // - If no RNA samples: use the reference FASTA alone
-        // The resulting ch_protein_db is a single value broadcast to all protein sample groups.
+        // BUILD_PROTEOME_REFERENCE search db creation logic:
+        // - If RNA samples were processed, we build sample-specific references with LRP proteome + GENCODE concatenated
+        // - If no RNA samples then we build GENCODE-only references per sample group
+
+        // Extract outputs from RNA subworkflows if available (keep the RNA sample meta.id for use in filtering by CPM column name)
         ch_predicted_proteome_fasta = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
             .map { _meta, fasta -> fasta }
-
-        // Build the protein DB channel:
-        // When RNA count > 0, concatenate predicted proteome + reference FASTA (one CAT_CAT run for the whole dataset)
-        // When RNA count == 0, use reference FASTA alone
-        ch_cat_input = ch_rna_count
-            .filter { count -> count > 0 }
-            .combine(ch_predicted_proteome_fasta)
-            .combine(ch_protein_fasta)
-            .map { _count, predicted_fasta, reference_fasta ->
-                def cat_meta = [id: 'combined_proteome']
-                return [cat_meta, [reference_fasta, predicted_fasta]]
-            }
-
-        CAT_CAT(ch_cat_input)
-
-        // Select the protein DB:
-        // - Use concatenated FASTA when RNA was processed
-        // - Fall back to reference FASTA when no RNA samples
-        ch_protein_db = ch_rna_count
-            .branch { count ->
-                has_rna: count > 0
-                no_rna:  count == 0
-            }
-
-        ch_protein_db_final = ch_protein_db.has_rna
-            .combine(CAT_CAT.out.file_out.map { _meta, fasta -> fasta })
-            .map { _count, fasta -> fasta }
-            .mix(
-                ch_protein_db.no_rna
-                    .combine(ch_protein_fasta)
-                    .map { _count, fasta -> fasta }
-            )
             .first()
+            .ifEmpty(file('NO_FILE'))
 
-        // Attach the global protein DB to every protein sample
+        ch_transcript_counts_with_id = TRANSCRIPTOME.out.hashids_all
+            .map { meta, counts -> [meta.id, counts] }
+            .first()
+            .ifEmpty(['NO_RNA_SAMPLE', file('NO_FILE')])
+
+        ch_transcript_counts = ch_transcript_counts_with_id
+            .map { rna_id, counts -> counts }
+
+        ch_rna_sample_id = ch_transcript_counts_with_id
+            .map { rna_id, counts -> rna_id }
+
+        // Create a channel that maps each protein sample to its sample_name for grouping
+        // Group protein samples by sample_name (the biosample group)
+        ch_protein_samples_grouped = ch_protein_samples_filtered
+            .map { meta, file ->
+                def sample_name = meta.sample_name
+                return [sample_name, meta, file]
+            }
+            .groupTuple(by: 0)
+            .map { sample_name, metas, files ->
+                // Use the first meta but update id to be the sample_name for the grouped reference
+                def grouped_meta = metas[0] + [id: sample_name]
+                return [grouped_meta, files]
+            }
+
+        // Build proteome references per sample group
+        // Prepare input channel for BUILD_PROTEOME_REFERENCE
+        ch_build_ref_input = ch_protein_samples_grouped
+            .map { meta, _files ->
+                [meta, meta]  // Just pass meta for now
+            }
+            .combine(ch_predicted_proteome_fasta)
+            .combine(ch_transcript_counts)
+            .map { meta, _meta2, lrp_fasta, counts ->
+                return [meta, lrp_fasta, counts]
+            }
+
+        // Script path for build_mass_spec_reference.R
+        ch_build_proteome_script = channel.value(file("${projectDir}/bin/build_mass_spec_reference.R"))
+
+        // BUILD_PROTEOME_REFERENCE runs once for each sample group to create per-group sample-specific references
+        // Pass params.genome directly for file naming (e.g., GRCh38.p14.v49)
+        BUILD_PROTEOME_REFERENCE(
+            ch_build_ref_input,
+            ch_build_proteome_script,
+            params.genome,
+            params.no_gencode ?: false
+        )
+        ch_versions = ch_versions.mix(BUILD_PROTEOME_REFERENCE.out.versions.ifEmpty([]))
+
+        // Join the built references back to the protein samples
+        // Map the reference output by sample_name and join with protein samples
+        ch_protein_db_by_sample = BUILD_PROTEOME_REFERENCE.out.reference_fasta
+            .map { meta, fasta -> [meta.id, fasta] }
+
         ch_protein_for_proteomics = ch_protein_samples_filtered
-            .combine(ch_protein_db_final)
-            .map { meta, file, protein_db -> [meta, file, protein_db] }
+            .map { meta, file -> [meta.sample_name, meta, file] }
+            .combine(ch_protein_db_by_sample, by: 0)
+            .map { _sample_name, meta, file, protein_db -> [meta, file, protein_db] }
 
         // Pass protein samples with their corresponding protein databases to PROTEOMICS
         PROTEOMICS (

@@ -54,8 +54,8 @@ option_list <- list(
               help = "Path to lrp pipeline protein FASTA"),
   make_option(c("--custom_fasta"), type = "character", default = NULL,
               help = "Path to user provided protein FASTA."),
-  make_option(c("--gencode_version"), type = "character", default = "46",
-              help = "GENCODE version to download [default: 46]"),
+  make_option(c("--genome_name"), type = "character", default = NULL,
+              help = "Genome name (e.g., GRCh38.p14.v49) for file naming and GENCODE version extraction"),
   make_option(c("--no_gencode"), action = "store_true", default = FALSE,
               help = "Do not include GENCODE in the reference"),
   make_option(c("--sample_name"), type = "character", default = NULL,
@@ -67,6 +67,20 @@ option_list <- list(
 )
 
 opt = parse_args(OptionParser(option_list = option_list))
+
+# Extract GENCODE version from genome_name (e.g., "GRCh38.p14.v49" -> "49")
+if (!is.null(opt$genome_name)) {
+  version_match = str_extract(opt$genome_name, "v(\\d+)$")
+  if (!is.na(version_match)) {
+    opt$gencode_version = str_replace(version_match, "^v", "")
+  } else {
+    opt$gencode_version = "49"  # fallback default
+    warning("Could not extract GENCODE version from genome_name '", opt$genome_name, "'. Using default version 46.")
+  }
+} else {
+  opt$gencode_version = "49"  # fallback default
+  opt$genome_name = paste0("GRCh38.p14.v", opt$gencode_version)
+}
 
 # =============================================================================
 # Validate inputs
@@ -90,14 +104,9 @@ if (!is.null(opt$counts) && !has_fasta) {
 }
 
 # =============================================================================
-# Output prefixes
+# Output prefixes (set later after we know what's actually included)
 # =============================================================================
-
-prefix_parts = c()
-if (!is.null(opt$lrp_fasta))    prefix_parts = c(prefix_parts, paste0(opt$sample_name, ".lrp"))
-if (!is.null(opt$custom_fasta)) prefix_parts = c(prefix_parts, paste0(opt$sample_name, ".custom"))
-if (!opt$no_gencode)            prefix_parts = c(prefix_parts, paste0("gencode.v", opt$gencode_version))
-out_prefix = paste(prefix_parts, collapse = "_")
+# Output prefix will be set after building combined_ref so we know what was actually included
 
 
 # =============================================================================
@@ -199,41 +208,64 @@ if (has_fasta && !is.null(opt$counts)) {
   # Select transcript_id (column 1) and CPM column matching sample name
   cpm_cols = names(counts)[str_detect(names(counts), fixed(opt$sample_name)) &
                              str_detect(names(counts), fixed("cpm"))]
+
+  # If no matching CPM column, remove LRP/custom entries and use GENCODE only
   if (length(cpm_cols) == 0) {
-    stop("No column found containing both '", opt$sample_name, "' and 'cpm' in count matrix.")
+    warning("No column found containing both '", opt$sample_name, "' and 'cpm' in count matrix. ",
+            "This sample has no matching RNA data. Only the GENCODE reference will be used.")
+
+    # Remove all LRP/custom entries, keep only GENCODE transcripts
+    n_before = sum(combined_ref$reference_type != "gencode")
+    combined_ref = combined_ref %>% filter(reference_type == "gencode")
+    cat("No matching RNA sample found for '", opt$sample_name, "'\n")
+    cat("  Removed ", n_before, " LRP/custom entries\n")
+    cat("  Using GENCODE reference only (", nrow(combined_ref), " entries)\n")
+
+  } else {
+    if (length(cpm_cols) > 1) {
+      warning("Multiple CPM columns matched: ", paste(cpm_cols, collapse = ", "), ". Using first: ", cpm_cols[1])
+    }
+
+    sample_counts = counts %>%
+      select(transcript_id = 1, sample_cpm = all_of(cpm_cols[1])) %>%
+      filter(sample_cpm > 0)
+
+    # Check overlap with FASTA transcript IDs
+    fasta_ids = combined_ref %>% filter(reference_type != "gencode") %>% pull(transcript_id)
+    n_overlap = sum(fasta_ids %in% sample_counts$transcript_id)
+    if (n_overlap == 0) {
+      stop("No transcript IDs in FASTA match the count matrix. Check that IDs are consistent between files.")
+    }
+
+    # Filter combined_ref: keep gencode entries + only LRP/custom transcripts with CPM > 0
+    n_before = sum(combined_ref$reference_type != "gencode")
+    combined_ref %<>%
+      filter(reference_type == "gencode" | transcript_id %in% sample_counts$transcript_id) %>%
+      left_join(select(sample_counts, transcript_id, sample_cpm), by = "transcript_id")
+    n_after = sum(combined_ref$reference_type != "gencode")
+
+    cat("Starting LRP/custom FASTA entries:", n_before, "\n")
+    cat("  Removed (not expressed in", opt$sample_name, "):", n_before - n_after, "\n")
+    cat("  Kept:", n_after, "\n")
   }
-  if (length(cpm_cols) > 1) {
-    warning("Multiple CPM columns matched: ", paste(cpm_cols, collapse = ", "), ". Using first: ", cpm_cols[1])
-  }
-  
-  sample_counts = counts %>%
-    select(transcript_id = 1, sample_cpm = all_of(cpm_cols[1])) %>%
-    filter(sample_cpm > 0)
-  
-  # Check overlap with FASTA transcript IDs
-  fasta_ids = combined_ref %>% filter(reference_type != "gencode") %>% pull(transcript_id)
-  
-  n_overlap = sum(fasta_ids %in% sample_counts$transcript_id)
-  if (n_overlap == 0) {
-    stop("No transcript IDs in FASTA match the count matrix. Check that IDs are consistent between files.")
-  }
-  
-  # Filter combined_ref: keep gencode entries + only LRP/custom transcripts with CPM > 0
-  n_before = sum(combined_ref$reference_type != "gencode")
-  combined_ref %<>%
-    filter(reference_type == "gencode" | transcript_id %in% sample_counts$transcript_id) %>%
-    left_join(select(sample_counts, transcript_id, sample_cpm), by = "transcript_id")
-  n_after = sum(combined_ref$reference_type != "gencode")
-  
-  cat("Starting LRP/custom FASTA entries:", n_before, "\n")
-  cat("  Removed (not expressed in", opt$sample_name, "):", n_before - n_after, "\n")
-  cat("  Kept:", n_after, "\n")
-  
 }
 
 # =============================================================================
 # Write out reference fasta and matching table
 # =============================================================================
+
+# Determine output prefix based on what's actually in the combined reference
+prefix_parts = c(opt$sample_name)
+has_lrp_in_ref = any(combined_ref$reference_type == "lrp")
+has_custom_in_ref = any(combined_ref$reference_type == "custom")
+
+if (has_lrp_in_ref)    prefix_parts = c(prefix_parts, "lrp")
+if (has_custom_in_ref) prefix_parts = c(prefix_parts, "custom")
+if (!opt$no_gencode)   prefix_parts = c(prefix_parts, opt$genome_name)
+
+out_prefix = paste(prefix_parts, collapse = ".")
+
+cat("\nOutput prefix:", out_prefix, "\n")
 
 # Combined reference table (without sequences)
 write_tsv(select(combined_ref, -sequence), file.path(opt$outdir, paste0(out_prefix, "_reference.tsv")))

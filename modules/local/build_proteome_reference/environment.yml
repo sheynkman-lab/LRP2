@@ -1,0 +1,11 @@
+name: build_proteome_reference
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base=4.5.0
+  - r-tidyverse=2.0.0
+  - r-magrittr=2.0.3
+  - bioconductor-biostrings=2.72.0
+  - r-optparse=1.7.5
