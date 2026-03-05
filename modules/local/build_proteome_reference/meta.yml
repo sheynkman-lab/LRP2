@@ -1,0 +1,57 @@
+name: BUILD_PROTEOME_REFERENCE
+description: Build combined protein FASTA reference for mass spectrometry database searching
+keywords:
+  - proteomics
+  - mass spectrometry
+  - reference
+  - fasta
+  - gencode
+tools:
+  - custom:
+      description: Custom R script to build mass spec reference from predicted proteome and GENCODE reference for MetaMorpheus / FragPipe protein search
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [id: 'sample1', sample_name: 'sample1']
+  - lrp_fasta:
+      type: file
+      description: LRP pipeline predicted proteome FASTA file (*.predicted.proteome.all_best_orfs.fa)
+      pattern: "*.{fa,fasta}"
+  - counts:
+      type: file
+      description: Count matrix TSV with transcript CPM values for filtering
+      pattern: "*.{txt,tsv}"
+  - build_proteome_reference_script:
+      type: file
+      description: R script to build proteome reference (build_mass_spec_reference.R)
+      pattern: "*.R"
+  - gencode_version:
+      type: string
+      description: GENCODE version to download and include in reference
+  - no_gencode:
+      type: boolean
+      description: If true, do not include GENCODE in the reference
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+  - reference_fasta:
+      type: file
+      description: Combined protein FASTA reference with standardized headers
+      pattern: "*_reference.fasta"
+  - reference_tsv:
+      type: file
+      description: Metadata table matching the reference FASTA
+      pattern: "*_reference.tsv"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@JTL-lab"

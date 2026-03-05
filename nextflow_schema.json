@@ -138,28 +138,32 @@
             }
         },
         "isoseq_collapse_options": {
-            "title": "Iso-Seq collapse options",
+            "title": "PacBio IsoCall options",
             "type": "object",
-            "fa_icon": "fas fa-compress",
-            "description": "Options for the Iso-Seq collapse module.",
+            "fa_icon": "fas fa-dna",
+            "description": "Options for the PacBio IsoCall transcript calling module.",
             "properties": {
-                "max_fuzzy_junction": {
+                "min_read_support": {
                     "type": "integer",
-                    "default": 0,
-                    "description": "Maximum allowable difference in junction positions to consider two isoforms identical.",
-                    "fa_icon": "fas fa-code-branch"
+                    "default": 3,
+                    "description": "Minimum read support required for calling novel transcripts.",
+                    "help_text": "Transcripts must be supported by at least this many reads to be called.",
+                    "fa_icon": "fas fa-layer-group"
                 },
-                "max_5p_diff": {
+                "max_bundles_per_gene": {
                     "type": "integer",
                     "default": 100,
-                    "description": "Maximum allowable base-pair difference at 5' end.",
-                    "fa_icon": "fas fa-arrow-left"
+                    "description": "Maximum bundles to use per gene during read sampling.",
+                    "help_text": "Limits the number of read bundles processed per gene to improve performance.",
+                    "fa_icon": "fas fa-boxes"
                 },
-                "max_3p_diff": {
-                    "type": "integer",
-                    "default": 200,
-                    "description": "Maximum allowable base-pair difference at 3' end.",
-                    "fa_icon": "fas fa-arrow-right"
+                "isocall_config": {
+                    "type": "string",
+                    "format": "file-path",
+                    "default": "${projectDir}/bin/isocall_config.toml",
+                    "description": "Path to IsoCall configuration TOML file.",
+                    "help_text": "Configuration file for IsoCall parameters. Uses default config if not specified.",
+                    "fa_icon": "fas fa-file-code"
                 }
             }
         },
@@ -440,6 +444,12 @@
                     "description": "Path to reference protein FASTA file.",
                     "help_text": "Reference protein database for proteomics searches. If not provided and a GENCODE genome is specified, will automatically use the protein FASTA from the GENCODE genome configuration.",
                     "fa_icon": "far fa-file-code"
+                },
+                "no_gencode": {
+                    "type": "boolean",
+                    "description": "Exclude GENCODE reference from proteome database.",
+                    "help_text": "When enabled, only LRP-predicted or custom protein sequences will be used for proteomics searches, excluding GENCODE reference proteins.",
+                    "fa_icon": "fas fa-ban"
                 },
                 "protein_search": {
                     "type": "string",
