@@ -26,7 +26,6 @@ workflow PACBIO_ISOCALL {
 
     //
     // Samples come in as individual channel items, one per RNA sample
-    // Each has meta with: id, sample_name, bam_id, condition, sample_type
     //
     ch_flnc_bams = ch_samples
         .map { meta, bam ->

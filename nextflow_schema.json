@@ -20,7 +20,7 @@
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to comma-separated file containing information about the samples in the experiment.",
-                    "help_text": "You will need to create a design file with information about the sample files. Required columns: 'sample_name', 'sample_path', 'bam_id', 'condition', 'replicate', 'sample_type'. For RNA samples (BAM files), 'bam_id' must match the name in the BAM header (e.g., BioSample_1). For protein samples (MS files), set 'bam_id' to 'none'. All RNA BAMs will be merged together at the start of the pipeline.",
+                    "help_text": "You will need to create a design file with information about the sample files. Required columns: 'sample_name', 'sample_path', 'condition', 'sample_type'. Each RNA sample must have a unique 'sample_name' value, which will be used to label count matrix columns. Protein samples with matching 'sample_name' and 'condition' will be grouped together for proteomics analysis.",
                     "fa_icon": "fas fa-file-csv"
                 },
                 "dataset_name": {
