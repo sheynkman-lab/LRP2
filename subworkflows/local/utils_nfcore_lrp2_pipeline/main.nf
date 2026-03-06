@@ -119,21 +119,6 @@ workflow PIPELINE_INITIALISATION {
                   "Please ensure all RNA samples have distinct sample_name values in your samplesheet."
         }
 
-        // Validate bam_id for each RNA sample
-        // bam_id must be present and non-empty/non-none for every RNA row because
-        // isoseq collapse embeds it as the SM tag in the BAM header, and SQANTI3
-        // uses those SM tags as column names in the counts matrix.
-        rna_samples.each { row ->
-            def bam_id = row[0].containsKey('bam_id') ? row[0].bam_id : null
-            def sample_name = row[0].sample_name
-            if (!bam_id || bam_id.trim() == '' || bam_id.toLowerCase() == 'none') {
-                error "ERROR: RNA sample '${sample_name}' is missing a valid bam_id. " +
-                      "bam_id must match the SM tag in the BAM header (e.g., BioSample_1) " +
-                      "and is used to name per-sample count columns in SQANTI3 output. " +
-                      "Please add a bam_id for this sample in your samplesheet."
-            }
-        }
-
         // =====================================================================
         // SAMPLESHEET QC SUMMARY
         // =====================================================================
@@ -203,14 +188,12 @@ workflow PIPELINE_INITIALISATION {
             // Each sample needs its own meta and path for parallel processing in ISOCALL_ALIGN/PROFILE
             rna_channel_data = rna_samples.collect { row ->
                 def sample_name = row[0].sample_name
-                def bam_id = row[0].containsKey('bam_id') && row[0].bam_id ? row[0].bam_id : null
                 def condition = row[0].containsKey('condition') ? row[0].condition : 'unknown'
                 def sample_path = row[1]
 
                 def meta = [
-                    id: sample_name,        
+                    id: sample_name,
                     sample_name: sample_name,
-                    bam_id: bam_id,
                     condition: condition,
                     sample_type: 'RNA'
                 ]

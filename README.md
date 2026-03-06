@@ -102,27 +102,26 @@ First, prepare a samplesheet with your input data that looks as follows:
 **samplesheet.csv:**
 
 ```csv
-sample_name,sample_path,bam_id,condition,sample_type,mass_spec_type
-control_rep1,/path/to/control_rep1.flnc.bam,biosample_ctrl_1,control,RNA,none
-control_rep2,/path/to/control_rep2.flnc.bam,biosample_ctrl_2,control,RNA,none
-control_rep3,/path/to/control_rep3.flnc.bam,biosample_ctrl_3,control,RNA,none
-treatment_rep1,/path/to/treatment_rep1.flnc.bam,biosample_treat_1,treatment,RNA,none
-treatment_rep2,/path/to/treatment_rep2.flnc.bam,biosample_treat_2,treatment,RNA,none
-treatment_rep3,/path/to/treatment_rep3.flnc.bam,biosample_treat_3,treatment,RNA,none
-control_protein,/path/to/control_injection1.raw,none,control,protein,DDA
-control_protein,/path/to/control_injection2.raw,none,control,protein,DDA
-control_protein,/path/to/control_injection3.raw,none,control,protein,DDA
-treatment_protein,/path/to/treatment_frac1.mzML,none,treatment,protein,DIA
-treatment_protein,/path/to/treatment_frac2.mzML,none,treatment,protein,DIA
+sample_name,sample_path,condition,sample_type,mass_spec_type
+control_rep1,/path/to/control_rep1.flnc.bam,control,RNA,none
+control_rep2,/path/to/control_rep2.flnc.bam,control,RNA,none
+control_rep3,/path/to/control_rep3.flnc.bam,control,RNA,none
+treatment_rep1,/path/to/treatment_rep1.flnc.bam,treatment,RNA,none
+treatment_rep2,/path/to/treatment_rep2.flnc.bam,treatment,RNA,none
+treatment_rep3,/path/to/treatment_rep3.flnc.bam,treatment,RNA,none
+control_protein,/path/to/control_injection1.raw,control,protein,DDA
+control_protein,/path/to/control_injection2.raw,control,protein,DDA
+control_protein,/path/to/control_injection3.raw,control,protein,DDA
+treatment_protein,/path/to/treatment_frac1.mzML,treatment,protein,DIA
+treatment_protein,/path/to/treatment_frac2.mzML,treatment,protein,DIA
 ```
 
 Each row with sample_type ``RNA`` represents a PacBio IsoSeq FLNC (Full-Length Non-Chimeric) ``.bam`` file.
 Each row with sample_type ``protein`` represents a mass spectrometry sample containing protein data in either ``.raw`` or ``.mzML`` format.
 
 **Required columns:**
-- `sample_name`: Unique identifier for each biological replicate. **Each RNA sample must have a distinct `sample_name` value.** Protein samples with matching `sample_name` and `condition` will be grouped together for proteomics analysis. Do not include any spaces in this value.
+- `sample_name`: Unique identifier for each biological replicate. **Each RNA sample must have a distinct `sample_name` value.** The sample names are used by Isocall to label count matrix columns. Protein samples with matching `sample_name` and `condition` will be grouped together for proteomics analysis. Do not include any spaces in this value.
 - `sample_path`: Absolute or relative path to the sample file.
-- `bam_id`: For RNA samples, this is the biosample ID that matches the SM (sample) tag in the BAM header. This ID is used by IsoCall to track read counts per sample and is required for generating the count matrix. For protein samples, use `none`.
 - `condition`: Sample condition or group (e.g., "control", "treatment"). Used for grouping samples and differential analysis. Do not include any spaces in this value.
 - `sample_type`: Sample data type, which must be either ``RNA`` or ``protein``.
 
