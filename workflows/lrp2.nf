@@ -7,8 +7,9 @@ include { GUNZIP as GUNZIP_FASTA         } from '../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_GTF           } from '../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_GENCODE_FASTA } from '../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_PROTEIN_FASTA } from '../modules/nf-core/gunzip/main'
-include { CAT_CAT                        } from '../modules/nf-core/cat/cat/main'
-include { PACBIO_ISOSEQ                  } from '../subworkflows/local/pacbio_isoseq'
+include { GZIP as GZIP_GTF               } from '../modules/local/gzip/main'
+include { BUILD_PROTEOME_REFERENCE       } from '../modules/local/build_proteome_reference/main'
+include { PACBIO_ISOCALL                 } from '../subworkflows/local/pacbio_isocall'
 include { TRANSCRIPTOME                  } from '../subworkflows/local/transcriptome'
 include { PREDICTED_PROTEOME             } from '../subworkflows/local/predicted_proteome'
 include { PROTEOMICS                     } from '../subworkflows/local/proteomics'
@@ -46,21 +47,33 @@ workflow LRP2 {
     if (is_fasta_gzipped) {
         ch_fasta_input = channel.of([[ id: 'genome_fasta' ], fasta_file])
         GUNZIP_FASTA(ch_fasta_input)
-        ch_fasta = GUNZIP_FASTA.out.gunzip.map { _meta, file -> file }
+        ch_fasta = GUNZIP_FASTA.out.gunzip.map { _meta, file -> file }.first()
     } else {
         ch_fasta = fasta_file ? channel.value(fasta_file) : channel.empty()
     }
 
-    // Handle GTF decompression
+    // Handle GTF decompression and create both uncompressed and gzipped versions
+    // ch_gtf: uncompressed GTF for TRANSCRIPTOME (SQANTI3)
+    // ch_gtf_gz: gzipped GTF for PACBIO_ISOCALL (ISOCALL_PREP)
     def gtf_file = params.gencode_gtf ? file(params.gencode_gtf) : null
     def is_gtf_gzipped = gtf_file && gtf_file.name.endsWith('.gz')
 
     if (is_gtf_gzipped) {
+        // GTF is already gzipped - decompress for TRANSCRIPTOME and keep original for PACBIO_ISOCALL
         ch_gtf_input = channel.of([[ id: 'gencode_gtf' ], gtf_file])
         GUNZIP_GTF(ch_gtf_input)
-        ch_gtf = GUNZIP_GTF.out.gunzip.map { _meta, file -> file }
+        ch_gtf = GUNZIP_GTF.out.gunzip.map { _meta, file -> file }.first()
+        ch_gtf_gz = channel.value(gtf_file)
     } else {
+        // GTF is not gzipped - use as-is for TRANSCRIPTOME and compress for PACBIO_ISOCALL
         ch_gtf = gtf_file ? channel.value(gtf_file) : channel.empty()
+        if (gtf_file) {
+            ch_gtf_gzip_input = channel.of([[ id: 'gencode_gtf' ], gtf_file])
+            GZIP_GTF(ch_gtf_gzip_input)
+            ch_gtf_gz = GZIP_GTF.out.gzip.map { _meta, file -> file }.first()
+        } else {
+            ch_gtf_gz = channel.empty()
+        }
     }
 
     // Handle gencode_fasta decompression (used by TRANSCRIPTOME)
@@ -70,7 +83,7 @@ workflow LRP2 {
     if (is_gencode_fasta_gzipped) {
         ch_gencode_fasta_input = channel.of([[ id: 'gencode_fasta' ], gencode_fasta_file])
         GUNZIP_GENCODE_FASTA(ch_gencode_fasta_input)
-        ch_gencode_fasta = GUNZIP_GENCODE_FASTA.out.gunzip.map { _meta, file -> file }
+        ch_gencode_fasta = GUNZIP_GENCODE_FASTA.out.gunzip.map { _meta, file -> file }.first()
     } else {
         ch_gencode_fasta = gencode_fasta_file ? channel.value(gencode_fasta_file) : channel.empty()
     }
@@ -91,33 +104,39 @@ workflow LRP2 {
 
     //
     // Count RNA samples to determine if RNA subworkflows should run
+    // Branch the channel into two: one for counting, one for processing
     //
     ch_rna_samples
+        .tap { ch_rna_for_count }
+        .set { ch_rna_samples_filtered }
+
+    // Count the samples
+    ch_rna_for_count
         .toList()
         .map { samples ->
             def count = samples.size()
             if (count > 0) {
                 log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.green} Detected ${count} RNA sample(s) - RNA analysis subworkflows will run${colors.reset}-"
             } else {
-                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No RNA samples detected - skipping RNA analysis subworkflows (PACBIO_ISOSEQ, TRANSCRIPTOME, PREDICTED_PROTEOME)${colors.reset}-"
+                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No RNA samples detected - skipping RNA analysis subworkflows (PACBIO_ISOCALL, TRANSCRIPTOME, PREDICTED_PROTEOME)${colors.reset}-"
             }
-            return tuple(count, samples)
+            return count
         }
-        .set { ch_rna_data }
-
-    ch_rna_count = ch_rna_data.map { count, _samples -> count }
-    ch_rna_samples_filtered = ch_rna_data
-        .filter { count, _samples -> count > 0 }
-        .flatMap { _count, samples -> samples }
+        .set { ch_rna_count }
 
     //
-    // SUBWORKFLOW: Run PacBio IsoSeq analysis (only if RNA samples present)
+    // SUBWORKFLOW: Run PacBio IsoCall analysis (only if RNA samples present)
     //
-    PACBIO_ISOSEQ (
+    // IsoCall requires config TOML and gzipped GTF reference
+    ch_isocall_config = channel.value(file("${projectDir}/bin/isocall_config.toml"))
+
+    PACBIO_ISOCALL (
         ch_rna_samples_filtered,
-        ch_fasta
+        ch_fasta,
+        ch_gtf_gz,
+        ch_isocall_config
     )
-    ch_versions = ch_versions.mix(PACBIO_ISOSEQ.out.versions.ifEmpty([]))
+    ch_versions = ch_versions.mix(PACBIO_ISOCALL.out.versions.ifEmpty([]))
 
     //
     // SUBWORKFLOW: Run SQANTI3 QC and filtering (only if RNA samples present)
@@ -126,10 +145,10 @@ workflow LRP2 {
     sample_metadata_file = params.sample_metadata ?: params.input
 
     TRANSCRIPTOME (
-        PACBIO_ISOSEQ.out.collapsed_gff
-            .join(PACBIO_ISOSEQ.out.collapsed_count, by: 0)
-            .map { meta, gff, count ->
-                [meta, gff, count] },
+        PACBIO_ISOCALL.out.called_gtf
+            .join(PACBIO_ISOCALL.out.count_matrix, by: 0)
+            .map { meta, gtf, count ->
+                [meta, gtf, count] },
         ch_gtf,
         ch_gencode_fasta,
         file(sample_metadata_file),
@@ -168,7 +187,13 @@ workflow LRP2 {
     // SUBWORKFLOW: Run proteomics analysis (only if protein samples are present)
     //
     // Count protein samples to determine if PROTEOMICS should run
+    // Branch the channel into two: one for counting, one for processing
     ch_protein_samples
+        .tap { ch_protein_for_count }
+        .set { ch_protein_samples_filtered }
+
+    // Count the samples
+    ch_protein_for_count
         .toList()
         .map { samples ->
             def count = samples.size()
@@ -177,14 +202,9 @@ workflow LRP2 {
             } else {
                 log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No protein samples detected - skipping PROTEOMICS subworkflow${colors.reset}-"
             }
-            return tuple(count, samples)
+            return count
         }
-        .set { ch_protein_data }
-
-    ch_protein_count = ch_protein_data.map { count, _samples -> count }
-    ch_protein_samples_filtered = ch_protein_data
-        .filter { count, _samples -> count > 0 }
-        .flatMap { _count, samples -> samples }
+        .set { ch_protein_count }
 
     //
     // Determine protein FASTA for proteomics analysis
@@ -233,50 +253,86 @@ workflow LRP2 {
         )
         ch_mm_writable = channel.value(file("${projectDir}/assets/mm_writable_placeholder"))
 
-        // Prepare the single global protein database for all protein groups:
-        // - If RNA samples were processed: concatenate the single predicted proteome with the reference FASTA
-        // - If no RNA samples: use the reference FASTA alone
-        // The resulting ch_protein_db is a single value broadcast to all protein sample groups.
+        // BUILD_PROTEOME_REFERENCE search db creation logic:
+        // - If RNA samples were processed, we build sample-specific references with LRP proteome + GENCODE concatenated
+        // - If no RNA samples then we build GENCODE-only references per sample group
+
+        // Extract outputs from RNA subworkflows if available (keep the RNA sample meta.id for use in filtering by CPM column name)
         ch_predicted_proteome_fasta = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
             .map { _meta, fasta -> fasta }
-
-        // Build the protein DB channel:
-        // When RNA count > 0, concatenate predicted proteome + reference FASTA (one CAT_CAT run for the whole dataset)
-        // When RNA count == 0, use reference FASTA alone
-        ch_cat_input = ch_rna_count
-            .filter { count -> count > 0 }
-            .combine(ch_predicted_proteome_fasta)
-            .combine(ch_protein_fasta)
-            .map { _count, predicted_fasta, reference_fasta ->
-                def cat_meta = [id: 'combined_proteome']
-                return [cat_meta, [reference_fasta, predicted_fasta]]
-            }
-
-        CAT_CAT(ch_cat_input)
-
-        // Select the protein DB:
-        // - Use concatenated FASTA when RNA was processed
-        // - Fall back to reference FASTA when no RNA samples
-        ch_protein_db = ch_rna_count
-            .branch { count ->
-                has_rna: count > 0
-                no_rna:  count == 0
-            }
-
-        ch_protein_db_final = ch_protein_db.has_rna
-            .combine(CAT_CAT.out.file_out.map { _meta, fasta -> fasta })
-            .map { _count, fasta -> fasta }
-            .mix(
-                ch_protein_db.no_rna
-                    .combine(ch_protein_fasta)
-                    .map { _count, fasta -> fasta }
-            )
             .first()
+            .ifEmpty(file('NO_FILE'))
 
-        // Attach the global protein DB to every protein sample
+        ch_transcript_counts_with_id = TRANSCRIPTOME.out.hashids_all
+            .map { meta, counts -> [meta.id, counts] }
+            .first()
+            .ifEmpty(['NO_RNA_SAMPLE', file('NO_FILE')])
+
+        ch_transcript_counts = ch_transcript_counts_with_id
+            .map { rna_id, counts -> counts }
+
+        ch_rna_sample_id = ch_transcript_counts_with_id
+            .map { rna_id, counts -> rna_id }
+
+        // Extract CDS GTF and ORF FASTA for novel peptides classification
+        ch_lr_cds_gtf = PREDICTED_PROTEOME.out.protein_cds_gtf_copy
+            .map { _meta, gtf -> gtf }
+            .first()
+            .ifEmpty(file('NO_FILE'))
+
+        ch_lr_orf_fasta = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
+            .map { _meta, fasta -> fasta }
+            .first()
+            .ifEmpty(file('NO_FILE'))
+
+        // Create a channel that maps each protein sample to its sample_name for grouping
+        // Group protein samples by sample_name (the biosample group)
+        ch_protein_samples_grouped = ch_protein_samples_filtered
+            .map { meta, file ->
+                def sample_name = meta.sample_name
+                return [sample_name, meta, file]
+            }
+            .groupTuple(by: 0)
+            .map { sample_name, metas, files ->
+                // Use the first meta but update id to be the sample_name for the grouped reference
+                def grouped_meta = metas[0] + [id: sample_name]
+                return [grouped_meta, files]
+            }
+
+        // Build proteome references per sample group
+        // Prepare input channel for BUILD_PROTEOME_REFERENCE
+        ch_build_ref_input = ch_protein_samples_grouped
+            .map { meta, _files ->
+                [meta, meta]  // Just pass meta for now
+            }
+            .combine(ch_predicted_proteome_fasta)
+            .combine(ch_transcript_counts)
+            .map { meta, _meta2, lrp_fasta, counts ->
+                return [meta, lrp_fasta, counts]
+            }
+
+        // Script path for build_mass_spec_reference.R
+        ch_build_proteome_script = channel.value(file("${projectDir}/bin/build_mass_spec_reference.R"))
+
+        // BUILD_PROTEOME_REFERENCE runs once for each sample group to create per-group sample-specific references
+        // Pass params.genome directly for file naming (e.g., GRCh38.p14.v49)
+        BUILD_PROTEOME_REFERENCE(
+            ch_build_ref_input,
+            ch_build_proteome_script,
+            params.genome,
+            params.no_gencode ?: false
+        )
+        ch_versions = ch_versions.mix(BUILD_PROTEOME_REFERENCE.out.versions.ifEmpty([]))
+
+        // Join the built references back to the protein samples
+        // Map the reference output by sample_name and join with protein samples
+        ch_protein_db_by_sample = BUILD_PROTEOME_REFERENCE.out.reference_fasta
+            .map { meta, fasta -> [meta.id, fasta] }
+
         ch_protein_for_proteomics = ch_protein_samples_filtered
-            .combine(ch_protein_db_final)
-            .map { meta, file, protein_db -> [meta, file, protein_db] }
+            .map { meta, file -> [meta.sample_name, meta, file] }
+            .combine(ch_protein_db_by_sample, by: 0)
+            .map { _sample_name, meta, file, protein_db -> [meta, file, protein_db] }
 
         // Pass protein samples with their corresponding protein databases to PROTEOMICS
         PROTEOMICS (
@@ -291,7 +347,10 @@ workflow LRP2 {
             params.fragpipe_email,
             params.fragpipe_institution,
             params.fragpipe_token,
-            params.fragpipe_license_accept
+            params.fragpipe_license_accept,
+            // Novel peptides inputs
+            ch_lr_cds_gtf,
+            ch_lr_orf_fasta
         )
         ch_versions = ch_versions.mix(PROTEOMICS.out.versions.ifEmpty([]))
     }
@@ -353,4 +412,3 @@ workflow LRP2 {
     THE END
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-

@@ -7,6 +7,7 @@ include { MSCONVERT_MZML         } from '../../modules/local/msconvert_mzml/main
 include { METAMORPHEUS           } from '../../modules/local/metamorpheus/main'
 include { FRAGPIPE               } from '../../modules/local/fragpipe/main'
 include { FRAGPIPE_AUTHENTICATE  } from '../../modules/local/fragpipe_authenticate/main'
+include { NOVEL_PEPTIDES         } from '../../modules/local/novel_peptides/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -28,6 +29,10 @@ workflow PROTEOMICS {
     fragpipe_institution        // val: User's institution
     fragpipe_token              // val: 6-digit verification token
     fragpipe_license_accept     // val: License acceptance confirmation
+
+    // Novel peptides inputs (from PREDICTED_PROTEOME subworkflow)
+    lr_cds_gtf                  // path: Long-read CDS GTF (*_corrected_filtered_CDS.gtf)
+    lr_orf_fasta                // path: Long-read ORF FASTA (*_predicted.proteome.all_best_orfs.fa)
 
     main:
     ch_versions = channel.empty()
@@ -157,6 +162,18 @@ workflow PROTEOMICS {
         ch_versions = ch_versions.mix(FRAGPIPE.out.versions)
         ch_psm_table = FRAGPIPE.out.psm_table
         ch_search_results = FRAGPIPE.out.results
+
+        // Step 4: Run NOVEL_PEPTIDES on FragPipe results
+        def novel_peptides_script = file("${projectDir}/bin/novel_peptides.R")
+
+        NOVEL_PEPTIDES(
+            ch_search_results,
+            novel_peptides_script,
+            lr_cds_gtf,
+            lr_orf_fasta
+        )
+        ch_versions = ch_versions.mix(NOVEL_PEPTIDES.out.versions)
+        ch_novel_peptides = NOVEL_PEPTIDES.out.novel_peptides
     }
     else {
         //
@@ -189,6 +206,10 @@ workflow PROTEOMICS {
         ch_versions = ch_versions.mix(METAMORPHEUS.out.versions)
         ch_psm_table = METAMORPHEUS.out.psm_table
         ch_search_results = METAMORPHEUS.out.results
+
+        // NOTE: NOVEL_PEPTIDES only runs for FragPipe currently, not MetaMorpheus so we create an empty channel for novel_peptides to maintain consistent output structure
+        // TO DO: incorporate novel peptides classification for MetaMorpheus results in the future and update this workflow accordingly
+        ch_novel_peptides = Channel.empty()
     }
 
     emit:
@@ -198,6 +219,9 @@ workflow PROTEOMICS {
     // Protein search outputs
     psm_table                   = ch_psm_table                      // [meta, *.psmtsv or *.tsv]
     search_results              = ch_search_results                 // [meta, results/*]
+
+    // Novel peptides outputs
+    novel_peptides              = ch_novel_peptides                 // [meta, *_novel_peptides.tsv]
 
     versions                    = ch_versions.unique().collectFile(name: 'versions.yml')
 }
