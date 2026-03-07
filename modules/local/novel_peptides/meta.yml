@@ -1,0 +1,56 @@
+name: NOVEL_PEPTIDES
+description: Classify peptides from mass spectrometry database search results as novel or annotated based on long-read and GENCODE protein evidence
+keywords:
+  - proteomics
+  - mass spectrometry
+  - peptides
+  - classification
+  - novel peptides
+  - fragpipe
+  - metamorpheus
+tools:
+  - custom:
+      description: Custom R script to classify peptides from FragPipe or MetaMorpheus search results based on long-read transcript and GENCODE protein mapping
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information including protein_search engine and mass_spec_type
+        e.g. [id: 'sample1', protein_search: 'fragpipe', mass_spec_type: 'DIA']
+  - search_results:
+      type: directory
+      description: FragPipe or MetaMorpheus search results directory containing peptide/PSM tables
+      pattern: "results/**"
+  - novel_peptides_script:
+      type: file
+      description: R script to classify novel peptides (novel_peptides.R)
+      pattern: "*.R"
+  - lr_cds_gtf:
+      type: file
+      description: Long-read CDS GTF file from PROTEIN_UTR_CLASSIFICATION module (*_corrected_filtered_CDS.gtf)
+      pattern: "*_corrected_filtered_CDS.gtf"
+  - lr_orf_fasta:
+      type: file
+      description: Long-read ORF FASTA file from PROTEIN_UTR_CLASSIFICATION module (*_predicted.proteome.all_best_orfs.fa)
+      pattern: "*_predicted.proteome.all_best_orfs.fa"
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+  - novel_peptides:
+      type: file
+      description: |
+        TSV file with classified peptides containing columns: Sequence, PSM, Intensity,
+        rna_detection_status, peptide_status, transcript_id, gene_id, n_transcripts,
+        n_high_confidence, fasta_headers
+      pattern: "*_novel_peptides.tsv"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@JTL-lab"

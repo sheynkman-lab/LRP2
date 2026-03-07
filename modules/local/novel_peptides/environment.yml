@@ -1,0 +1,10 @@
+name: novel_peptides
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base=4.5.0
+  - r-tidyverse=2.0.0
+  - r-magrittr=2.0.3
+  - r-optparse=1.7.5

@@ -274,6 +274,17 @@ workflow LRP2 {
         ch_rna_sample_id = ch_transcript_counts_with_id
             .map { rna_id, counts -> rna_id }
 
+        // Extract CDS GTF and ORF FASTA for novel peptides classification
+        ch_lr_cds_gtf = PREDICTED_PROTEOME.out.protein_cds_gtf_copy
+            .map { _meta, gtf -> gtf }
+            .first()
+            .ifEmpty(file('NO_FILE'))
+
+        ch_lr_orf_fasta = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
+            .map { _meta, fasta -> fasta }
+            .first()
+            .ifEmpty(file('NO_FILE'))
+
         // Create a channel that maps each protein sample to its sample_name for grouping
         // Group protein samples by sample_name (the biosample group)
         ch_protein_samples_grouped = ch_protein_samples_filtered
@@ -336,7 +347,10 @@ workflow LRP2 {
             params.fragpipe_email,
             params.fragpipe_institution,
             params.fragpipe_token,
-            params.fragpipe_license_accept
+            params.fragpipe_license_accept,
+            // Novel peptides inputs
+            ch_lr_cds_gtf,
+            ch_lr_orf_fasta
         )
         ch_versions = ch_versions.mix(PROTEOMICS.out.versions.ifEmpty([]))
     }
