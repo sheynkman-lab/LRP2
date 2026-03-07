@@ -1,0 +1,70 @@
+###################################################################
+# LRP2 Default Configuration File for isocall call
+###################################################################
+
+# Controls read support thresholds and downsampling behavior.
+[sampling]
+# Minimum read support required for calling novel transcripts.
+# Increase for higher confidence calls, decrease for detecting low-abundance isoforms.
+min_read_support = 3
+
+# Maximum number of read bundles to use for isoform identification per gene.
+# Higher values provide more thorough analysis but also increase runtime.
+max_bundles_per_gene = 1000
+
+# Detects and removes novel isoforms that are likely artifacts of internal
+# priming during reverse transcription (A-rich downstream sequences).
+[internal_priming_filter]
+# Enable or disable this filter.
+enabled = false
+
+# Size of the downstream window to analyze for A-content (in bp).
+window = 20
+
+# A-content threshold (proportion, 0.0-1.0).
+# Sequences with A-content above this fraction are flagged.
+fraction = 0.60
+
+# Minimum number of consecutive A's to trigger filtering.
+run_length = 6
+
+# Maximum distance to an annotated TTS for the rescue mechanism (in bp).
+# Flagged isoforms within this distance of a known TTS are kept.
+rescue_distance = 25
+
+# Removes low-abundance novel transcripts that are similar to higher-abundance
+# transcripts based on their relative abundance, reducing redundant and
+# potentially artifactual calls.
+[relative_abundance_filter]
+# Enable or disable this filter.
+enabled = false
+
+# Maximum distance between transcripts to consider them for comparison.
+max_distance = 20
+
+# Base for the relative abundance threshold calculation.
+# Lower values are more stringent (filter more aggressively).
+abundance_base = 0.1
+
+# Controls peak detection parameters for single-exon isoform calling.
+[mono_exonic_caller]
+# Bin width for peak detection (in bp).
+bin_width = 10
+
+# Window size for local background estimation (in bp).
+window_bp = 100
+
+# Minimum count at a candidate bin to be considered.
+min_count = 3
+
+# Minimum z-score for peak detection.
+# Higher values require more prominent peaks.
+z_min = 4.0
+
+# Controls parameters for multi-exon isoform calling.
+[multi_exonic_caller]
+# Whether to extend known isoform terminal exon coordinates based on reads.
+# When true, the start/end coordinates of identified known isoforms will be
+# extended to match the longest observed first/last exons from supporting reads.
+# Default is false, which keeps the original annotation coordinates.
+extend_known_ends = true

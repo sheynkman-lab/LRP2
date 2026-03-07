@@ -204,23 +204,15 @@ gencode_gene = gencode_df %>%
   select(associated_gene, any_of("gene_type"), any_of("gene_name")) %>% 
   distinct()
 
-# Metatable to add specific sample ids
-metadata      = fread(metadata_path)
-# Use the filename stem (first dot-delimited token) from sample_path as the
-# per-BAM label so that two RNA rows sharing the same sample_name (biological
-# replicates) still get distinct count columns, e.g.:
-#   RB2_empty → 230801_pacbio_rbfox2_control_chr22
-#   RB2_kd    → 230801_pacbio_rbfox2_RB-G5_chr22
-rna_meta      = metadata[tolower(sample_type) == "rna"]
-path_labels   = sapply(rna_meta$sample_path, function(p) strsplit(basename(p), "\\.")[[1]][1])
-sample_lookup = setNames(path_labels, rna_meta$bam_id)
-
 # SQANTI classification file- add sample names, calculate cpm on all transcripts before filtering
 sqanti_df = read_tsv(classification_file, show_col_types = FALSE)
-
+metadata = fread(metadata_path)
+rna_meta = metadata[tolower(sample_type) == "rna"]
+rna_sample_names = rna_meta$sample_name
+# Remove "FL." prefix and rename count columns with "_counts" suffix
 colnames(sqanti_df) = sub("^FL\\.", "", colnames(sqanti_df))
-colnames(sqanti_df) = ifelse(colnames(sqanti_df) %in% names(sample_lookup),
-                             paste0(sample_lookup[colnames(sqanti_df)], "_counts"),
+colnames(sqanti_df) = ifelse(colnames(sqanti_df) %in% rna_sample_names,
+                             paste0(colnames(sqanti_df), "_counts"),
                              colnames(sqanti_df))
 
 counts_cols = grep("_counts$", colnames(sqanti_df), value = TRUE)

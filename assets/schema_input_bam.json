@@ -19,12 +19,6 @@
                 "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(bam|raw|mzML|mzml|fasta)$",
                 "errorMessage": "Sample file must be provided, cannot contain spaces and must have extension '.bam', '.raw', '.mzML', '.mzml', or '.fasta' (for testing)"
             },
-            "bam_id": {
-                "type": "string",
-                "pattern": "^(\\S+)?$",
-                "errorMessage": "BAM ID cannot contain spaces. For RNA samples, this must match the SM tag in the BAM header (e.g., BioSample_1). For protein samples, use 'None' or 'none'.",
-                "meta": ["bam_id"]
-            },
             "condition": {
                 "type": "string",
                 "pattern": "^\\S+$",
@@ -44,30 +38,6 @@
                 "meta": ["mass_spec_type"]
             }
         },
-        "required": ["sample_name", "sample_path", "bam_id", "condition", "sample_type"],
-        "if": {
-            "properties": {
-                "sample_type": { "pattern": "^(?i)RNA$" }
-            }
-        },
-        "then": {
-            "properties": {
-                "bam_id": {
-                    "type": "string",
-                    "minLength": 1,
-                    "pattern": "^(?!(?i)none$)\\S+$",
-                    "errorMessage": "bam_id is required for RNA samples and must not be empty or 'none'. It must match the SM tag in the BAM header (e.g., BioSample_1)."
-                }
-            }
-        },
-        "else": {
-            "properties": {
-                "bam_id": {
-                    "type": "string",
-                    "pattern": "^(\\S+)?$",
-                    "errorMessage": "bam_id for protein samples may be empty, 'None', or 'none'."
-                }
-            }
-        }
+        "required": ["sample_name", "sample_path", "condition", "sample_type"]
     }
 }

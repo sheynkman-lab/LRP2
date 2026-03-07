@@ -104,20 +104,19 @@ workflow PIPELINE_INITIALISATION {
         }
 
         // =====================================================================
-        // VALIDATE bam_id FOR RNA SAMPLES
-        // bam_id must be present and non-empty/non-none for every RNA row because
-        // isoseq collapse embeds it as the SM tag in the BAM header, and SQANTI3
-        // uses those SM tags as column names in the counts matrix.
+        // VALIDATE RNA SAMPLES
         // =====================================================================
-        rna_samples.each { row ->
-            def bam_id = row[0].containsKey('bam_id') ? row[0].bam_id : null
-            def sample_name = row[0].sample_name
-            if (!bam_id || bam_id.trim() == '' || bam_id.toLowerCase() == 'none') {
-                error "ERROR: RNA sample '${sample_name}' is missing a valid bam_id. " +
-                      "bam_id must match the SM tag in the BAM header (e.g., BioSample_1) " +
-                      "and is used to name per-sample count columns in SQANTI3 output. " +
-                      "Please add a bam_id for this sample in your samplesheet."
-            }
+
+        // Validate unique RNA sample_name values
+        def rna_sample_names = rna_samples.collect { row -> row[0].sample_name }
+        def duplicate_rna_names = rna_sample_names.findAll { name ->
+            rna_sample_names.count(name) > 1
+        }.unique()
+
+        if (duplicate_rna_names.size() > 0) {
+            error "ERROR: Duplicate RNA sample_name values detected: ${duplicate_rna_names.join(', ')}. " +
+                  "Each RNA sample must have a unique sample_name. " +
+                  "Please ensure all RNA samples have distinct sample_name values in your samplesheet."
         }
 
         // =====================================================================
@@ -183,31 +182,24 @@ workflow PIPELINE_INITIALISATION {
         log.info "${colors.blue}======================================================================${colors.reset}"
         log.info ""
 
-        // Create RNA channel data - ALL RNA samples merged into a single channel entry
-        // for joint processing through subworkflows 1-4 (IsoSeq, SQANTI, predicted proteome)
+        // Create RNA channel data - keep individual samples separate for PACBIO_ISOCALL
+        // Individual samples are needed for per-sample alignment and profiling
         if (rna_samples.size() > 0) {
-            def sample_paths = rna_samples.collect { row -> row[1] }
-            def sample_names = rna_samples.collect { row -> row[0].sample_name }
+            // Each sample needs its own meta and path for parallel processing in ISOCALL_ALIGN/PROFILE
+            rna_channel_data = rna_samples.collect { row ->
+                def sample_name = row[0].sample_name
+                def condition = row[0].containsKey('condition') ? row[0].condition : 'unknown'
+                def sample_path = row[1]
 
-            // Collect bam_ids from each row (must match SM tag in BAM header)
-            // Used later to rename count columns in SQANTI output
-            def bam_ids = rna_samples.collect { row ->
-                row[0].containsKey('bam_id') && row[0].bam_id ? row[0].bam_id : null
-            }.findAll { bam_id -> bam_id != null }
+                def meta = [
+                    id: sample_name,
+                    sample_name: sample_name,
+                    condition: condition,
+                    sample_type: 'RNA'
+                ]
 
-            def conditions = rna_samples.collect { row ->
-                row[0].containsKey('condition') ? row[0].condition : 'unknown'
+                return [meta, sample_path]
             }
-
-            def meta = [
-                id: params.dataset_name,
-                sample_names: sample_names,
-                bam_ids: bam_ids,       // List of SM tags matching each BAM file's header
-                conditions: conditions,
-                sample_type: 'RNA'
-            ]
-
-            rna_channel_data = [[meta, sample_paths]]
         }
 
         // Populate protein channel data - keep as individual samples with sample_type = 'protein'

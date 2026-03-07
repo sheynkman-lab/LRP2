@@ -1,0 +1,78 @@
+name: isocall_call
+description: Isocall - Call - Call known and novel isoforms from merged profiles
+keywords:
+  - call
+  - HiFi
+  - isocall
+  - Pacbio
+  - isoform
+  - transcriptome
+  - gtf
+tools:
+  - isocall:
+      description: Isocall - Call - Identify known and novel isoforms using merged profiles and known isoforms database
+      homepage: https://github.com/PacificBiosciences/isocall
+      documentation: https://github.com/PacificBiosciences/isocall
+      tool_dev_url: https://github.com/PacificBiosciences/isocall
+      licence: ["BSD-3-Clause-Clear"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'merged' ]
+    - merged_profile:
+        type: file
+        description: Merged transcriptome profile from isocall merge
+        pattern: "*_merged_profiles.gz"
+        ontologies: []
+  - - known_isoforms:
+        type: file
+        description: Known isoforms database from isocall prep-isoforms
+        pattern: "*.isoforms.gz"
+        ontologies: []
+  - - reference_fasta:
+        type: file
+        description: Reference genome FASTA file
+        pattern: "*.fa"
+        ontologies: []
+  - - config_toml:
+        type: file
+        description: Isocall configuration TOML file
+        pattern: "*.toml"
+        ontologies: []
+output:
+  gtf:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'merged' ]
+      - "*.isoforms.gtf.gz":
+          type: file
+          description: Called isoforms in GTF format (gzipped)
+          pattern: "*.isoforms.gtf.gz"
+          ontologies: []
+  count_matrix:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'merged' ]
+      - "*.count_matrix.txt":
+          type: file
+          description: Read count matrix with full splice match counts across samples
+          pattern: "*.count_matrix.txt"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software version
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750 # YAML
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

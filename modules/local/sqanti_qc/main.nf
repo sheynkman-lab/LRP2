@@ -33,9 +33,13 @@ process SQANTI_QC {
     source /conda/miniconda3/etc/profile.d/conda.sh
     conda activate SQANTI3.env
 
-    # Convert GFF to GTF if necessary (isoseq collapse outputs GFF but SQANTI3 requires GTF)
+    # Decompress GTF if it's gzipped
     ISOFORMS_INPUT="$isoforms_gtf"
-    if [[ "$isoforms_gtf" == *.gff ]]; then
+    if [[ "$isoforms_gtf" == *.gtf.gz ]]; then
+        gunzip -c "$isoforms_gtf" > "${prefix}.isoforms.gtf"
+        ISOFORMS_INPUT="${prefix}.isoforms.gtf"
+    # Convert GFF to GTF if necessary (isoseq collapse outputs GFF but SQANTI3 requires GTF)
+    elif [[ "$isoforms_gtf" == *.gff ]]; then
         gffread "$isoforms_gtf" -T -o "${prefix}.isoforms.gtf"
         ISOFORMS_INPUT="${prefix}.isoforms.gtf"
     fi
