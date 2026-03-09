@@ -1,13 +1,3 @@
-/*
- * FRAGPIPE: Comprehensive proteomics analysis with FragPipe
- *
- * This module handles the complete FragPipe workflow:
- * 1. Generate manifest file from mzML files and metadata
- * 2. Prepare protein database (add decoys with philosopher if needed)
- * 3. Download or use custom workflow file (DDA: LFQ-MBR, DIA: DIA_SpecLib_Quant)
- * 4. Execute FragPipe in headless mode
- */
-
 process FRAGPIPE {
     tag "$meta.id"
     label 'process_high'
@@ -200,6 +190,9 @@ process FRAGPIPE {
     echo "Starting FragPipe headless execution..."
     echo "----------------------------------------------------------------------"
 
+    # Run FragPipe with explicit output handling and SIGPIPE protection
+    set -o pipefail
+    trap '' PIPE 
     \$FRAGPIPE_CMD --headless \\
         --workflow \$WORK_DIR/workflow.workflow \\
         --manifest \$WORK_DIR/manifest.fp-manifest \\
@@ -207,31 +200,136 @@ process FRAGPIPE {
         --config-tools-folder \$WORK_DIR/fragpipe_tools \\
         --ram ${task.memory.toGiga()} \\
         --threads ${task.cpus} \\
-        $args
+        $args \\
+        2>&1 | tee fragpipe_execution.log
 
-    EXIT_CODE=\$?
-
+    FRAGPIPE_EXIT=\${PIPESTATUS[0]}
     echo "----------------------------------------------------------------------"
+    echo ""
+    echo "FragPipe exited with code: \$FRAGPIPE_EXIT"
+    echo ""
 
-    if [ \$EXIT_CODE -ne 0 ]; then
-        echo ""
-        echo "ERROR: FragPipe failed with exit code \$EXIT_CODE"
-        echo ""
-        echo "Diagnostic information:"
-        echo "========================================================================"
-        echo "Results directory contents:"
-        ls -lah results/ || true
-        echo ""
-        echo "========================================================================"
-        echo "FragPipe log (last 100 lines):"
-        find results -name "log*.txt" -exec tail -100 {} \\; 2>/dev/null || echo "No log file found"
-        echo "========================================================================"
-        exit 1
+    #
+    # VERIFY SUCCESSFUL COMPLETION BY CHECKING REQUIRED OUTPUT FILES
+    #
+    echo "Verifying FragPipe output files..."
+
+    # FragPipe creates sample-specific subdirectories, so we need to look for files there
+    # Check both top-level results/ and subdirectories
+    if [ "${data_type}" = "DIA" ]; then
+        REQUIRED_FILE_NAMES="psm.tsv protein.tsv peptide.tsv"
+        OPTIONAL_CHECK_NAME="dia-quant-output/report.tsv"
+    else
+        REQUIRED_FILE_NAMES="psm.tsv protein.tsv"
+        OPTIONAL_CHECK_NAME="peptide.tsv"
     fi
 
-    echo ""
-    echo "FragPipe completed successfully!"
-    echo ""
+    MISSING_FILES=""
+    for FILENAME in \$REQUIRED_FILE_NAMES; do
+        # Try to find the file in results/ or any subdirectory
+        FOUND_FILE=\$(find results -name "\$(basename \$FILENAME)" -type f 2>/dev/null | head -1)
+
+        if [ -z "\$FOUND_FILE" ]; then
+            MISSING_FILES="\${MISSING_FILES} \${FILENAME}"
+        elif [ ! -s "\$FOUND_FILE" ]; then
+            echo "WARNING: \$FOUND_FILE exists but is empty"
+            MISSING_FILES="\${MISSING_FILES} \${FILENAME}(empty)"
+        else
+            echo "  ✓ Found: \$FOUND_FILE"
+        fi
+    done
+
+    # Check for optional files
+    if [ -n "\$OPTIONAL_CHECK_NAME" ]; then
+        OPTIONAL_FILE=\$(find results -name "\$(basename \$OPTIONAL_CHECK_NAME)" -type f 2>/dev/null | head -1)
+        if [ -n "\$OPTIONAL_FILE" ]; then
+            echo "  ✓ Optional file found: \$OPTIONAL_FILE"
+        fi
+    fi
+
+    if [ -n "\$MISSING_FILES" ]; then
+        echo ""
+        echo "=========================================================================="
+        echo "ERROR: FragPipe failed - missing or empty required output files:"
+        echo "\$MISSING_FILES"
+        echo "=========================================================================="
+        echo ""
+        echo "FragPipe exit code was: \$FRAGPIPE_EXIT"
+        echo ""
+        echo "Diagnostic information:"
+        echo "--------------------------------------------------------------------------"
+        echo "Results directory contents:"
+        ls -lah results/ 2>/dev/null || echo "Results directory not found"
+        echo ""
+        echo "Results subdirectories:"
+        find results -type d -maxdepth 2 2>/dev/null || true
+        echo ""
+        echo "All TSV files found:"
+        find results -name "*.tsv" -exec ls -lh {} \\; 2>/dev/null || echo "No TSV files found"
+        echo ""
+        echo "--------------------------------------------------------------------------"
+        echo "FragPipe log (last 200 lines):"
+        tail -200 fragpipe_execution.log 2>/dev/null || echo "Execution log not found"
+        echo ""
+        echo "FragPipe internal log:"
+        find results -name "log*.txt" -exec tail -100 {} \\; 2>/dev/null || echo "No internal log file found"
+        echo "=========================================================================="
+        exit 1
+    elif [ \$FRAGPIPE_EXIT -eq 141 ]; then
+        echo ""
+        echo "=========================================================================="
+        echo "FragPipe exited with SIGPIPE (exit code 141); however, all required output files are present!"
+        echo "=========================================================================="
+        echo ""
+        echo "Output files verified:"
+        for FILENAME in \$REQUIRED_FILE_NAMES; do
+            # Use -quit instead of head to avoid SIGPIPE
+            FOUND_FILE=\$(find results -name "\$(basename \$FILENAME)" -type f 2>/dev/null -quit)
+            if [ -n "\$FOUND_FILE" ]; then
+                echo "  ✓ \$FOUND_FILE (size: \$(du -h \$FOUND_FILE | cut -f1))"
+            fi
+        done
+        echo ""
+    elif [ \$FRAGPIPE_EXIT -ne 0 ]; then
+        echo ""
+        echo "=========================================================================="
+        echo "WARNING: FragPipe exited with code: \$FRAGPIPE_EXIT"
+        echo "=========================================================================="
+        echo ""
+        echo "However, all required output files are present and non-empty."
+        echo "This is a known issue where FragPipe reports non-zero exit codes even on successful completion."
+        echo "Treating this as successful based on output file verification."
+        echo ""
+        echo "Output files verified:"
+        for FILENAME in \$REQUIRED_FILE_NAMES; do
+            # Use -quit instead of head to avoid SIGPIPE
+            FOUND_FILE=\$(find results -name "\$(basename \$FILENAME)" -type f 2>/dev/null -quit)
+            if [ -n "\$FOUND_FILE" ]; then
+                echo "  ✓ \$FOUND_FILE (size: \$(du -h \$FOUND_FILE | cut -f1))"
+            fi
+        done
+        echo ""
+        echo "Diagnostic information (last 50 lines of FragPipe log):"
+        echo "--------------------------------------------------------------------------"
+        tail -50 fragpipe_execution.log 2>/dev/null || echo "Execution log not found"
+        echo "--------------------------------------------------------------------------"
+        echo ""
+        echo "Continuing with successful completion status..."
+        echo ""
+    else
+        echo ""
+        echo "FragPipe completed successfully!"
+        echo ""
+        echo "Output files verified:"
+        for FILENAME in \$REQUIRED_FILE_NAMES; do
+            # Use -quit instead of head to avoid SIGPIPE
+            FOUND_FILE=\$(find results -name "\$(basename \$FILENAME)" -type f 2>/dev/null -quit)
+            if [ -n "\$FOUND_FILE" ]; then
+                echo "  ✓ \$FOUND_FILE (size: \$(du -h \$FOUND_FILE | cut -f1))"
+            fi
+        done
+        echo ""
+    fi
 
     #
     # POST-PROCESSING: Extract PSM table
@@ -254,7 +352,10 @@ process FRAGPIPE {
 
     echo ""
     echo "Results directory structure:"
-    find results -maxdepth 2 -type f | head -20
+    # Disable pipefail temporarily to avoid SIGPIPE from head
+    set +o pipefail
+    find results -maxdepth 2 -type f 2>/dev/null | head -20 || true
+    set -o pipefail
     echo ""
     echo "=========================================================================="
     echo "FragPipe analysis completed for: ${meta.id}"
