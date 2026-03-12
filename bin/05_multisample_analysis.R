@@ -1,9 +1,30 @@
 #!/usr/bin/env Rscript
 
-#' Multi-sample Analysis
+#' Multi-sample Differential Expression and Usage Analysis
 #' 
-#' Differential Gene, Transcript, and ORF expression with edgeR
-#' Differential Usage at Transcript and ORF levels
+#' Performs differential expression (DE) and differential usage (DU) analyses
+#' at the gene, transcript, and ORF levels for two-group comparisons.
+#'
+#' DE analyses (edgeR):
+#'   - Differential Gene Expression (DGE)
+#'   - Differential Transcript Expression (DTE)
+#'   - Differential ORF Expression (DE ORF)
+#'
+#' DU analyses (DRIMSeq):
+#'   - Differential Transcript Usage (DTU)
+#'   - Differential ORF Usage (DU ORF)
+#'   
+#' Inputs:
+#' - Transcript-level count matrix with CPM (from sqanti_transcript)
+#' - ORF-level count matrix with CPM (collapsed to unique ORFs from protein classication)
+#' - Sample metadata with 'sample name' and 'group' columns
+#' - Name of control group (e.g., NBM)
+#' - Name of experimental group (e.g., AML)
+#'
+#' Outputs:
+#'   - DGE/DTE/DE_ORF edgeR results, raw and normalized CPM matrices
+#'   - DTU/DU_ORF DRIMSeq summaries with proportions and delta usage  
+#'    
 
 
 # =============================================================================
@@ -13,38 +34,77 @@
 suppressPackageStartupMessages({
   library(edgeR)
   library(DRIMSeq)
+  library(BiocParallel)
   library(matrixStats)
   library(data.table)
   library(tidyverse)
+  library(optparse)
 })
 
 options(scipen = 999)
 
 # =============================================================================
-# Get environment variables and check required files
+# Get command line arguments and check required files
 # =============================================================================
 
-basename                 <- Sys.getenv("OUTPUT_BASE_NAME")
-sqanti_transcript_dir    <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti_transcript")
-sqanti_protein_dir       <- file.path(Sys.getenv("OUTPUT_DIR"), "protein_sqanti")
-multisample_analysis_dir <- file.path(Sys.getenv("OUTPUT_DIR"), "multisample_analysis")
+option_list = list(
+  make_option(c("--basename"), type = "character", default = NULL,
+              help = "Output base name"),
+  make_option(c("--count_file"), type = "character", default = NULL,
+              help = "Path to transcript-level ids and CPM across samples"),
+  make_option(c("--orf_count_file"), type = "character", default = NULL,
+              help = "Path to ORF-level ids and CPM across samples"),
+  make_option(c("--sample_metadata"), type = "character", default = NULL,
+              help = "Path to sample metadata file"),
+  make_option(c("--control_group"), type = "character", default = NULL,
+              help = "Name of the control group"),
+  make_option(c("--experimental_group"), type = "character", default = NULL,
+              help = "Name of the experimental group"),
+  make_option(c("--drimseq_min_gene_expr"), type = "integer", default = 10,
+              help = "Minimum gene-level expression for DRIMSeq [default: %default]"),
+  make_option(c("--drimseq_min_isoform_prop"), type = "double", default = 0.05,
+              help = "Minimum isoform/feature proportion for DRIMSeq [default: %default]"),
+  make_option(c("--output_dir"), type = "character", default = NULL,
+              help = "Output directory for results"),
+  make_option(c("--threads"), type = "integer", default = 1,
+              help = "Number of threads for DRIMSeq [default: %default]")
+)
 
-count_file_path          <- file.path(sqanti_transcript_dir, paste0(basename, "_hashids_with_cpm_filtered.txt"))
-orf_count_file_path      <- file.path(sqanti_protein_dir, paste0(basename, "_hashids_with_cpm_ORF.txt"))
-metadata_file_path       <- Sys.getenv("SAMPLE_METADATA")
+opt = parse_args(OptionParser(option_list = option_list))
 
-control_group      <- as.character(Sys.getenv("CONTROL_GROUP"))
-experimental_group <- as.character(Sys.getenv("EXPERIMENTAL_GROUP"))
+required_args = c("basename", "count_file", "orf_count_file", "sample_metadata",
+                  "control_group", "experimental_group", "output_dir")
+missing = required_args[sapply(required_args, function(x) is.null(opt[[x]]))]
+if (length(missing) > 0) {
+  stop("Missing required arguments: ", paste0("--", missing, collapse = ", "))
+}
+
+basename                 = opt$basename
+count_file_path          = opt$count_file
+orf_count_file_path      = opt$orf_count_file
+metadata_file_path       = opt$sample_metadata
+control_group            = opt$control_group
+experimental_group       = opt$experimental_group
+multisample_analysis_dir = opt$output_dir
 
 stopifnot("Transcript count file not found" = file.exists(count_file_path))
 stopifnot("ORF count file not found" = file.exists(orf_count_file_path))
 stopifnot("Sample sheet not found" = file.exists(metadata_file_path))
 
+if (opt$threads > 1) {
+  bp = MulticoreParam(workers = opt$threads)
+} else {
+  bp = SerialParam()
+}
+
+cat("BPPARAM class: ", class(bp), "\n")
+cat("Workers: ", bpworkers(bp), "\n")
+
 # =============================================================================
 # Configure transcript-level data for edgeR
 # =============================================================================
 
-message("\n--- Reading transcript and ORF count files and sample sheet ---")
+cat("\n--- Reading transcript and ORF count files and sample sheet ---")
 
 # Gene and transcript df
 counts_raw         = as.data.frame(fread(count_file_path, header = TRUE))
@@ -55,7 +115,7 @@ count_sample_names = sub("_counts$", "", count_cols)
 # orf df- assumed that samples are in the same order as in the transcript level df above
 orf_counts_raw         = as.data.frame(fread(orf_count_file_path, header = TRUE))
 orf_count_cols         = grep("_counts$", colnames(orf_counts_raw), value = TRUE)
-cpm_cols               = grep("_cpm$", colnames(orf_counts_raw), value = TRUE)
+orf_cpm_cols           = grep("_cpm$", colnames(orf_counts_raw), value = TRUE)
 orf_count_sample_names = sub("_counts$", "", orf_count_cols)
 
 # Check that transcript and ORF samples order matches
@@ -84,11 +144,12 @@ if (any(is.na(sample_metadata$name))) {
 }
 
 # When creating the factor, set control as reference (first level)
-control   = control_group
+control      = control_group
 experimental = experimental_group
 
-group        = factor(sample_metadata$group, levels = c(control, experimental))
-sample_names = sample_metadata$name
+group          = factor(sample_metadata$group, levels = c(control, experimental))
+expected_coef  = paste0("group", experimental)
+sample_names   = sample_metadata$name
 
 # Check for biological replicates?
 #has_replicates = any(table(group) > 1)
@@ -232,16 +293,18 @@ cat("Running ORF-level differential expression analysis...\n")
 
 # Extract protein count matrix
 counts_orf_matrix = orf_counts_raw %>%
-  select(orf_isoform_id, all_of(orf_count_cols)) %>%
-  column_to_rownames("orf_isoform_id") %>%
+  select(orf_all_isoform_id, all_of(orf_count_cols)) %>%
+  column_to_rownames("orf_all_isoform_id") %>%
   as.data.frame()
 
 # Create DGEList object
 dpe_raw = DGEList(counts = counts_orf_matrix, group = group)
 
-# Replace entire samples data frame from gene analysis, keep the original library sizes
-dpe_raw$samples          = dge_raw$samples
+# keep the original library sizes
+# dpe_raw$samples          = dge_raw$samples
+dpe_raw$samples$lib.size = dge_raw$samples$lib.size
 colnames(dpe_raw$counts) = sample_names
+dpe_raw$samples$samples  = sample_names
 
 if (!identical(colnames(dpe_raw$counts), dpe_raw$samples$samples)) {
   stop("Count matrix columns and sample names don't match!")
@@ -262,23 +325,23 @@ print(summary(decideTests(result_dpe)))
 
 # Save results as TSV with IDs as columns
 orf_cpms = orf_counts_raw %>%
-  select(orf_isoform_id, hash_id, gene_id, gene_name, all_of(cpm_cols)) %>%
+  select(orf_base_id, orf_all_isoform_id, gene_id, all_of(orf_cpm_cols)) %>%
   distinct()
 
 dpe_results %>%
-  rownames_to_column("orf_isoform_id") %>%
+  rownames_to_column("orf_all_isoform_id") %>%
   left_join(orf_cpms) %>%
   write_tsv(file.path(multisample_analysis_dir, paste0(basename, "_DE_ORF_edgeR_results.txt")))
 
 cpm(dpe_raw) %>%
   as.data.frame() %>%
-  rownames_to_column("orf_isoform_id") %>%
+  rownames_to_column("orf_all_isoform_id") %>%
   left_join(orf_cpms) %>%
   write_tsv(file.path(multisample_analysis_dir, paste0(basename, "_DE_ORF_edgeR_raw_CPM_matrix.txt")))
 
 cpm(dpe) %>%
   as.data.frame() %>%
-  rownames_to_column("orf_isoform_id") %>%
+  rownames_to_column("orf_all_isoform_id") %>%
   left_join(orf_cpms) %>%
   write_tsv(file.path(multisample_analysis_dir, paste0(basename, "_DE_ORF_edgeR_normalized_CPM_matrix.txt")))
 
@@ -313,11 +376,15 @@ cat(sprintf("Before filtering: %d genes, %d transcripts\n",
             length(unique(counts(d)$gene_id)), 
             nrow(counts(d))))
 
+n_small = min(table(group))
+#cat("min_feature_prop value: ", opt$drimseq_min_isoform_prop, " class: ", class(opt$drimseq_min_isoform_prop))
+#cat("min_samps_feature_prop: ", n_small, " class: ", class(n_small))
+
 d = dmFilter(d, 
              min_samps_gene_expr    = nrow(sample_table)/2, # requires gene to be expressed in half of samples
-             min_gene_expr          = 10, # based on gene level counts
-             min_samps_feature_expr = 0, # isoform
-             min_feature_expr       = 0) # isoform
+             min_gene_expr          = opt$drimseq_min_gene_expr, # based on gene level counts
+             min_samps_feature_prop = n_small, # isoform
+             min_feature_prop       = opt$drimseq_min_isoform_prop) # isoform
 
 cat(sprintf("After filtering: %d genes, %d transcripts\n", 
             length(unique(counts(d)$gene_id)), 
@@ -325,10 +392,16 @@ cat(sprintf("After filtering: %d genes, %d transcripts\n",
 
 # Design, fit, and test
 design_full = model.matrix(~ group, data = samples(d))
+if (!expected_coef %in% colnames(design_full)) {
+  stop("Expected coefficient '", expected_coef, "' not found in design matrix. ",
+       "Available: ", paste(colnames(design_full), collapse = ", "),
+       ". Check for spaces or special characters in group names.")
+}
+
 set.seed(123)
-d = dmPrecision(d, design = design_full)
+d = dmPrecision(d, design = design_full, BPPARAM = bp)
 d = dmFit(d, design = design_full)
-d = dmTest(d, coef = paste0("group", experimental))
+d = dmTest(d, coef = expected_coef)
 
 # Extract results
 dtu_gene_results = results(d) %>%
@@ -392,7 +465,7 @@ cat("Running differential ORF usage analysis with DRIMSeq...\n")
 # Prepare DRIMSeq format from already-loaded ORF counts
 counts_drimseq_orf = orf_counts_raw %>%
   select(gene_id,
-         feature_id = orf_isoform_id,
+         feature_id = orf_all_isoform_id,
          all_of(orf_count_cols)) %>%
   rename_with(~ sub("_counts$", "", .), .cols = all_of(orf_count_cols))
 
@@ -409,11 +482,12 @@ cat(sprintf("Before filtering (ORF DU): %d genes, %d ORFs\n",
             length(unique(counts(d_orf)$gene_id)), 
             nrow(counts(d_orf))))
 
+n_small = min(table(group))
 d_orf = dmFilter(d_orf, 
-                 min_samps_gene_expr = nrow(sample_table_orf)/2,
-                 min_gene_expr = 10,
-                 min_samps_feature_expr = 0,
-                 min_feature_expr = 0)
+                 min_samps_gene_expr = nrow(sample_table)/2,
+                 min_gene_expr = opt$drimseq_min_gene_expr,
+                 min_samps_feature_prop = n_small,
+                 min_feature_prop = opt$drimseq_min_isoform_prop)
 
 cat(sprintf("After filtering (ORF DU): %d genes, %d ORFs\n", 
             length(unique(counts(d_orf)$gene_id)), 
@@ -422,9 +496,9 @@ cat(sprintf("After filtering (ORF DU): %d genes, %d ORFs\n",
 # Design, fit, and test
 design_full_orf = model.matrix(~ group, data = samples(d_orf))
 set.seed(123)
-d_orf = dmPrecision(d_orf, design = design_full_orf)
+d_orf = dmPrecision(d_orf, design = design_full_orf, BPPARAM = bp)
 d_orf = dmFit(d_orf, design = design_full_orf)
-d_orf = dmTest(d_orf, coef = paste0("group", experimental))
+d_orf = dmTest(d_orf, coef = expected_coef)
 
 # Extract results
 dpu_gene_results = results(d_orf) %>%
@@ -434,7 +508,7 @@ dpu_gene_results = results(d_orf) %>%
                 adj_pvalue_gene = adj_pvalue)
 
 dpu_orf_results = results(d_orf, level = "feature") %>%
-  dplyr::rename(orf_isoform_id = feature_id,
+  dplyr::rename(orf_all_isoform_id = feature_id,
                 lr_orf         = lr,
                 df_orf         = df,
                 pvalue_orf     = pvalue,
@@ -442,7 +516,7 @@ dpu_orf_results = results(d_orf, level = "feature") %>%
 
 # Get proportions from DRIMSeq and calculate means and deltas
 orf_usage_table = orf_cpms %>% 
-  group_by(gene_id, gene_name) %>%
+  group_by(gene_id) %>%
   mutate(across(ends_with("_cpm"), 
                 ~ . / sum(., na.rm = TRUE),
                 .names = "{.col}_prop")) %>%
@@ -467,10 +541,10 @@ group_orf_props = props_orf_long %>%
 
 dpu_summary = dpu_orf_results %>%
   left_join(dpu_gene_results, by = "gene_id") %>%
-  left_join(group_orf_props, by = c("gene_id", "orf_isoform_id" = "feature_id")) %>%
-  left_join(orf_usage_table, by = c("gene_id", "orf_isoform_id")) %>%
-  select(orf_isoform_id, hash_id, lr_orf, pvalue_orf, adj_pvalue_orf, ends_with("_cpm"), ends_with("_prop"), starts_with("group_prop_"), delta_proportion,
-         gene_id, gene_name, lr_gene, df_gene, pvalue_gene, adj_pvalue_gene)
+  left_join(group_orf_props, by = c("gene_id", "orf_all_isoform_id" = "feature_id")) %>%
+  left_join(orf_usage_table, by = c("gene_id", "orf_all_isoform_id")) %>%
+  select(orf_base_id, orf_all_isoform_id, lr_orf, pvalue_orf, adj_pvalue_orf, ends_with("_cpm"), ends_with("_prop"), starts_with("group_prop_"), delta_proportion,
+         gene_id, lr_gene, df_gene, pvalue_gene, adj_pvalue_gene)
 
 # Summary
 cat(sprintf("Genes with DPU (adj_pvalue < 0.05): %d\n", 
