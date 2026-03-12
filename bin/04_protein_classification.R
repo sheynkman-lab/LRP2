@@ -2,19 +2,65 @@
 
 #' Protein Classification and Filtering
 #' 
-#' Part 1: Classifies Long read derived 5' UTRs as either:
-#'   - "subset" (N-terminal truncation, using internal start codon)
-#'   - "unique" (novel start site, extending into new sequence)
-#'   
-#' Part 2: Protein Classification
-#' Integrates SQANTI-protein output to classify CDS structures:
-#'   - pFSM (Full Protein Match): CDS junctions exactly match reference
-#'   - pISM (Incomplete Protein Match): CDS junctions are subset of reference
-#'   - pNIC (Novel In Catalog): Novel combination of known N/splice/C
-#'   - pNNC (Novel Not in Catalog): At least one novel N/splice/C
-#'   
-#' Part 3: Filter to high confidence protein isoforms
+#' Classifies and filters long-read derived protein isoforms by integrating
+#' SQANTI-protein output with 5' UTR structure analysis and ORF predictions.
 #' 
+#' STEP 1: Process GENCODE reference
+#' Build exon chain strings and GRanges for overlap/junction matching
+#'   
+#' STEP 2: Process long-read transcripts from CDS GTF
+#' Extract 5' UTR structure, CDS boundaries, stop codon positions,
+#' and distance from stop codon to first downstream junction
+#'   
+#' STEP 3: Classify 5' UTRs
+#'  - "subset": 5' UTR is contained within annotated boundaries
+#'    (monoexonic TSS within known exon, or multiexonic UTR junctions
+#'     match reference and TSS does not extend beyond the matched 
+#'     reference start position)
+#'  - "unique": 5' UTR extends beyond annotated boundaries 
+#'    (monoexonic TSS protrudes beyond known exon, or multiexonic UTR 
+#'     has novel junction chain or upstream extension)
+#'     
+#' STEP 4: Protein classification
+#' Integrates SQANTI-protein N-term/splice/C-term comparisons with 
+#' 5' UTR classification to assign each isoform to:
+#'  - FPM (Full Protein Match): exact match to reference protein
+#'  - IPM (Incomplete Protein Match): N-terminal truncation
+#'  - NPC (Novel Protein Combination): known elements in novel combination
+#'  - NPE (Novel Protein Element): at least one novel N-term, splice, or C-term
+#'   
+#' STEP 5: Reconcile gene IDs and names
+#' Resolve discrepancies between transcript-level and protein-level gene assignments
+#' 
+#' STEP 6: Filter to high-confidence protein isoforms
+#' Filters by: no ORF, NMD (with rescue for single junction within 
+#' threshold distance of stop codon), atypical SQANTI categories, 
+#' and protein classification
+#' 
+#' STEP 7: Write ORF-centric outputs
+#' Group transcripts by identical protein sequence, write high-confidence
+#' ORF GTF, BED12 (with viridis coloring by expression ratio), 
+#' CPM count table, and full proteome FASTA
+#'
+#' Inputs: 
+#'  - GENCODE GTF
+#'  - sample CDS GTF 
+#'  - DNA FASTA
+#'  - mapped ORFs
+#'  - SQANTI protein classification
+#'  - CPM counts
+#'  
+#' Outputs: 
+#' One row per transcript (not collapsed)
+#'  - *predicted_proteome.protein_classification_all_isoforms.txt
+#'  - *.predicted.proteome.all_best_orfs.fa (for proteome reference building)
+#' 
+#' One row per unique ORF (collapsed)
+#'  - *predicted.proteome.high_confidence_ORF_cpm.txt
+#'  - *predicted.proteome.high_confidence_ORF.gtf
+#'  - *predicted.proteome.high_confidence_ORF.bed 
+#'
+
 
 # =============================================================================
 # Load libraries
@@ -29,6 +75,7 @@ suppressPackageStartupMessages({
   library(rtracklayer)
   library(viridis)
   library(data.table)
+  library(optparse)
 })
 
 options(scipen = 999)
@@ -37,25 +84,53 @@ options(scipen = 999)
 # Get environment variables and check required files
 # =============================================================================
 
-basename                        <- Sys.getenv("OUTPUT_BASE_NAME")
-sqanti_transcript_dir           <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti_transcript")
-cpat_dir                        <- file.path(Sys.getenv("OUTPUT_DIR"), "orf_calling") 
-protein_sqanti_dir              <- file.path(Sys.getenv("OUTPUT_DIR"), "protein_sqanti") 
-gencode_gtf_path                <- Sys.getenv("GENCODE_GTF_FILE")
+option_list = list(
+  make_option(c("--basename"), type = "character", default = NULL,
+              help = "Output base name"),
+  make_option(c("--gencode_gtf"), type = "character", default = NULL,
+              help = "Path to GENCODE GTF file"),
+  make_option(c("--sample_cds_gtf"), type = "character", default = NULL,
+              help = "Path to sample CDS GTF file from orf calling module"),
+  make_option(c("--sample_dna_fasta"), type = "character", default = NULL,
+              help = "Path to corrected filtered DNA FASTA from transcriptome subworkflow"),
+  make_option(c("--mapped_orfs"), type = "character", default = NULL,
+              help = "Path to all ORFs mapped TSV"),
+  make_option(c("--protein_sqanti"), type = "character", default = NULL,
+              help = "Path to SQANTI protein classification TSV"),
+  make_option(c("--cpm_file"), type = "character", default = NULL,
+              help = "Path to hashids with CPM filtered file from transcriptome subworkflow"),
+  make_option(c("--output_dir"), type = "character", default = NULL,
+              help = "Output directory for results"),
+  make_option(c("--min_junctions_after_stop"), type = "integer", default = 0,
+              help = "Minimum junctions after stop codon for NMD filter [default: %default]"),
+  make_option(c("--protein_class_keep"), type = "character", default = "FPM,NPC,NPE",
+              help = "Comma-separated protein classes to keep [default: %default]"),
+  make_option(c("--nmd_rescue_dist"), type = "integer", default = 25,
+              help = "Max distance (bp) from stop to junction for NMD rescue [default: %default]")
+)
 
-sample_dna_fasta_path  <- file.path(sqanti_transcript_dir, paste0(basename, "_corrected_filtered.fasta"))
-sample_cds_gtf_path    <- file.path(cpat_dir, paste0(basename, "_corrected_filtered_CDS.gtf"))
-mapped_orfs            <- file.path(cpat_dir, paste0(basename, "_all_orfs_mapped.tsv"))
-protein_sqanti_path    <- file.path(protein_sqanti_dir, paste0(basename, ".sqanti_protein_classification.tsv"))
-cpm_file_path          <- file.path(sqanti_transcript_dir, paste0(basename, "_hashids_with_cpm_filtered.txt"))
+opt = parse_args(OptionParser(option_list = option_list))
 
-min_junctions_after_stop_codon <- as.numeric(Sys.getenv("MIN_JUNCTIONS_AFTER_STOP_CODON", "0"))
-pclass_base_to_keep            <- strsplit(Sys.getenv("PROTEIN_CLASS_KEEP"), ",")[[1]]
+required_args = c("basename", "gencode_gtf", "sample_cds_gtf", "sample_dna_fasta", 
+                  "mapped_orfs", "protein_sqanti", "cpm_file", "output_dir")
 
-stopifnot("GENCODE gtf file not found" = file.exists(gencode_gtf_path))
-stopifnot("Sample gtf file not found" = file.exists(sample_cds_gtf_path))
-#stopifnot("Collapsed best ORF fasta not found" = file.exists(sample_cds_fasta_path))
-stopifnot("Protein classification file not found" = file.exists(protein_sqanti_path))
+missing = required_args[sapply(required_args, function(x) is.null(opt[[x]]))]
+if (length(missing) > 0) {
+  stop("Missing required arguments: ", paste0("--", missing, collapse = ", "))
+}
+
+basename                       = opt$basename
+gencode_gtf_path               = opt$gencode_gtf
+sample_cds_gtf_path            = opt$sample_cds_gtf
+sample_dna_fasta_path          = opt$sample_dna_fasta
+mapped_orfs                    = opt$mapped_orfs
+protein_sqanti_path            = opt$protein_sqanti
+cpm_file_path                  = opt$cpm_file
+output_dir                     = opt$output_dir
+min_junctions_after_stop_codon = opt$min_junctions_after_stop
+nmd_rescue_dist                = opt$nmd_rescue_dist
+pclass_base_to_keep            = strsplit(opt$protein_class_keep, ",")[[1]]
+
 
 # =============================================================================
 # Helper Functions
@@ -143,7 +218,7 @@ group_by_protein_sequence <- function(orf_info, full_fasta) {
     mutate(avg_cpm = rowMeans(select(., contains("cpm")), na.rm = TRUE)) %>%
     mutate(filter_status = factor(filter_status, levels = c("high_confidence", "NMD", "sqanti_classification", "sqanti_atypical"))) %>%
     group_by(orf_aa_sequence, gene_id) %>%
-    arrange(filter_status, desc(avg_cpm), .by_group = TRUE) %>%
+    arrange(filter_status, desc(avg_cpm), transcript_id, .by_group = TRUE) %>%
     mutate(
       orf_all_isoform_id = paste(transcript_id, collapse = ","),
       #orf_hc_isoform_id  = na_if(paste(transcript_id[filter_status == "high_confidence"], collapse = ","), ""),
@@ -159,7 +234,7 @@ group_by_protein_sequence <- function(orf_info, full_fasta) {
 #' @param gtf_path Path to input GTF file
 #' @param output_bed Path to output BED12 file
 #' @param color_by Column name for coloring (numeric, 0-1). High values = purple, low = yellow. Default: NULL (black)
-gtf_to_bed12 <- function(gtf_path, output_bed, color_by = NULL) {
+gtf_to_bed12 <- function(gtf_path, output_bed, color_by = NULL, track_name = NULL) {
   
   # Import GTF
   gtf <- import(gtf_path)
@@ -188,7 +263,7 @@ gtf_to_bed12 <- function(gtf_path, output_bed, color_by = NULL) {
   # Sort transcripts by gene, then by ratio (descending)
   if(!is.null(color_by)) {
     tx[, sort_val := as.numeric(get(color_by))]
-    tx <- tx[order(gene_id, -sort_val)]
+    tx <- tx[order(gene_id, -sort_val, orf_base_id)]
   }
   
   # Pre-compute colors
@@ -202,6 +277,8 @@ gtf_to_bed12 <- function(gtf_path, output_bed, color_by = NULL) {
   } else {
     tx$color <- "0,0,0"
   }
+  
+  tx$name <- gsub(" ", "_", tx$name)
   
   # Build BED12 rows
   bed_list <- vector("list", nrow(tx))
@@ -250,9 +327,17 @@ gtf_to_bed12 <- function(gtf_path, output_bed, color_by = NULL) {
     )
   }
   
+  # Write track header + BED data
+  if (!is.null(track_name)) {
+    track_line = paste0('track name="', track_name, '" ',
+                        'description="', track_name, '" ',
+                        'itemRgb=On')
+    writeLines(track_line, output_bed)
+  }
+  
   # Remove NULLs and write
   bed <- do.call(rbind, bed_list[!sapply(bed_list, is.null)])
-  write.table(bed, output_bed, sep="\t", quote=F, row.names=F, col.names=F)
+  write.table(bed, output_bed, sep="\t", quote=F, row.names=F, col.names=F, append=TRUE)
   
 }
 
@@ -260,7 +345,7 @@ gtf_to_bed12 <- function(gtf_path, output_bed, color_by = NULL) {
 # STEP 1: Process GENCODE reference
 # =============================================================================
 
-message("\n--- STEP 1: Processing GENCODE reference ---")
+cat("\n--- STEP 1: Processing GENCODE reference ---\n")
 
 # Load GENCODE GTF
 gencode_gtf = import(gencode_gtf_path) %>% as.data.frame()
@@ -296,7 +381,7 @@ gencode_chains = gencode_exons %>%
 # STEP 2: Process long read transcripts
 # =============================================================================
 
-message("\n--- STEP 2: Processing Sample transcripts ---")
+cat("\n--- STEP 2: Processing Sample transcripts ---\n")
 
 sample_gtf = import(sample_cds_gtf_path) %>% as.data.frame()
 
@@ -315,6 +400,7 @@ sample_cds = sample_gtf %>%
   group_by(transcript_id) %>%
   summarise(
     nterm = ifelse(first(strand) == "+", min(start), max(end)),
+    stop_codon = ifelse(first(strand) == "+", max(end), min(start)),
     .groups = "drop"
   )
 
@@ -323,6 +409,37 @@ sample_exons = sample_gtf %>%
   group_by(transcript_id) %>%
   summarise(
     tss = ifelse(first(strand) == "+", min(start), max(end)),
+    .groups = "drop"
+  )
+
+# Get junctions (intron boundaries) from exons and compute distance from stop codon to first downstream junction
+exon_junctions = sample_gtf %>%
+  filter(type == "exon") %>%
+  group_by(transcript_id) %>%
+  arrange(start, .by_group = TRUE) %>%
+  summarise(
+    strand = first(strand),
+    # Junction positions are at exon-exon boundaries (end of exon_i, start of exon_i+1)
+    junc_positions = list(data.frame(
+      junc_left = end[-n()],
+      junc_right = start[-1]
+    )),
+    .groups = "drop"
+  ) %>%
+  unnest(junc_positions) %>%
+  left_join(sample_cds, by = "transcript_id") %>%
+  mutate(
+    # Distance from stop codon to the nearest junction downstream of stop
+    dist_stop_to_junc = case_when(
+      strand == "+" & junc_left >= stop_codon ~ junc_left - stop_codon,
+      strand == "-" & junc_right <= stop_codon ~ stop_codon - junc_right,
+      TRUE ~ NA_real_
+    )
+  ) %>%
+  filter(!is.na(dist_stop_to_junc)) %>%
+  group_by(transcript_id) %>%
+  summarise(
+    dist_stop_to_first_junc = min(dist_stop_to_junc),
     .groups = "drop"
   )
 
@@ -378,7 +495,7 @@ utr_info = tx_metadata %>%
 # STEP 3: Classify 5' UTRs and merge with SQANTI protein
 # =============================================================================
 
-message("\n--- STEP 3: Classifying 5' UTRs ---")
+cat("\n--- STEP 3: Classifying 5' UTRs ---\n")
 
 # Read in SQANTI protein classification to get gene map to reference
 sqanti_class = read_tsv(protein_sqanti_path, show_col_types = FALSE)
@@ -471,19 +588,19 @@ utr_output = sqanti_class %>%
   full_join(utr_results, by = "transcript_id")
 
 # 5' UTR summary statistics
-message("\n--- 5'UTR Classification complete! ---")
-message(sprintf("Total transcripts: %d", nrow(utr_output)))
-message(sprintf("  N-terminal truncation (subset): %d", sum(utr_output$utr_cat == "subset", na.rm = TRUE)))
-message(sprintf("  Novel start site (unique): %d", sum(utr_output$utr_cat == "unique", na.rm = TRUE)))
-message(sprintf("  No open reading frame (no_orf): %d", sum(utr_output$utr_cat == "no_orf", na.rm = TRUE)))
-message(sprintf("  No 5' UTR (no_utr): %d", sum(utr_output$utr_cat == "no_utr", na.rm = TRUE)))
+cat("\n--- 5'UTR Classification complete! ---\n")
+cat(sprintf("Total transcripts: %d\n", nrow(utr_output)))
+cat(sprintf("  5' UTR is contained within annotated boundaries (subset): %d\n", sum(utr_output$utr_cat == "subset", na.rm = TRUE)))
+cat(sprintf("  5' UTR extends beyond annotated boundaries (unique): %d\n", sum(utr_output$utr_cat == "unique", na.rm = TRUE)))
+cat(sprintf("  No open reading frame (no_orf): %d\n", sum(utr_output$utr_cat == "no_orf", na.rm = TRUE)))
+cat(sprintf("  No 5' UTR (no_utr): %d\n", sum(utr_output$utr_cat == "no_utr", na.rm = TRUE)))
 
 
 # =============================================================================
 # STEP 4: SQANTI Protein classification
 # =============================================================================
 
-message("\n--- STEP 4: SQANTI Protein classification ---")
+cat("\n--- STEP 4: SQANTI Protein classification ---\n")
 
 protein_classifications = utr_output %>%
   mutate(
@@ -755,23 +872,23 @@ protein_classifications = utr_output %>%
            fill = "right", 
            remove = FALSE)
 
-message("\n--- Protein classification complete! ---")
-message("\nBy classification base:")
-message(sprintf("  Full protein match (FPM): %d", sum(protein_classifications$protein_classification_base == "FPM", na.rm = TRUE)))
-message(sprintf("  Incomplete protein match (IPM): %d", sum(protein_classifications$protein_classification_base == "IPM", na.rm = TRUE)))
-message(sprintf("  Novel protein combination (NPC): %d", sum(protein_classifications$protein_classification_base == "NPC", na.rm = TRUE)))
-message(sprintf("  Novel protein element (NPE): %d", sum(protein_classifications$protein_classification_base == "NPE", na.rm = TRUE)))
-message(sprintf("  intergenic: %d", sum(protein_classifications$protein_classification_base == "intergenic", na.rm = TRUE)))
-message(sprintf("  genic: %d", sum(protein_classifications$protein_classification_base == "genic", na.rm = TRUE)))
-message(sprintf("  antisense: %d", sum(protein_classifications$protein_classification_base == "antisense", na.rm = TRUE)))
-message(sprintf("  fusion: %d", sum(protein_classifications$protein_classification_base == "fusion", na.rm = TRUE)))
-message(sprintf("  orphan: %d", sum(grepl("orphan", protein_classifications$protein_classification_base), na.rm = TRUE)))
+cat("\n--- Protein classification complete! ---\n")
+cat("\nBy classification base:\n")
+cat(sprintf("  Full protein match (FPM): %d\n", sum(protein_classifications$protein_classification_base == "FPM", na.rm = TRUE)))
+cat(sprintf("  Incomplete protein match (IPM): %d\n", sum(protein_classifications$protein_classification_base == "IPM", na.rm = TRUE)))
+cat(sprintf("  Novel protein combination (NPC): %d\n", sum(protein_classifications$protein_classification_base == "NPC", na.rm = TRUE)))
+cat(sprintf("  Novel protein element (NPE): %d\n", sum(protein_classifications$protein_classification_base == "NPE", na.rm = TRUE)))
+cat(sprintf("  intergenic: %d\n", sum(protein_classifications$protein_classification_base == "intergenic", na.rm = TRUE)))
+cat(sprintf("  genic: %d\n", sum(protein_classifications$protein_classification_base == "genic", na.rm = TRUE)))
+cat(sprintf("  antisense: %d\n", sum(protein_classifications$protein_classification_base == "antisense", na.rm = TRUE)))
+cat(sprintf("  fusion: %d\n", sum(protein_classifications$protein_classification_base == "fusion", na.rm = TRUE)))
+cat(sprintf("  orphan: %d\n", sum(grepl("orphan", protein_classifications$protein_classification_base), na.rm = TRUE)))
 
 # =============================================================================
 # STEP 5: Reconcile gene ids and gene names
 # =============================================================================
 
-message("\n--- STEP 5: Reconcile gene ids and names ---")
+cat("\n--- STEP 5: Reconcile gene ids and names ---\n")
 
 gene_mapping = gencode_gtf %>% distinct(gene_id, gene_name)
 ensg_lookup  = setNames(gene_mapping$gene_name, gene_mapping$gene_id)
@@ -784,8 +901,8 @@ protein_classifications$pr_gene_name = ensg_lookup[protein_classifications$pr_ge
 has_comma_tx = which(grepl(",", protein_classifications$tx_gene))
 has_comma_pr = which(grepl(",", protein_classifications$pr_gene))
 
-message("Transcripts mapping to multiple genes at tx level: ", length(has_comma_tx))
-message("Transcripts mapping to multiple genes at pr level: ", length(has_comma_pr))
+cat("Transcripts mapping to multiple genes at tx level: ", length(has_comma_tx), "\n")
+cat("Transcripts mapping to multiple genes at pr level: ", length(has_comma_pr), "\n")
 
 for (i in has_comma_tx) {
   ensgs = strsplit(protein_classifications$tx_gene[i], ",")[[1]]
@@ -805,7 +922,8 @@ protein_classifications$reconciled_gene_name = protein_classifications$pr_gene_n
 # Only need to reconcile non-matching rows
 non_matching = which(!matching)
 
-message("Rows that don't match and need reconciliation:", length(non_matching), "\n")
+cat(sprintf("\nSQANTI Transcript-level and protein-level gene assignments differ: %d of %d rows\n", 
+            length(non_matching), nrow(protein_classifications)))
 
 for (i in non_matching) {
   tx_ids  = strsplit(protein_classifications$tx_gene[i], ",")[[1]]
@@ -834,7 +952,7 @@ for (i in non_matching) {
 # STEP 6: Filter transcripts post-SQANTI Protein
 # =============================================================================
 
-message("\n--- STEP 6: Performing post-SQANTI Protein Filtering ---")
+cat("\n--- STEP 6: Performing post-SQANTI Protein Filtering ---\n")
 
 # Subclass lookup for short names, important for browser tracks
 subclass_lookup = c(
@@ -857,19 +975,21 @@ subclass_lookup = c(
 )
 
 full_protein = protein_classifications %>%
+  left_join(exon_junctions, by = "transcript_id") %>%
   mutate(
     filter_status = case_when(
       
       # Check 1: Filter if no ORF found
       utr_cat == "no_orf" ~ "no_ORF",
       
-      # Check 2: Filter if high NMD signal (applies to ALL)
-      num_junc_after_stop_codon > min_junctions_after_stop_codon ~ "NMD",
+      # Check 2: NMD filter - but rescue if only 1 junction and it's within 25bp of stop
+      num_junc_after_stop_codon > min_junctions_after_stop_codon &
+        !(num_junc_after_stop_codon == 1 & dist_stop_to_first_junc <= nmd_rescue_dist) ~ "NMD",
       
       # Check 3: Filter if problematic patterns
       grepl('intergenic|antisense|fusion|orphan|genic', protein_classification) ~ "sqanti_atypical",
       
-      # Check 3: Filter if NOT in keep base classification list
+      # Check 4: Filter if NOT in keep base classification list
       !(protein_classification_base %in% pclass_base_to_keep) ~ "sqanti_classification",
       
       # Keep everything else
@@ -881,6 +1001,15 @@ full_protein = protein_classifications %>%
     
   )
 
+# NMD rescue
+nmd_rescued = sum(
+  full_protein$num_junc_after_stop_codon > min_junctions_after_stop_codon &
+    full_protein$num_junc_after_stop_codon == 1 &
+    full_protein$dist_stop_to_first_junc <= nmd_rescue_dist,
+  na.rm = TRUE
+)
+cat(sprintf("NMD transcripts rescued (1 junc, <=%dbp from stop): %d\n", nmd_rescue_dist, nmd_rescued))
+
 # Output full table with filter status
 full_protein %<>%
   left_join(distinct(sample_gtf, gene_id, transcript_id), by = "transcript_id") %>%
@@ -888,7 +1017,7 @@ full_protein %<>%
                 num_junc_after_stop_codon, num_nt_after_stop_codon, num_5utr_exons, tss_in_gc_exons, utr_cat, 
                 tclass = tx_cat, pclass = protein_classification_base, psubclass = protein_classification_subset, psubclass_short, filter_status)
 
-write_tsv(full_protein, file.path(protein_sqanti_dir, paste0(basename, "_protein_classification_all_isoforms.txt")))
+write_tsv(full_protein, file.path(output_dir, paste0(basename, ".predicted.proteome.protein_classification_all_isoforms.txt")))
 
 # Generate a matching amino acid fasta for mass spec reference- this will include lower confidence sequences such as NMD
 full = readDNAStringSet(sample_dna_fasta_path) # dna fasta
@@ -924,7 +1053,7 @@ orf_groups %<>%
 
 protein_seqs        = AAStringSet(orf_groups$orf_aa_sequence)
 names(protein_seqs) = orf_groups$header
-writeXStringSet(protein_seqs, file.path(protein_sqanti_dir, paste0(basename, ".predicted.proteome.all_best_orfs.fa")))
+writeXStringSet(protein_seqs, file.path(output_dir, paste0(basename, ".predicted.proteome.all_best_orfs.fa")))
 
 # =======================================================================================
 # STEP 7: Write high confidence, ORF centric GTF and count file
@@ -934,16 +1063,19 @@ writeXStringSet(protein_seqs, file.path(protein_sqanti_dir, paste0(basename, ".p
 hc_orf_info = orf_info %>% filter(filter_status == "high_confidence") 
 hc_orf_groups = group_by_protein_sequence(hc_orf_info, full_fasta)
 
-name_map = hc_orf_groups %>% distinct(orf_base_id, reference_gene_name)
+name_map = hc_orf_groups %>%
+  group_by(orf_base_id) %>%
+  summarise(reference_gene_name = paste(unique(reference_gene_name), collapse = ","), .groups = "drop")
+
 hc_collapsed = hc_orf_groups %>%
   select(-avg_cpm) %>%
   group_by(orf_all_isoform_id, orf_base_id, gene_id) %>%
-  summarize(across(c(ends_with("_counts"), ends_with("_cpm")), sum, na.rm = TRUE)) %>%
+  summarize(across(c(ends_with("_counts"), ends_with("_cpm")), \(x) sum(x, na.rm = TRUE))) %>%
   ungroup() %>%
   left_join(name_map, by = "orf_base_id") %>%
   select(orf_base_id, orf_all_isoform_id, gene_id, reference_gene_name, everything())
 
-write_tsv(hc_collapsed, file.path(protein_sqanti_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF_cpm.txt")))
+write_tsv(hc_collapsed, file.path(output_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF_cpm.txt")))
 
 # write a corresponding ORF centric gtf
 gtf = import(sample_cds_gtf_path) %>%
@@ -987,9 +1119,10 @@ hc_gtf %<>%
 
 # calculate ratio
 gr_updated = makeGRangesFromDataFrame(hc_gtf, keep.extra.columns = TRUE)
-export(gr_updated, file.path(protein_sqanti_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF.gtf")), format = "gtf")
+export(gr_updated, file.path(output_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF.gtf")), format = "gtf")
 
 # convert to bed12
-gtf_to_bed12(gtf_path = file.path(protein_sqanti_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF.gtf")),
-             output_bed = file.path(protein_sqanti_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF.bed")),
-             color_by = "avg_orf_ratio")
+gtf_to_bed12(gtf_path = file.path(output_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF.gtf")),
+             output_bed = file.path(output_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF.bed")),
+             color_by = "avg_orf_ratio",
+             track_name = paste0(basename, "_predicted_proteome"))

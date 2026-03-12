@@ -11,7 +11,7 @@ process PROTEIN_UTR_CLASSIFICATION {
     path protein_class_script
 
     output:
-    tuple val(meta), path("protein_sqanti/*_protein_classification_all_isoforms.txt"), emit: protein_all_isoforms
+    tuple val(meta), path("protein_sqanti/*.predicted.proteome.protein_classification_all_isoforms.txt"), emit: protein_all_isoforms
     tuple val(meta), path("protein_sqanti/*.predicted.proteome.all_best_orfs.fa"), emit: protein_all_orfs_fasta
     tuple val(meta), path("protein_sqanti/*.predicted.proteome.high_confidence_ORF_cpm.txt"), emit: hashids_orf
     tuple val(meta), path("protein_sqanti/*.predicted.proteome.high_confidence_ORF.gtf"), emit: protein_gtf
@@ -31,24 +31,28 @@ process PROTEIN_UTR_CLASSIFICATION {
     def protein_class_keep = task.ext.protein_class_keep ?: params.protein_class_keep
 
     """
-    export OUTPUT_DIR=.
-    export OUTPUT_BASE_NAME=$prefix
-    export GENCODE_GTF_FILE=\$(pwd)/$reference_gtf
-    export MIN_JUNCTIONS_AFTER_STOP_CODON=$min_junctions_after_stop
-    export PROTEIN_CLASS_KEEP="$protein_class_keep"
     export R_LIBS_USER=""
     export R_LIBS="/usr/local/lib/R/site-library:/usr/lib/R/site-library:/usr/lib/R/library"
 
-    mkdir -p orf_calling protein_sqanti sqanti_transcript
+    mkdir -p protein_sqanti
 
-    # Place files in expected locations with expected names
+    Rscript \$(pwd)/$protein_class_script \\
+        --basename $prefix \\
+        --gencode_gtf \$(pwd)/$reference_gtf \\
+        --sample_cds_gtf \$(pwd)/$cds_gtf \\
+        --sample_dna_fasta \$(pwd)/$corrected_fasta \\
+        --mapped_orfs \$(pwd)/$all_orfs_mapped \\
+        --protein_sqanti \$(pwd)/$protein_classification \\
+        --cpm_file \$(pwd)/$hashids_cpm \\
+        --output_dir protein_sqanti \\
+        --min_junctions_after_stop $min_junctions_after_stop \\
+        --protein_class_keep "$protein_class_keep" \\
+        $args
+
+    mkdir -p orf_calling
+    cp $protein_classification protein_sqanti/${prefix}.sqanti_protein_classification.tsv
     ln -sf \$(pwd)/$cds_gtf orf_calling/${prefix}_corrected_filtered_CDS.gtf
-    ln -sf \$(pwd)/$corrected_fasta sqanti_transcript/${prefix}_corrected_filtered.fasta
-    ln -sf \$(pwd)/$protein_classification protein_sqanti/${prefix}.sqanti_protein_classification.tsv
-    ln -sf \$(pwd)/$hashids_cpm sqanti_transcript/${prefix}_hashids_with_cpm_filtered.txt
     ln -sf \$(pwd)/$all_orfs_mapped orf_calling/${prefix}_all_orfs_mapped.tsv
-
-    Rscript \$(pwd)/$protein_class_script $args
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
