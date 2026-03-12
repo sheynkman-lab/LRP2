@@ -33,6 +33,7 @@ workflow PROTEOMICS {
     // Novel peptides inputs (from PREDICTED_PROTEOME subworkflow)
     lr_cds_gtf                  // path: Long-read CDS GTF (*_corrected_filtered_CDS.gtf)
     lr_orf_fasta                // path: Long-read ORF FASTA (*_predicted.proteome.all_best_orfs.fa)
+    genome                      // val: Genome reference name (e.g., 'GRCh38.p14.v49')
 
     main:
     ch_versions = channel.empty()
@@ -162,15 +163,27 @@ workflow PROTEOMICS {
         ch_versions = ch_versions.mix(FRAGPIPE.out.versions)
         ch_psm_table = FRAGPIPE.out.psm_table
         ch_search_results = FRAGPIPE.out.results
-
+        
         // Step 4: Run NOVEL_PEPTIDES on FragPipe results
+        // Extract GENCODE version from genome parameter (e.g., 'GRCh38.p14.v49' -> '49')
+        def gencode_version = genome ? genome.tokenize('.')[-1].replaceAll(/[^0-9]/, '') : '49'
+
+        // Create channel with meta and path to published FragPipe results directory
+        ch_fragpipe_results_dir = ch_search_results.map { meta, _results ->
+            // Convert params.outdir to absolute path
+            def outdir_file = file(params.outdir)
+            def fragpipe_dir = "${outdir_file}/S5_PROTEOMICS/M3_FRAGPIPE/${meta.id}"
+            return [meta, fragpipe_dir]
+        }
+
         def novel_peptides_script = file("${projectDir}/bin/novel_peptides.R")
 
         NOVEL_PEPTIDES(
-            ch_search_results,
+            ch_fragpipe_results_dir,
             novel_peptides_script,
             lr_cds_gtf,
-            lr_orf_fasta
+            lr_orf_fasta,
+            gencode_version
         )
         ch_versions = ch_versions.mix(NOVEL_PEPTIDES.out.versions)
         ch_novel_peptides = NOVEL_PEPTIDES.out.novel_peptides

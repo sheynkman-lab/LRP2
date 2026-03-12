@@ -350,7 +350,8 @@ workflow LRP2 {
             params.fragpipe_license_accept,
             // Novel peptides inputs
             ch_lr_cds_gtf,
-            ch_lr_orf_fasta
+            ch_lr_orf_fasta,
+            params.genome
         )
         ch_versions = ch_versions.mix(PROTEOMICS.out.versions.ifEmpty([]))
     }
