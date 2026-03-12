@@ -52,6 +52,8 @@ option_list = list(
               help = "Search engine used: 'fragpipe' or 'metamorpheus' [default: fragpipe]"),
   make_option(c("--acquisition_type"), type = "character", default = NULL,
               help = "Fragpipe acquisition tpye: 'DIA' or 'DDA' [required for fragpipe]"),
+  make_option(c("--fragpipe_results_dir"), type = "character", default = NULL,
+              help = "Path to FragPipe results directory (e.g., results/S5_PROTEOMICS/M3_FRAGPIPE/sample_name)"),
   make_option(c("--lr_cds_gtf"), type = "character", default = NULL,
               help = "Path to LR transcript GTF with CDS entries (enables peptide-to-genome mapping)"),
   make_option(c("--lr_orf_fasta"), type = "character", default = NULL,
@@ -276,21 +278,28 @@ map_peptides_to_genome = function(peptides, aa_fasta_path, gtf_path) {
 
 # Fragpipe DIA
 if (opt$acquisition_type == "DIA" & opt$ms_search_software == "fragpipe") {
-  
+
+  # Determine base path for FragPipe results
+  if (!is.null(opt$fragpipe_results_dir)) {
+    fragpipe_base = opt$fragpipe_results_dir
+  } else {
+    fragpipe_base = file.path("S5_PROTEOMICS/M2_FRAGPIPE", opt$sample_name)
+  }
+
   # peptides
-  peptides_path = file.path("S5_PROTEOMICS/M2_FRAGPIPE", opt$sample_name, "peptide.tsv")
+  peptides_path = file.path(fragpipe_base, "peptide.tsv")
   dia_peptides = read_tsv(peptides_path, show_col_types = FALSE)
-  
+
   peptides_df = dia_peptides %>%
     select(
       Sequence = `Peptide`,                   # Clean peptide sequence
       PSM = contains("Spectral Count"),       # PSM count
-      Protein, 
+      Protein,
       Additional_Proteins = `Mapped Proteins` # All protein matches (comma delimiter-separated)
     )
-  
+
   # get intensities
-  dia_path = file.path("S5_PROTEOMICS/M2_FRAGPIPE", opt$sample_name, "dia-quant-output", "report.tsv")
+  dia_path = file.path(fragpipe_base, "dia-quant-output", "report.tsv")
   dia_report = read_tsv(dia_path, show_col_types = FALSE)
   
   dia_intensity = dia_report %>%
@@ -306,8 +315,15 @@ if (opt$acquisition_type == "DIA" & opt$ms_search_software == "fragpipe") {
 
 # Fragpipe DDA
 if (opt$acquisition_type == "DDA" & opt$ms_search_software == "fragpipe") {
-  
-  peptides_path = file.path("S5_PROTEOMICS/M2_FRAGPIPE", opt$sample_name, "combined_peptide.tsv")
+
+  # Determine base path for FragPipe results
+  if (!is.null(opt$fragpipe_results_dir)) {
+    fragpipe_base = opt$fragpipe_results_dir
+  } else {
+    fragpipe_base = file.path("S5_PROTEOMICS/M2_FRAGPIPE", opt$sample_name)
+  }
+
+  peptides_path = file.path(fragpipe_base, "combined_peptide.tsv")
   dda_peptides = read_tsv(peptides_path, show_col_types = FALSE)
   
   peptides_df = dda_peptides %>%
@@ -492,8 +508,9 @@ if (!is.null(opt$lr_cds_gtf) && !is.null(opt$lr_orf_fasta)) {
     distinct(Sequence, transcript_id, PSM) %>%
     group_by(Sequence, PSM) %>%
     slice(1) %>%
-    ungroup()
-  
+    ungroup() %>%
+    mutate(transcript_id = as.character(transcript_id))
+
   # Map LR peptides
   lr_bed = map_peptides_to_genome(unique_lr_peptides, opt$lr_orf_fasta, opt$lr_cds_gtf)
   
