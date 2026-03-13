@@ -23,61 +23,69 @@ suppressPackageStartupMessages({
   library(Biostrings) 
   library(data.table)
   library(magrittr)
+  library(optparse)
 })
 
 options(scipen = 999)
 
 # =============================================================================
-# Get environment variables for filtering parameters
+# Get command line arguments and check required files
 # =============================================================================
 
-dir                     <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti_transcript")
-basename                <- Sys.getenv("OUTPUT_BASE_NAME")
-gencode_gtf             <- Sys.getenv("GENCODE_GTF_FILE")
-metadata_path           <- Sys.getenv("SAMPLE_METADATA")
-filter_protein_coding   <- as.logical(Sys.getenv("PROTEIN_CODING_FILTER", "TRUE"))
-filter_internal_priming <- as.logical(Sys.getenv("INTERNAL_PRIMING_FILTER", "TRUE"))
-filter_RTS              <- as.logical(Sys.getenv("TEMPLATE_SWITCHING_FILTER", "TRUE"))
-percent_polyA_threshold <- as.numeric(Sys.getenv("PERCENT_POLYA_THRESHOLD", "60"))
-tclass_to_keep          <- Sys.getenv("TRANSCRIPT_CLASS_KEEP", "FSM,ISM,NIC,NNC")
-#structural_level       <- Sys.getenv("STRUCTURE_FILTER", "strict")
+option_list = list(
+  make_option(c("--basename"), type = "character", default = NULL,
+              help = "Output base name"),
+  make_option(c("--classification"), type = "character", default = NULL,
+              help = "Path to SQANTI classification file"),
+  make_option(c("--sample_gtf"), type = "character", default = NULL,
+              help = "Path to SQANTI corrected GTF"),
+  make_option(c("--sample_fasta"), type = "character", default = NULL,
+              help = "Path to SQANTI corrected FASTA"),
+  make_option(c("--mapping_file"), type = "character", default = NULL,
+              help = "Path to hashids mapping file from 00_generate_hashids.R"),
+  make_option(c("--output_dir"), type = "character", default = NULL,
+              help = "Output directory for results"),
+  make_option(c("--filter_protein_coding"), type = "logical", default = TRUE,
+              help = "Filter to protein coding genes only [default: %default]"),
+  make_option(c("--filter_internal_priming"), type = "logical", default = TRUE,
+              help = "Filter internal priming artifacts [default: %default]"),
+  make_option(c("--filter_rts"), type = "logical", default = TRUE,
+              help = "Filter template switching artifacts [default: %default]"),
+  make_option(c("--percent_polya_threshold"), type = "double", default = 60,
+              help = "Percent polyA threshold for internal priming [default: %default]"),
+  make_option(c("--transcript_class_keep"), type = "character", default = "FSM,ISM,NIC,NNC",
+              help = "Comma-separated transcript classes to keep [default: %default]")
+)
 
-# =============================================================================
-# Check required files
-# =============================================================================
+opt = parse_args(OptionParser(option_list = option_list))
 
-classification_file = paste0(dir, "/", basename, "_classification.txt")
-sqanti_gtf          = paste0(dir, "/", basename, "_corrected.gtf")
-sqanti_fasta        = paste0(dir, "/", basename, "_corrected.fasta")
-mapping_file        = paste0(dir, "/", basename, "_hashids_mapping.txt")
+required_args = c("basename", "classification", "sample_gtf", "sample_fasta",
+                  "mapping_file", "output_dir")
+missing = required_args[sapply(required_args, function(x) is.null(opt[[x]]))]
+if (length(missing) > 0) {
+  stop("Missing required arguments: ", paste0("--", missing, collapse = ", "))
+}
 
-stopifnot("File not found" = file.exists(classification_file))
-stopifnot("File not found" = file.exists(sqanti_gtf))
-stopifnot("File not found" = file.exists(sqanti_fasta))
-stopifnot("File not found" = file.exists(mapping_file))
+basename                = opt$basename
+classification_file     = opt$classification
+sqanti_gtf              = opt$sample_gtf
+sqanti_fasta            = opt$sample_fasta
+mapping_file            = opt$mapping_file
+output_dir              = opt$output_dir
+filter_protein_coding   = opt$filter_protein_coding
+filter_internal_priming = opt$filter_internal_priming
+filter_RTS              = opt$filter_rts
+percent_polyA_threshold = opt$percent_polya_threshold
+tclass_to_keep          = opt$transcript_class_keep
 
-# Create additional output directory
-#dropout_dir = file.path(dir, "dropout")
-#dir.create(dropout_dir, recursive = TRUE, showWarnings = FALSE)
+stopifnot("Classification file not found" = file.exists(classification_file))
+stopifnot("Sample GTF not found"          = file.exists(sqanti_gtf))
+stopifnot("Sample FASTA not found"        = file.exists(sqanti_fasta))
+stopifnot("Mapping file not found"        = file.exists(mapping_file))
 
 # =============================================================================
 # Helper functions
 # =============================================================================
-
-#' Save filtered sequences to FASTA
-#' @param fasta_file Input FASTA file
-#' @param keep_ids IDs to keep
-#' @param output_file Output FASTA file
-save_filtered_fasta <- function(fasta_file, keep_ids, output_file) {
-
-  sequences          = readDNAStringSet(fasta_file)
-  keep_mask          = names(sequences) %in% keep_ids
-  filtered_sequences = sequences[keep_mask]
-  
-  # Write filtered FASTA
-  writeXStringSet(filtered_sequences, output_file)
-  message(paste0("Saved ", length(filtered_sequences), " sequences to ", basename(output_file)))
-}
 
 #' Convert GTF to colored BED12 for genome browser visualization
 #'
@@ -184,35 +192,20 @@ gtf_to_bed12 <- function(gtf_path, output_bed, color_by = NULL) {
 }
 
 # =================================================================================
-# Combine sqanti associated gene_ids with reference ids and hash ids, include counts
+# Read mapping file and SQANTI classification, calculate CPM
 # =================================================================================
 
-# reference gtf used to select protein coding genes and add column of readable gene name
-gencode    = import(gencode_gtf, format = "gtf")
-gencode_df = as.data.frame(gencode)
-
-gencode_df %<>% 
-  filter(type == "transcript") %>% 
-  select(associated_gene = gene_id, 
-         gene_type = any_of(c("gene_type", "gene_biotype")), 
-         gene_name = any_of(c("gene_name", "gene")),
-         associated_transcript = transcript_id, 
-         any_of("transcript_name"), 
-         any_of("protein_id"))
-
-gencode_gene = gencode_df %>% 
-  select(associated_gene, any_of("gene_type"), any_of("gene_name")) %>% 
-  distinct()
+# Mapping file from 00_generate_hashids.R (has isoform_id, gene_name, gene_type, etc.)
+mapping = read_tsv(mapping_file, show_col_types = FALSE)
 
 # SQANTI classification file- add sample names, calculate cpm on all transcripts before filtering
 sqanti_df = read_tsv(classification_file, show_col_types = FALSE)
-metadata = fread(metadata_path)
-rna_meta = metadata[tolower(sample_type) == "rna"]
-rna_sample_names = rna_meta$sample_name
+
 # Remove "FL." prefix and rename count columns with "_counts" suffix
-colnames(sqanti_df) = sub("^FL\\.", "", colnames(sqanti_df))
-colnames(sqanti_df) = ifelse(colnames(sqanti_df) %in% rna_sample_names,
-                             paste0(colnames(sqanti_df), "_counts"),
+fl_cols = grep("^FL\\.", colnames(sqanti_df), value = TRUE)
+sample_names_from_fl = sub("^FL\\.", "", fl_cols)
+colnames(sqanti_df) = ifelse(colnames(sqanti_df) %in% fl_cols,
+                             paste0(sample_names_from_fl, "_counts"),
                              colnames(sqanti_df))
 
 counts_cols = grep("_counts$", colnames(sqanti_df), value = TRUE)
@@ -221,39 +214,28 @@ sqanti_df %<>%
                 ~ (.x / sum(.x)) * 1e6,
                 .names = "{gsub('_counts', '_cpm', .col)}"))
 
-# Keep only annotated genes
+# Replace original isoform IDs with new pipeline isoform_id throughout
 sqanti_df_full = sqanti_df %>%
-  filter(!is.na(associated_gene), !str_starts(associated_gene, "novelGene"))
-#filter(!is.na(associated_gene), str_starts(associated_gene, "ENS"))
+  inner_join(mapping %>% select(isoform_id, original_transcript_id, 
+                                any_of("gene_type"), any_of("gene_name")),
+             by = c("isoform" = "original_transcript_id")) %>%
+  mutate(isoform = isoform_id) %>%
+  select(-isoform_id)
 
-sqanti_df_full %<>% 
-  left_join(gencode_gene, by = "associated_gene") %>% 
-  left_join(gencode_df)
+# Build the hashids + CPM table using new isoform IDs
+all_ids = mapping %>%
+  inner_join(sqanti_df_full %>% select(isoform,
+                                       ends_with("_counts"),
+                                       ends_with("_cpm")),
+             by = c("isoform_id" = "isoform"))
 
-# combine with hashids, and selct cpm columns
-hashids = read_tsv(mapping_file)
-
-sqanti_ids = sqanti_df_full %>% 
-  select(isoform_id = isoform, 
-         ensg_gene_id = associated_gene, 
-         any_of("gene_name"), 
-         enst_transcript_id = associated_transcript, 
-         any_of("transcript_name"), 
-         any_of("gene_type"), 
-         any_of("protein_id"), 
-         ends_with("_counts"), 
-         ends_with("_cpm"))
-
-all_ids = hashids %>% select(isoform_id = transcript_id, hash_id) %>%
-  inner_join(sqanti_ids, by = "isoform_id") 
-
-write_tsv(all_ids, file.path(dir, paste0(basename, "_all_hashids_with_cpm.txt")))
+write_tsv(all_ids, file.path(output_dir, paste0(basename, ".transcriptome.all_hashids_with_cpm.txt")))
 
 # =============================================================================
 # Apply filters sequentially
 # =============================================================================
 
-message("\n Starting filtering of SQANTI output...")
+cat("\nStarting filtering of SQANTI output")
 
 # Initialize dropout tracking
 original_ids    = sqanti_df_full$isoform
@@ -271,7 +253,7 @@ if (filter_protein_coding) {
   sqanti_df_full$dropout_reason[sqanti_df_full$isoform %in% dropped_ids] = "not_protein_coding"
   #dropout_tracker[["not_protein_coding"]] = dropped_ids
   
-  message("Protein coding filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
+  cat("\nProtein coding filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
 }
 
 # Filter based on downstream polyA sequence to remove internal priming
@@ -299,7 +281,7 @@ if (filter_internal_priming) {
   sqanti_df_full$dropout_reason[sqanti_df_full$isoform %in% dropped_ids] = "internal_priming"
   #dropout_tracker[["internal_priming"]] = dropped_ids
   
-  message("Internal priming filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
+  cat("\nInternal priming filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
 }
 
 # Filter out template switching, keep RTS_stage = FALSE (no RTS)
@@ -331,7 +313,7 @@ if (filter_RTS) {
   sqanti_df_full$dropout_reason[sqanti_df_full$isoform %in% dropped_ids] = "template_switching"
   #dropout_tracker[["Template_switching_artifact"]] = dropped_ids
   
-  message("Template switching filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
+  cat("\nTemplate switching filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
 }
 
 # Apply structural category filter
@@ -339,7 +321,7 @@ if (toupper(tclass_to_keep) == "ALL") {
   # Keep everything - no filtering
   ids      = sqanti_df$isoform
   kept_ids = sqanti_df$isoform
-  message("No structural category filtering applied")
+  cat("\nNo structural category filtering applied")
   
 } else {
   # track ids before filtering
@@ -359,7 +341,7 @@ if (toupper(tclass_to_keep) == "ALL") {
   allowed_categories = tclass_list %>%
     map_chr(~category_map[.x] %||% .x)
   
-  message("Filtering to categories: ", paste(allowed_categories, collapse = ", "))
+  cat("\nFiltering to categories: ", paste(allowed_categories, collapse = ", "))
   
   sqanti_df %<>% 
     filter(structural_category %in% allowed_categories)
@@ -371,7 +353,7 @@ if (toupper(tclass_to_keep) == "ALL") {
 dropped_ids = setdiff(ids, kept_ids)
 sqanti_df_full$dropout_reason[sqanti_df_full$isoform %in% dropped_ids] = "structural_category"
 #dropout_tracker[["structural_category_filtered"]] = dropped_ids
-message("Structural category filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
+cat("\nStructural category filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
 
 # Calculate final results
 all_dropout_ids = sqanti_df_full$isoform[sqanti_df_full$dropout_reason != "kept"]
@@ -384,55 +366,64 @@ all_dropout_ids = sqanti_df_full$isoform[sqanti_df_full$dropout_reason != "kept"
 # Write output files and generate summary
 # =============================================================================
 
-message("\n Writing output files...")
+cat("\nWriting output files")
 
-write_tsv(sqanti_df_full, file.path(dir, paste0(basename, "_classification_all.txt")))
-write_tsv(sqanti_df, file.path(dir, paste0(basename, "_classification_filtered.txt")))
+# Build lookup from new isoform_id to original transcript_id
+id_lookup = mapping %>% select(isoform_id, original_transcript_id)
 
-save_filtered_fasta(
-  sqanti_fasta, 
-  kept_ids, 
-  file.path(dir, paste0(basename, "_corrected_filtered.fasta"))
-)
+write_tsv(sqanti_df_full, file.path(output_dir, paste0(basename, ".transcriptome.classification_all.txt")))
+write_tsv(sqanti_df, file.path(output_dir, paste0(basename, ".transcriptome.classification_filtered.txt")))
 
-# gtf and bed
+# FASTA — filter to kept transcripts and rename headers to new isoform_id
+sequences = readDNAStringSet(sqanti_fasta)
+kept_original_ids = id_lookup %>% filter(isoform_id %in% kept_ids) %>% pull(original_transcript_id)
+filtered_sequences = sequences[names(sequences) %in% kept_original_ids]
+
+name_map = id_lookup %>% filter(original_transcript_id %in% names(filtered_sequences)) %>% deframe()
+names(filtered_sequences) = name_map[names(filtered_sequences)]
+
+writeXStringSet(filtered_sequences, file.path(output_dir, paste0(basename, ".transcriptome.corrected_filtered.fasta")))
+cat("\nSaved ", length(filtered_sequences), " sequences to ", basename, ".transcriptome.corrected_filtered.fasta")
+
+
 # sample gtf
 gtf = import(sqanti_gtf) %>%
   as.data.frame()
 
-filtered_gtf = gtf[gtf$transcript_id %in% kept_ids, ]
-gtf_ids = filtered_gtf %>% distinct(gene_id, transcript_id)
+# Filter to kept transcripts (using original IDs since GTF still has them)
+filtered_gtf = gtf %>%
+  filter(transcript_id %in% kept_original_ids) %>%
+  left_join(id_lookup, by = c("transcript_id" = "original_transcript_id")) %>%
+  mutate(transcript_id = isoform_id) %>%
+  select(-isoform_id)
 
+# Add avg_ratio for browser visualization
 new_attributes = all_ids %>%
   filter(isoform_id %in% kept_ids) %>%
-  select(transcript_id = isoform_id, everything()) %>%
-  left_join(gtf_ids) %>%
-  mutate(avg_cpm = rowMeans(across(contains("cpm")), na.rm = TRUE)) %>%
-  group_by(gene_id) %>%
+  mutate(avg_cpm = rowMeans(across(ends_with("_cpm")), na.rm = TRUE)) %>%
+  group_by(reference_gene_id) %>%
   mutate(
     gene_total_cpm = sum(avg_cpm, na.rm = TRUE),
     avg_ratio = round(avg_cpm / gene_total_cpm, 3)
   ) %>%
   ungroup() %>%
-  select(transcript_id, reference_gene_name = gene_name, avg_ratio)
+  select(transcript_id = isoform_id, avg_ratio)
 
 filtered_gtf %<>% 
   left_join(new_attributes, by = c("transcript_id")) %>%
-  mutate(name = paste0(transcript_id, "|",
-                       reference_gene_name, "|", 
-                       avg_ratio))
+  mutate(name = paste0(transcript_id, "|", avg_ratio))
 
 gr_updated = makeGRangesFromDataFrame(filtered_gtf, keep.extra.columns = TRUE)
-export(gr_updated, file.path(dir, paste0(basename, "_corrected_filtered.gtf")), format = "gtf")
+export(gr_updated, file.path(output_dir, paste0(basename, "_corrected_filtered.gtf")), format = "gtf")
 
 # convert to bed12
-gtf_to_bed12(gtf_path = file.path(dir, paste0(basename, "_corrected_filtered.gtf")),
-             output_bed = file.path(dir, paste0(basename, "_corrected_filtered.bed")),
+gtf_to_bed12(gtf_path = file.path(output_dir, paste0(basename, ".transcriptome.corrected_filtered.gtf")),
+             output_bed = file.path(output_dir, paste0(basename, ".transcriptome.corrected_filtered.bed")),
              color_by = "avg_ratio")
 
 # Filtered hashid and cpm table
-all_ids %>% filter(isoform_id %in% sqanti_df$isoform) %>%
-  write_tsv(file.path(dir, paste0(basename, "_hashids_with_cpm_filtered.txt")))
+all_ids %>% filter(isoform_id %in% kept_ids) %>%
+  write_tsv(file.path(output_dir, paste0(basename, ".transcriptome.hashids_with_cpm_filtered.txt")))
 
 # Print summary
 cat("\n=== FILTERING SUMMARY ===\n")
