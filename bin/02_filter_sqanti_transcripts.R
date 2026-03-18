@@ -214,9 +214,12 @@ sqanti_df %<>%
                 ~ (.x / sum(.x)) * 1e6,
                 .names = "{gsub('_counts', '_cpm', .col)}"))
 
+# Save original isoform IDs before replacement
+original_isoform_ids = sqanti_df$isoform
+
 # Replace original isoform IDs with new pipeline isoform_id throughout
 sqanti_df_full = sqanti_df %>%
-  inner_join(mapping %>% select(isoform_id, original_transcript_id, 
+  inner_join(mapping %>% select(isoform_id, original_transcript_id,
                                 any_of("gene_type"), any_of("gene_name")),
              by = c("isoform" = "original_transcript_id")) %>%
   mutate(isoform = isoform_id) %>%
@@ -238,7 +241,8 @@ write_tsv(all_ids, file.path(output_dir, paste0(basename, ".transcriptome.all_ha
 cat("\nStarting filtering of SQANTI output")
 
 # Initialize dropout tracking
-original_ids    = sqanti_df_full$isoform
+# Note: sqanti_df_full$isoform now contains the NEW pipeline IDs
+all_new_ids = sqanti_df_full$isoform
 sqanti_df_full$dropout_reason = "kept"  # Initialize all as kept
 
 # Keep only transcripts of protein coding genes
@@ -379,8 +383,28 @@ sequences = readDNAStringSet(sqanti_fasta)
 kept_original_ids = id_lookup %>% filter(isoform_id %in% kept_ids) %>% pull(original_transcript_id)
 filtered_sequences = sequences[names(sequences) %in% kept_original_ids]
 
-name_map = id_lookup %>% filter(original_transcript_id %in% names(filtered_sequences)) %>% deframe()
+# Create name mapping: original_id -> new_id
+# Need to swap column order so deframe() creates the correct mapping direction
+name_map = id_lookup %>%
+  filter(original_transcript_id %in% names(filtered_sequences)) %>%
+  select(original_transcript_id, isoform_id) %>%  # Swap order: original first, new second
+  deframe()
+
+# Check for any sequences that don't have a mapping
+unmapped = setdiff(names(filtered_sequences), names(name_map))
+if (length(unmapped) > 0) {
+  warning("Found ", length(unmapped), " sequences without isoform_id mapping. Removing them.")
+  cat("\nUnmapped transcripts: ", paste(head(unmapped, 10), collapse = ", "), "\n")
+  filtered_sequences = filtered_sequences[names(filtered_sequences) %in% names(name_map)]
+}
+
+# Apply the name mapping
 names(filtered_sequences) = name_map[names(filtered_sequences)]
+
+# Final check for NAs
+if (any(is.na(names(filtered_sequences)))) {
+  stop("ERROR: Found NA values in sequence names after mapping. This should not happen.")
+}
 
 writeXStringSet(filtered_sequences, file.path(output_dir, paste0(basename, ".transcriptome.corrected_filtered.fasta")))
 cat("\nSaved ", length(filtered_sequences), " sequences to ", basename, ".transcriptome.corrected_filtered.fasta")
@@ -414,10 +438,11 @@ filtered_gtf %<>%
   mutate(name = paste0(transcript_id, "|", avg_ratio))
 
 gr_updated = makeGRangesFromDataFrame(filtered_gtf, keep.extra.columns = TRUE)
-export(gr_updated, file.path(output_dir, paste0(basename, "_corrected_filtered.gtf")), format = "gtf")
+gtf_output = file.path(output_dir, paste0(basename, ".transcriptome.corrected_filtered.gtf"))
+export(gr_updated, gtf_output, format = "gtf")
 
 # convert to bed12
-gtf_to_bed12(gtf_path = file.path(output_dir, paste0(basename, ".transcriptome.corrected_filtered.gtf")),
+gtf_to_bed12(gtf_path = gtf_output,
              output_bed = file.path(output_dir, paste0(basename, ".transcriptome.corrected_filtered.bed")),
              color_by = "avg_ratio")
 
@@ -428,6 +453,6 @@ all_ids %>% filter(isoform_id %in% kept_ids) %>%
 # Print summary
 cat("\n=== FILTERING SUMMARY ===\n")
 cat(paste0("Sample: ", basename, "\n"))
-cat(paste0("Original transcripts: ", length(original_ids), "\n"))
+cat(paste0("Original transcripts: ", length(all_new_ids), "\n"))
 cat(paste0("Final transcripts: ", length(kept_ids), "\n"))
-cat(paste0("Retention rate: ", round(100 * length(kept_ids) / length(original_ids), 1), "%\n"))
+cat(paste0("Retention rate: ", round(100 * length(kept_ids) / length(all_new_ids), 1), "%\n"))
