@@ -6,7 +6,8 @@ process GENERATE_HASHIDS {
     container "docker://docker.io/jtllab/lrp2-lite:latest"
 
     input:
-    tuple val(meta), path(corrected_gtf)
+    tuple val(meta), path(corrected_gtf), path(classification)
+    path reference_gtf
     path hashlib_script
     path generate_hashids_script
 
@@ -23,23 +24,20 @@ process GENERATE_HASHIDS {
     def prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    # Create directory structure expected by the R script
     mkdir -p sqanti_transcript
-
-    # Link the corrected GTF file with expected naming
-    ln -sf \$(pwd)/$corrected_gtf sqanti_transcript/${prefix}_corrected.gtf
-
-    # Export environment variables expected by the R script
-    export OUTPUT_DIR=\$(pwd)
-    export OUTPUT_BASE_NAME=$prefix
-    export HASHLIB_SCRIPT=\$(pwd)/$hashlib_script
 
     # Ensure R can find packages in the container
     export R_LIBS_USER=""
     export R_LIBS="/usr/local/lib/R/site-library:/usr/lib/R/site-library:/usr/lib/R/library"
 
-    # Run the hash ID generation script
-    Rscript \$(pwd)/$generate_hashids_script $args
+    Rscript ${generate_hashids_script} \\
+        --basename ${prefix} \\
+        --sample_gtf ${corrected_gtf} \\
+        --classification ${classification} \\
+        --reference_gtf ${reference_gtf} \\
+        --hashlib_script ${hashlib_script} \\
+        --output_dir sqanti_transcript \\
+        $args
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

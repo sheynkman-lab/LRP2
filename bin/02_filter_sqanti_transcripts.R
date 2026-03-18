@@ -310,8 +310,8 @@ if (filter_RTS) {
       structural_category == "full-splice_match" |
       RTS_stage == FALSE | 
       (RTS_stage == TRUE & all_canonical == TRUE & avg_counts > 3)
-      )
-  
+    )
+
   kept_ids    = sqanti_df$isoform
   dropped_ids = setdiff(ids, kept_ids)
   sqanti_df_full$dropout_reason[sqanti_df_full$isoform %in% dropped_ids] = "template_switching"

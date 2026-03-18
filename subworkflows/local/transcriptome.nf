@@ -39,7 +39,9 @@ workflow TRANSCRIPTOME {
     // MODULE: Generate hashids for all transcripts
     //
     GENERATE_HASHIDS (
-        SQANTI_QC.out.corrected_gtf,
+        SQANTI_QC.out.corrected_gtf
+            .join(SQANTI_QC.out.classification, by: 0),
+        reference_gtf,
         hashlib_script,
         generate_hashids_script
     )
@@ -80,6 +82,7 @@ workflow TRANSCRIPTOME {
     classification_filtered = FILTER_TRANSCRIPTOME.out.classification_filtered       // [meta, *_classification_filtered.txt]
     transcriptome_corrected_gtf = FILTER_TRANSCRIPTOME.out.corrected_gtf             // [meta, *_transcriptome_corrected.gtf]
     corrected_gtf_filtered  = FILTER_TRANSCRIPTOME.out.corrected_gtf_filtered        // [meta, *_corrected_filtered.gtf]
+    corrected_bed_filtered  = FILTER_TRANSCRIPTOME.out.corrected_bed_filtered        // [meta, *_corrected_filtered.bed]
     transcriptome_corrected_fasta = FILTER_TRANSCRIPTOME.out.corrected_fasta         // [meta, *_transcriptome_corrected.fasta]
     corrected_fasta_filtered= FILTER_TRANSCRIPTOME.out.corrected_fasta_filtered      // [meta, *_corrected_filtered.fasta]
     corrected_psl           = FILTER_TRANSCRIPTOME.out.corrected_psl                 // [meta, *_transcriptome_corrected.psl]

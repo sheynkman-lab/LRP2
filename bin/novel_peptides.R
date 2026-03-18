@@ -145,13 +145,32 @@ map_peptides_to_genome = function(peptides, aa_fasta_path, gtf_path) {
   
   # --- 1. Read protein sequences ---
   aa_fasta = readAAStringSet(aa_fasta_path)
-  proteins = tibble(
-    header = names(aa_fasta),
-    aa_seq = as.character(aa_fasta)
-  ) %>%
-    separate_wider_delim(header, delim = "|", names = c("first", "transcript_id"),
-                         too_many = "drop", cols_remove = FALSE) %>%
-    select(-first)
+
+  # Detect FASTA format from first header
+  # GENCODE format: ENSP|ENST|ENSG|... (protein_id|transcript_id|gene_id)
+  # LR format: GENE::TRANSCRIPT|GENE_ID|... (transcript_id|gene_id)
+  first_header = names(aa_fasta)[1]
+  is_gencode_format = str_detect(first_header, "^ENSP")
+
+  if (is_gencode_format) {
+    # GENCODE: extract second field (transcript_id)
+    proteins = tibble(
+      header = names(aa_fasta),
+      aa_seq = as.character(aa_fasta)
+    ) %>%
+      separate_wider_delim(header, delim = "|", names = c("protein_id", "transcript_id", "gene_id"),
+                           too_many = "drop", cols_remove = FALSE) %>%
+      select(-protein_id, -gene_id)  # Keep only transcript_id
+  } else {
+    # LR: extract first field (transcript_id)
+    proteins = tibble(
+      header = names(aa_fasta),
+      aa_seq = as.character(aa_fasta)
+    ) %>%
+      separate_wider_delim(header, delim = "|", names = c("transcript_id", "gene_id"),
+                           too_many = "drop", cols_remove = FALSE) %>%
+      select(-gene_id)  # Keep transcript_id, drop gene_id
+  }
   
   # Check transcript ID overlap across inputs
   tx_in_peptides = unique(peptide_tx$transcript_id)
