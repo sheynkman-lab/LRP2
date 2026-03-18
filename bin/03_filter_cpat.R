@@ -1,12 +1,24 @@
 #!/usr/bin/env Rscript
 
-#' ORF Analysis Script - R Version
+#' CPAT ORF Analysis Script - R Version
 #' 
-#' Map ORF coordinates to genomic positions
-#' Compares to GENCODE start codon annotations
-#' Selects the best ORF for each transcript
+#' - Restores correct ID casing from CPAT's uppercased output using mapping file
+#' - Maps ORF start/end to genomic coordinates via exon structure
+#' - Checks for reference start codon matches
+#' - Scores and classifies ORFs (Clear Best, Plausible, Low Quality, No Stop Codon)
+#' - Generates GTF with CDS features for best ORFs 
+#' 
+#' Inputs:
+#' - CPAT ORF fasta
+#' - CPAT ORF probability tsv
+#' - Filtered DNA fasta (from transcriptome subworkflow)
+#' - Filtered GTF (from transcriptome subworkflow)
+#' - Hashids mapping file (for restoring correct ID casing)
 #'
-#' Outputs 
+#' Outputs:
+#' - *.predicted_proteome.all_orfs_mapped.tsv: all ORFs with genomic coordinates and quality scores
+#' - *.predicted_proteome.corrected_filtered_CDS.gtf: GTF with exon and CDS features for best ORF per transcript
+#' 
 
 # =============================================================================
 # Load required libraries
@@ -17,32 +29,61 @@ suppressPackageStartupMessages({
   library(rtracklayer)
   library(Biostrings)
   library(magrittr)
+  library(optparse)
 })
 
 options(scipen = 999)
 
 # =============================================================================
-# Get environment variables and check required files
+# Get command line arguments and check required files
 # =============================================================================
 
-basename         <- Sys.getenv("OUTPUT_BASE_NAME")
-sqanti_dir       <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti_transcript") 
-cpat_dir         <- file.path(Sys.getenv("OUTPUT_DIR"), "orf_calling") 
-gencode_gtf_path <- Sys.getenv("GENCODE_GTF_FILE")
-coding_threshold <- as.numeric(Sys.getenv("CPAT_CODING_THRESHOLD", "0.364"))
+option_list = list(
+  make_option(c("--basename"), type = "character", default = NULL,
+              help = "Output base name"),
+  make_option(c("--cpat_fasta"), type = "character", default = NULL,
+              help = "Path to CPAT ORF sequences FASTA"),
+  make_option(c("--cpat_results"), type = "character", default = NULL,
+              help = "Path to CPAT ORF probability TSV"),
+  make_option(c("--sample_fasta"), type = "character", default = NULL,
+              help = "Path to corrected filtered DNA FASTA (transcriptome)"),
+  make_option(c("--sample_gtf"), type = "character", default = NULL,
+              help = "Path to corrected filtered GTF (transcriptome)"),
+  make_option(c("--reference_gtf"), type = "character", default = NULL,
+              help = "Path to reference GTF (GENCODE, RefSeq, etc.)"),
+  make_option(c("--mapping_file"), type = "character", default = NULL,
+              help = "Path to hashids mapping file for restoring correct ID casing"),
+  make_option(c("--output_dir"), type = "character", default = NULL,
+              help = "Output directory for results"),
+  make_option(c("--coding_threshold"), type = "double", default = 0.364,
+              help = "CPAT coding probability threshold [default: %default]")
+)
 
-cpat_fasta_file        <- file.path(cpat_dir, paste0(basename, "_cpat.ORF_seqs.fa"))
-cpat_results_file      <- file.path(cpat_dir, paste0(basename, "_cpat.ORF_prob.tsv"))
-sample_full_fasta_path <- file.path(sqanti_dir, paste0(basename, "_corrected_filtered.fasta"))
-sample_gtf_path        <- file.path(sqanti_dir, paste0(basename, "_corrected_filtered.gtf"))
-#classification_file    <- paste0(sqanti_dir, "/", basename, "_classification_filtered.txt")
+opt = parse_args(OptionParser(option_list = option_list))
 
-stopifnot("Input ORF FASTA file not found" = file.exists(cpat_fasta_file))
-stopifnot("CPAT results file not found" = file.exists(cpat_results_file))
-stopifnot("Sample full fasta file not found" = file.exists(sample_full_fasta_path))
-stopifnot("Sample gtf file not found" = file.exists(sample_gtf_path))
-#stopifnot("File not found" = file.exists(classification_file))
+required_args = c("basename", "cpat_fasta", "cpat_results", "sample_fasta",
+                  "sample_gtf", "reference_gtf", "mapping_file", "output_dir")
+missing = required_args[sapply(required_args, function(x) is.null(opt[[x]]))]
+if (length(missing) > 0) {
+  stop("Missing required arguments: ", paste0("--", missing, collapse = ", "))
+}
 
+basename               = opt$basename
+cpat_fasta_file        = opt$cpat_fasta
+cpat_results_file      = opt$cpat_results
+sample_full_fasta_path = opt$sample_fasta
+sample_gtf_path        = opt$sample_gtf
+gencode_gtf_path       = opt$reference_gtf
+mapping_file           = opt$mapping_file
+cpat_dir               = opt$output_dir
+coding_threshold       = opt$coding_threshold
+
+stopifnot("CPAT ORF FASTA file not found" = file.exists(cpat_fasta_file))
+stopifnot("CPAT results file not found"   = file.exists(cpat_results_file))
+stopifnot("Sample fasta file not found"   = file.exists(sample_full_fasta_path))
+stopifnot("Sample gtf file not found"     = file.exists(sample_gtf_path))
+stopifnot("Reference GTF not found"       = file.exists(gencode_gtf_path))
+stopifnot("Mapping file not found"        = file.exists(mapping_file))
 
 # =============================================================================
 # Helper functions
@@ -57,7 +98,7 @@ check_stop_codons <- function(orf_fasta_file) {
   orfs        <- readDNAStringSet(orf_fasta_file)
   
   tibble(
-    ID       = str_split_fixed(names(orfs), "\t", 2)[,1],
+    ID       = tolower(str_split_fixed(names(orfs), "\t", 2)[,1]),
     sequence = as.character(orfs)
   ) %>%
     mutate(seq_length     = nchar(sequence),
@@ -240,7 +281,7 @@ write_gtf_with_cds <- function(sample_gtf, all_cds_exons) {
     ) %>%
     select(seqnames, source, type, start, end, score, strand, frame, attributes)
   
-  message(paste0("Combined ", nrow(transcript_lines), " transcript lines, ",
+  cat(paste0("Combined ", nrow(transcript_lines), " transcript lines, ",
                  nrow(exon_lines), " exon lines, and ", 
                  nrow(cds_lines), " CDS lines"))
   
@@ -252,11 +293,19 @@ write_gtf_with_cds <- function(sample_gtf, all_cds_exons) {
 # =============================================================================
 
 # === STEP 1: Load all input data ===
-message("\n--- STEP 1: Loading input data ---")
+cat("\nSTEP 1: Loading input data")
 
-# CPAT results
+# CPAT results, read mapping file for correct ID casing
+id_lookup = read_tsv(mapping_file, show_col_types = FALSE) %>%
+  select(isoform_id) %>%
+  mutate(isoform_id_lower = tolower(isoform_id))
+
+# CPAT results — tolower to fix CPAT's uppercasing, then restore correct casing
 cpat_results = read_tsv(cpat_results_file, show_col_types = FALSE) %>%
-  separate(ID, into = c("isoform_id", "orf_rank"), sep = "_ORF_", remove = FALSE)
+  mutate(ID = tolower(ID)) %>%
+  separate(ID, into = c("isoform_id_lower", "orf_rank"), sep = "_orf_", remove = FALSE) %>%
+  left_join(id_lookup, by = "isoform_id_lower") %>%
+  select(-isoform_id_lower)
 
 # Load GTF files
 sample_gtf  = import(sample_gtf_path) %>% as.data.frame()
@@ -269,17 +318,8 @@ full_fasta = tibble(
   full_sequence = as.character(full)
 )
 
-# SQANTI classification- consider removing
-# classification = read_tsv(classification_file, show_col_types = FALSE)
-# gene_mapping = classification %>% 
-#   select(isoform_id = isoform, 
-#          structural_category, 
-#          gene_id = associated_gene, 
-#          transcript_id = associated_transcript, 
-#          any_of(c("gene_name", "transcript_name")))
-
 # === STEP 2: Get dataframe of exons from gtf ===
-message("\n--- STEP 2: Extracting exons from sample gtf ---")
+cat("\nSTEP 2: Extracting exons from sample gtf")
 sample_exons = sample_gtf %>%
   filter(type == "exon") %>%
   select(isoform_id = transcript_id, seqnames, start, end, strand) %>%
@@ -296,14 +336,14 @@ sample_exons %<>%
   ungroup()
 
 # === STEP 3: Map ORFs to genomic coordinates ===
-message("\n--- STEP 3: Mapping ORFs to genome ---")
+cat("\nSTEP 3: Mapping ORFs to genome")
 
 stop_codon_status = check_stop_codons(cpat_fasta_file) # uses ORF (dna) fasta to return new column about stop codon 
 orf_coords        = left_join(cpat_results, stop_codon_status, by = "ID")
 mapped_orfs       = map_orfs_to_genome(orf_coords, sample_exons, gencode_gtf, full_fasta)
 
 # === STEP 4: Define the best ORF per transcript ===
-message("\n--- STEP 4: Calling best ORFs and filtering---")
+cat("\nSTEP 4: Calling best ORFs and filtering\n")
 
 mapped_orfs_classified = call_best_orfs(mapped_orfs)
 #mapped_orfs_classified %<>% left_join(gene_mapping, by = "isoform_id")
@@ -313,10 +353,10 @@ plausible_orfs = mapped_orfs_classified %>% filter(orf_quality == "Clear Best OR
 best_orfs      = mapped_orfs_classified %>% filter(orf_quality == "Clear Best ORF")
 
 #write_tsv(best_orfs, file.path(cpat_dir, paste0(basename, "_best_orfs_mapped.tsv")))
-write_tsv(all_orfs, file.path(cpat_dir, paste0(basename, "_all_orfs_mapped.tsv")))
+write_tsv(all_orfs, file.path(cpat_dir, paste0(basename, ".predicted_proteome.all_orfs_mapped.tsv")))
 
 # === STEP 5: Write gtf for best ORFs, including CDS and exon types, no collapsing here ===
-message("\n--- STEP 5: Writing GTF of best ORFs with CDS and exon types ---")
+cat("\nSTEP 5: Writing GTF of best ORFs with CDS and exon types")
 all_cds_exons = get_cds_coords(best_orfs, sample_exons)
 # gene_mapping %<>% 
 #   left_join(select(best_orfs, isoform_id, orf_isoform_id)) %>%
@@ -326,7 +366,7 @@ all_cds_exons %<>%
   left_join(distinct(sample_gtf, transcript_id, gene_id), by = c("isoform_id" = "transcript_id"))
 updated_gtf = write_gtf_with_cds(sample_gtf, all_cds_exons)
 
-write.table(updated_gtf, file.path(cpat_dir, paste0(basename, "_corrected_filtered_CDS.gtf")), 
+write.table(updated_gtf, file.path(cpat_dir, paste0(basename, ".predicted_proteome.corrected_filtered_CDS.gtf")), 
             sep = "\t", 
             quote = FALSE, 
             row.names = FALSE, 
@@ -351,13 +391,13 @@ percent_best         = round((n_best_orfs/starting_transcripts) * 100, 1)
 percent_noORFs       = round((n_noORFs/starting_transcripts) * 100, 1)
 
 
-message("\n=== CPAT FILTER ANALYSIS COMPLETE ===")
-message(paste0("- CPAT called at least one ORF for ", n_transcripts_orfs, " / ", starting_transcripts, " (", percent_orfs,"%)", " transcripts."))
-message(paste0("- Based on coding potential, ", n_plausible_orfs, " / ", n_cpat_orfs, " (", percent_plausible,"%)"," of CPAT ORFs were classified as plausible ORFs.")) 
-message(paste0("- ", n_noORFs, " / ", starting_transcripts, " (", percent_noORFs,"%)", " transcripts do not have a plausible ORF.")) 
-message(paste0("- After further filtering, a 'Clear Best ORF' was identified for ", n_best_orfs, " / ", starting_transcripts, " (", percent_best,"%)", " transcripts.")) 
+cat("\n=== CPAT FILTER ANALYSIS COMPLETE ===\n")
+cat(paste0("- CPAT called at least one ORF for ", n_transcripts_orfs, " / ", starting_transcripts, " (", percent_orfs,"%)", " transcripts.\n"))
+cat(paste0("- Based on coding potential, ", n_plausible_orfs, " / ", n_cpat_orfs, " (", percent_plausible,"%)"," of CPAT ORFs were classified as plausible ORFs.\n")) 
+cat(paste0("- ", n_noORFs, " / ", starting_transcripts, " (", percent_noORFs,"%)", " transcripts do not have a plausible ORF.\n")) 
+cat(paste0("- After further filtering, a 'Clear Best ORF' was identified for ", n_best_orfs, " / ", starting_transcripts, " (", percent_best,"%)", " transcripts.\n")) 
 
-message("\n=== CPAT FILTER OUTPUT FILES ===")
-message(paste0("All CPAT ORFs with Quality Metrics: ", basename, "_all_cpat_orfs_mapped.tsv"))
-#message(paste0("The single best plausible ORF per transcript: ", basename, "_best_cpat_orfs_mapped.tsv"))
-message(paste0("GTF contains exon type for all transcripts and CDS type for transcripts with a best plausible ORF: ", basename, "_corrected_filtered_CDS.gtf"))
+cat("\n=== CPAT FILTER OUTPUT FILES ===\n")
+cat(paste0("All CPAT ORFs with Quality Metrics: ", basename, ".predicted_proteome.all_cpat_orfs_mapped.tsv\n"))
+#cat(paste0("The single best plausible ORF per transcript: ", basename, "_best_cpat_orfs_mapped.tsv"))
+cat(paste0("GTF contains exon type for all transcripts and CDS type for transcripts with a best plausible ORF: ", basename, ".predicted_proteome.corrected_filtered_CDS.gtf"))

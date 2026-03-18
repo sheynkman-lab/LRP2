@@ -30,9 +30,10 @@ workflow PROTEOMICS {
     fragpipe_token              // val: 6-digit verification token
     fragpipe_license_accept     // val: License acceptance confirmation
 
-    // Novel peptides inputs (from PREDICTED_PROTEOME subworkflow)
-    lr_cds_gtf                  // path: Long-read CDS GTF (*_corrected_filtered_CDS.gtf)
-    lr_orf_fasta                // path: Long-read ORF FASTA (*_predicted.proteome.all_best_orfs.fa)
+    // Novel peptides inputs
+    rna_sample_ids              // channel: List of RNA sample IDs (to check for matched RNA data)
+    lr_cds_gtf                  // path: Long-read CDS GTF (only for samples with matched RNA sample)
+    lr_orf_fasta                // path: Long-read ORF FASTA (only for samples with matched RNA sample)
     genome                      // val: Genome reference name (e.g., 'GRCh38.p14.v49')
 
     main:
@@ -40,7 +41,10 @@ workflow PROTEOMICS {
 
     // Extract [meta, file] and protein_db from input channel
     ch_ms_files = ch_ms_files_with_db.map { meta, file, db -> [meta, file] }
-    ch_protein_dbs = ch_ms_files_with_db.map { meta, file, db -> [meta.id, db] }
+    // Map protein DBs by sample_name and deduplicate (multiple files per sample have same DB)
+    ch_protein_dbs = ch_ms_files_with_db
+        .map { meta, file, db -> [meta.sample_name, db] }
+        .unique()
 
     //
     // MODULE: Convert any protein sample files to .mzML format if needed
@@ -98,19 +102,18 @@ workflow PROTEOMICS {
 
     //
     // MODULE: Run protein database search based on selected engine
-    // Join mzML files with their corresponding protein databases
+    // Join mzML files with their corresponding protein databases (by sample_name)
     //
     ch_mzml_with_db = ch_mzml_branched.fragpipe
         .mix(ch_mzml_branched.metamorpheus)
-        .map { meta, files -> [meta.id, meta, files] }
+        .map { meta, files -> [meta.sample_name, meta, files] }
         .join(ch_protein_dbs, by: 0)
-        .map { id, meta, files, protein_db -> [meta, files, protein_db] }
+        .map { sample_name, meta, files, protein_db -> [meta, files, protein_db] }
 
     if (protein_search == 'fragpipe') {
         //
         // FRAGPIPE WORKFLOW
         //
-
         // Step 1: Authenticate and download tools (runs once, cached for future runs)
         // Convert null values to empty strings for Nextflow compatibility
         def fp_first_name = fragpipe_first_name ?: ''
@@ -176,17 +179,30 @@ workflow PROTEOMICS {
             return [meta, fragpipe_dir]
         }
 
+        // Join per-sample protein FASTA with FragPipe results directory, then add LR files conditionally based on whether sample has matched RNA
+        ch_novel_peptides_input = ch_fragpipe_results_dir
+            .map { meta, fragpipe_dir -> [meta.sample_name, meta, fragpipe_dir] }
+            .combine(ch_protein_dbs, by: 0)
+            .map { sample_name, meta, fragpipe_dir, protein_fasta ->
+                def rna_ids = rna_sample_ids.val
+                def lr_gtf_file = lr_cds_gtf.val
+                def lr_fasta_file = lr_orf_fasta.val
+                def has_rna = rna_ids.contains(sample_name)
+                def lr_gtf = has_rna ? lr_gtf_file : file("${sample_name}_NO_GTF")
+                def lr_fasta = has_rna ? lr_fasta_file : file("${sample_name}_NO_FASTA")
+                return [meta, fragpipe_dir, protein_fasta, lr_gtf, lr_fasta]
+            }
+
         def novel_peptides_script = file("${projectDir}/bin/novel_peptides.R")
 
         NOVEL_PEPTIDES(
-            ch_fragpipe_results_dir,
+            ch_novel_peptides_input,
             novel_peptides_script,
-            lr_cds_gtf,
-            lr_orf_fasta,
             gencode_version
         )
         ch_versions = ch_versions.mix(NOVEL_PEPTIDES.out.versions)
         ch_novel_peptides = NOVEL_PEPTIDES.out.novel_peptides
+        ch_peptides_bed = NOVEL_PEPTIDES.out.peptides_bed
     }
     else {
         //
@@ -220,9 +236,10 @@ workflow PROTEOMICS {
         ch_psm_table = METAMORPHEUS.out.psm_table
         ch_search_results = METAMORPHEUS.out.results
 
-        // NOTE: NOVEL_PEPTIDES only runs for FragPipe currently, not MetaMorpheus so we create an empty channel for novel_peptides to maintain consistent output structure
+        // NOTE: NOVEL_PEPTIDES only runs for FragPipe currently, not MetaMorpheus so we create empty channels to maintain consistent output structure
         // TO DO: incorporate novel peptides classification for MetaMorpheus results in the future and update this workflow accordingly
         ch_novel_peptides = Channel.empty()
+        ch_peptides_bed = Channel.empty()
     }
 
     emit:
@@ -235,6 +252,7 @@ workflow PROTEOMICS {
 
     // Novel peptides outputs
     novel_peptides              = ch_novel_peptides                 // [meta, *_novel_peptides.tsv]
+    peptides_bed                = ch_peptides_bed                   // [meta, *_all_peptides.bed] (optional)
 
     versions                    = ch_versions.unique().collectFile(name: 'versions.yml')
 }

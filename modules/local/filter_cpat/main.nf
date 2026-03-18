@@ -1,12 +1,12 @@
 process FILTER_CPAT {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_low'
 
     conda "${moduleDir}/environment.yml"
     container "docker://docker.io/jtllab/lrp2-lite:latest"
 
     input:
-    tuple val(meta), path(orf_prob), path(orf_seqs), path(corrected_fasta), path(corrected_gtf)
+    tuple val(meta), path(orf_prob), path(orf_seqs), path(corrected_fasta), path(corrected_gtf), path(mapping_file)
     path reference_gtf
     path filter_cpat_script
 
@@ -24,30 +24,29 @@ process FILTER_CPAT {
     def cpat_coding_threshold = task.ext.cpat_coding_threshold ?: params.cpat_coding_threshold
 
     """
-    # Create directory structure expected by the R script
-    mkdir -p orf_calling sqanti_transcript
-
-    # Create symlinks in the appropriate directories
-    ln -sf \$(pwd)/$orf_prob orf_calling/${prefix}_cpat.ORF_prob.tsv
-    ln -sf \$(pwd)/$orf_seqs orf_calling/${prefix}_cpat.ORF_seqs.fa
-    ln -sf \$(pwd)/$corrected_fasta sqanti_transcript/${prefix}_corrected_filtered.fasta
-    ln -sf \$(pwd)/$corrected_gtf sqanti_transcript/${prefix}_corrected_filtered.gtf
-
-    # Export environment variables expected by the R script
-    export OUTPUT_DIR=\$(pwd)
-    export OUTPUT_BASE_NAME=$prefix
-    export GENCODE_GTF_FILE=\$(pwd)/$reference_gtf
-    export CPAT_CODING_THRESHOLD=$cpat_coding_threshold
+    # Create output directory
+    mkdir -p orf_calling
 
     # Ensure R can find packages in the container
     export R_LIBS_USER=""
     export R_LIBS="/usr/local/lib/R/site-library:/usr/lib/R/site-library:/usr/lib/R/library"
 
-    Rscript \$(pwd)/$filter_cpat_script $args
+    # Run the CPAT filter script with CLI arguments
+    Rscript ${filter_cpat_script} \\
+        --basename ${prefix} \\
+        --cpat_fasta ${orf_seqs} \\
+        --cpat_results ${orf_prob} \\
+        --sample_fasta ${corrected_fasta} \\
+        --sample_gtf ${corrected_gtf} \\
+        --reference_gtf ${reference_gtf} \\
+        --mapping_file ${mapping_file} \\
+        --output_dir orf_calling \\
+        --coding_threshold ${cpat_coding_threshold} \\
+        $args
 
     # Move and rename outputs from orf_calling directory to match expected naming convention
-    mv orf_calling/${prefix}_all_orfs_mapped.tsv ${prefix}_predicted_proteome_all_orfs_mapped.tsv
-    mv orf_calling/${prefix}_corrected_filtered_CDS.gtf ${prefix}_predicted_proteome_corrected_filtered_CDS.gtf
+    mv orf_calling/${prefix}.predicted_proteome.all_orfs_mapped.tsv ${prefix}_predicted_proteome_all_orfs_mapped.tsv
+    mv orf_calling/${prefix}.predicted_proteome.corrected_filtered_CDS.gtf ${prefix}_predicted_proteome_corrected_filtered_CDS.gtf
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

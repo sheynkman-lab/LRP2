@@ -6,14 +6,13 @@ process NOVEL_PEPTIDES {
     container "docker://docker.io/jtllab/lrp2-lite:latest"
 
     input:
-    tuple val(meta), val(fragpipe_results_dir)
+    tuple val(meta), val(fragpipe_results_dir), path(reference_fasta), path(lr_cds_gtf), path(lr_orf_fasta)
     path novel_peptides_script
-    path lr_cds_gtf
-    path lr_orf_fasta
     val gencode_version
 
     output:
     tuple val(meta), path("*_novel_peptides.tsv"), emit: novel_peptides
+    tuple val(meta), path("*_all_peptides.bed"), optional: true, emit: peptides_bed
     path "versions.yml", emit: versions
 
     when:
@@ -24,14 +23,17 @@ process NOVEL_PEPTIDES {
     def prefix = task.ext.prefix ?: "${meta.id}"
     def ms_search_software = meta.protein_search ?: 'fragpipe'
     def acquisition_type = meta.mass_spec_type ?: 'DDA'
+    def has_lr_data = (!lr_cds_gtf.name.contains('_NO_GTF') && !lr_orf_fasta.name.contains('_NO_FASTA'))
+    def lr_gtf_arg = has_lr_data ? "--lr_cds_gtf ${lr_cds_gtf}" : ""
+    def lr_fasta_arg = has_lr_data ? "--lr_orf_fasta ${lr_orf_fasta}" : ""
 
     """
     echo "NOVEL PEPTIDES CLASSIFICATION: ${meta.id}"
     echo "Sample: ${prefix}"
     echo "Search software: ${ms_search_software}"
     echo "Acquisition type: ${acquisition_type}"
-    echo "LR CDS GTF: ${lr_cds_gtf}"
-    echo "LR ORF FASTA: ${lr_orf_fasta}"
+    echo "LR CDS GTF: ${has_lr_data ? lr_cds_gtf : 'N/A (no matched RNA)'}"
+    echo "LR ORF FASTA: ${has_lr_data ? lr_orf_fasta : 'N/A (no matched RNA)'}"
     echo "FragPipe results directory: ${fragpipe_results_dir}"
     echo ""
 
@@ -46,8 +48,8 @@ process NOVEL_PEPTIDES {
         --ms_search_software ${ms_search_software} \\
         --acquisition_type ${acquisition_type} \\
         --fragpipe_results_dir ${fragpipe_results_dir} \\
-        --lr_cds_gtf ${lr_cds_gtf} \\
-        --lr_orf_fasta ${lr_orf_fasta} \\
+        ${lr_gtf_arg} \\
+        ${lr_fasta_arg} \\
         --gencode_version ${gencode_version} \\
         --outdir . \\
         $args

@@ -15,7 +15,7 @@ include { PROTEIN_UTR_CLASSIFICATION    } from '../../modules/local/protein_utr_
 */
 workflow PREDICTED_PROTEOME {
     take:
-    ch_samples                  // channel: [meta, [corrected_fasta, corrected_gtf, classification_filtered, hashids_filtered]]
+    ch_samples                  // channel: [meta, [corrected_fasta, corrected_gtf, classification_filtered, hashids_filtered, hashids_mapping]]
     reference_gtf               // path: reference GENCODE GTF
     hexamer_file                // path: CPAT hexamer file (species-specific)
     logit_model                 // path: CPAT logit model (species-specific)
@@ -30,7 +30,7 @@ workflow PREDICTED_PROTEOME {
     // MODULE: Predict ORFs using CPAT
     //
     CPAT_ORF (
-        ch_samples.map { meta, fasta, gtf, classification, hashids ->
+        ch_samples.map { meta, fasta, gtf, classification, hashids, mapping ->
             [meta, fasta] },
         hexamer_file,
         logit_model
@@ -44,8 +44,8 @@ workflow PREDICTED_PROTEOME {
         CPAT_ORF.out.orf_prob
             .join(CPAT_ORF.out.orf_seqs, by: 0)
             .join(ch_samples, by: 0)
-            .map { meta, orf_prob, orf_seqs, fasta, gtf, _classification, hashids ->
-                [meta, orf_prob, orf_seqs, fasta, gtf] },
+            .map { meta, orf_prob, orf_seqs, fasta, gtf, _classification, hashids, mapping ->
+                [meta, orf_prob, orf_seqs, fasta, gtf, mapping] },
         reference_gtf,
         filter_cpat_script
     )
@@ -69,7 +69,7 @@ workflow PREDICTED_PROTEOME {
             .join(FILTER_CPAT.out.cds_gtf, by: 0)
             .join(ch_samples, by: 0)
             .join(FILTER_CPAT.out.all_orfs_mapped, by: 0)
-            .map { meta, protein_class, cds_gtf, fasta, gtf, classification, hashids, all_orfs ->
+            .map { meta, protein_class, cds_gtf, fasta, gtf, classification, hashids, mapping, all_orfs ->
                 [meta, protein_class, cds_gtf, fasta, hashids, all_orfs] },
         reference_gtf,
         protein_class_script

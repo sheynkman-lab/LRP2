@@ -104,13 +104,18 @@ workflow LRP2 {
 
     //
     // Count RNA samples to determine if RNA subworkflows should run
-    // Branch the channel into two: one for counting, one for processing
+    // note: we branch the channel into three portions currently: one for counting, one for sample names, one for processing
     //
     ch_rna_samples
         .tap { ch_rna_for_count }
+        .tap { ch_rna_for_names }
         .set { ch_rna_samples_filtered }
 
-    // Count the samples
+    // RNA sample names for matching with protein samples
+    ch_rna_sample_names = ch_rna_for_names
+        .map { meta, _data -> meta.sample_name }
+        .toList()
+
     ch_rna_for_count
         .toList()
         .map { samples ->
@@ -172,8 +177,9 @@ workflow LRP2 {
             .join(TRANSCRIPTOME.out.corrected_gtf_filtered, by: 0)
             .join(TRANSCRIPTOME.out.classification_filtered, by: 0)
             .join(TRANSCRIPTOME.out.hashids_filtered, by: 0)
-            .map { meta, fasta, gtf, classification, hashids ->
-                [meta, fasta, gtf, classification, hashids] },
+            .join(TRANSCRIPTOME.out.hashids_mapping, by: 0)
+            .map { meta, fasta, gtf, classification, hashids, mapping ->
+                [meta, fasta, gtf, classification, hashids, mapping] },
         ch_gtf,
         hexamer_file,
         logit_model,
@@ -271,9 +277,6 @@ workflow LRP2 {
         ch_transcript_counts = ch_transcript_counts_with_id
             .map { rna_id, counts -> counts }
 
-        ch_rna_sample_id = ch_transcript_counts_with_id
-            .map { rna_id, counts -> rna_id }
-
         // Extract CDS GTF and ORF FASTA for novel peptides classification
         ch_lr_cds_gtf = PREDICTED_PROTEOME.out.protein_cds_gtf_copy
             .map { _meta, gtf -> gtf }
@@ -349,8 +352,9 @@ workflow LRP2 {
             params.fragpipe_token,
             params.fragpipe_license_accept,
             // Novel peptides inputs
-            ch_lr_cds_gtf,
-            ch_lr_orf_fasta,
+            ch_rna_sample_names,    // List of RNA sample names to check for matches
+            ch_lr_cds_gtf,          // LR CDS GTF (for samples with matched RNA)
+            ch_lr_orf_fasta,        // LR ORF FASTA (for samples with matched RNA)
             params.genome
         )
         ch_versions = ch_versions.mix(PROTEOMICS.out.versions.ifEmpty([]))
