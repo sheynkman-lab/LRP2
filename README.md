@@ -187,7 +187,28 @@ nextflow run /path/to/LRP2 \
 
 ### Example Command with Proteomics (FragPipe)
 
-To analyze protein samples with FragPipe, include the required FragPipe registration parameters:
+1. To use FragPipe, you must be an academic user and accept the license agreement for MSFragger, IonQuant, and diaTracer. Before using FragPipe in LRP2 for the first time, please review the license agreement here: https://msfragger.arsci.com/upgrader/LICENSE-ACADEMIC.pdf
+
+Once you are ready to accept the license agreement, you may run the following curl command in your terminal with your information substituted for FIRST_NAME, LAST_NAME, EMAIL, and ACADEMIC_INSTITUTION_NAME: 
+
+```bash
+curl --location --request POST \
+              'https://msfragger-upgrader.nesvilab.org/upgrader/upgrade_download.php' \
+              --form 'transfer="academic"' \
+              --form 'agreement2="true"' \
+              --form 'agreement3="true"' \
+              --form "first_name=FIRST_NAME" \
+              --form "last_name=LAST_NAME" \
+              --form "email=EMAIL" \
+              --form "organization=ACADEMIC_INSTITUTION_NAME" \
+              --form "download=4.4.1\$zip" \
+              --form 'is_fragpipe="true"' \
+              > /dev/null 2>&1
+```
+
+After submitting this command, you will receive a 6-digit token to your provided email, which is required to run command-line FragPipe in the pipeline in the next step. 
+
+2) To then proceed with analyzing protein samples with FragPipe, you should include the required FragPipe registration parameters consisting of the same information (FIRST_NAME, LAST_NAME, EMAIL, ACADEMIC_INSTITUTION NAME), the 6-digit token you received to your email, and a confirmation that you accept the license agreement in your LRP2 run command:
 
 ```bash
 nextflow run /path/to/LRP2 \
@@ -195,10 +216,10 @@ nextflow run /path/to/LRP2 \
     --outdir results \
     --genome GRCh38.p14.v46 \
     --protein_search fragpipe \
-    --fragpipe_first_name John \
-    --fragpipe_last_name Doe \
-    --fragpipe_email john.doe@example.org \
-    --fragpipe_institution 'Example University' \
+    --fragpipe_first_name FIRST_NAME\
+    --fragpipe_last_name LAST_NAME \
+    --fragpipe_email EMAIL \
+    --fragpipe_institution ACADEMIC_INSTITUTION_NAME \
     --fragpipe_token 123456 \
     --fragpipe_license_accept true \
     -profile singularity \
