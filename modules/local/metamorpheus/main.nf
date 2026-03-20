@@ -1,6 +1,6 @@
 process METAMORPHEUS {
     tag "$meta.id"
-    label 'process_high'
+    label 'process_high_memory'
 
     conda "${moduleDir}/environment.yml"
     container "docker://docker.io/smithchemwisc/metamorpheus:latest"

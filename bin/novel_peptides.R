@@ -274,7 +274,7 @@ map_peptides_to_genome = function(peptides, aa_fasta_path, gtf_path) {
       distinct(Sequence, transcript_id, PSM)
     bed12 = bed12 %>%
       left_join(psm_vals, by = c("Sequence", "transcript_id")) %>%
-      mutate(name = paste0(Sequence, "|PSM = ", PSM))
+      mutate(name = paste0(Sequence, "|PSM=", PSM))
   }
   
   cat("\nMapped", nrow(bed12), "peptides to genomic coordinates\n")

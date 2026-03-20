@@ -1,6 +1,6 @@
 process FRAGPIPE {
     tag "$meta.id"
-    label 'process_high'
+    label 'process_high_memory'
 
     conda "${moduleDir}/environment.yml"
     container "docker://docker.io/fcyucn/fragpipe:${params.fragpipe_version}"

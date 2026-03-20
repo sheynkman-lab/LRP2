@@ -64,7 +64,7 @@ workflow PACBIO_ISOCALL {
         .map { meta, profile -> profile }
         .collect()
         .map { profiles ->
-            def meta = [id: 'merged']
+            def meta = [id: params.dataset_name]
             [meta, profiles]
         }
 
