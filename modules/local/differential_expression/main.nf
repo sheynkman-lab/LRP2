@@ -11,6 +11,8 @@ process DIFFERENTIAL_EXPRESSION {
     path multisample_script
     val control_group
     val experimental_group
+    val drimseq_min_gene_expr
+    val drimseq_min_isoform_prop
 
     output:
     tuple val(meta), path("differential_gene_expression/*_DGE_edgeR_results.txt"), emit: dge_results
@@ -34,35 +36,33 @@ process DIFFERENTIAL_EXPRESSION {
 
     script:
     def args = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
+    def prefix = task.ext.prefix ?: "${control_group}_${experimental_group}"
 
     """
-    # Output subdirectories expected by R script
+    # Output subdirectories for organizing results
     mkdir -p differential_gene_expression
     mkdir -p differential_transcript_expression
     mkdir -p differential_ORF_expression
     mkdir -p differential_transcript_usage
     mkdir -p differential_ORF_usage
-    mkdir -p sqanti_transcript
-    mkdir -p protein_sqanti
     mkdir -p multisample_analysis
-
-    export OUTPUT_BASE_NAME=${prefix}
-    export OUTPUT_DIR=.
-    export SAMPLE_METADATA=\$(pwd)/${sample_metadata}
-    export CONTROL_GROUP=${control_group}
-    export EXPERIMENTAL_GROUP=${experimental_group}
-
-    # Link input files to expected names and locations for the R script
-    ln -sf \$(pwd)/${transcript_counts} sqanti_transcript/${prefix}_hashids_with_cpm_filtered.txt
-    ln -sf \$(pwd)/${orf_counts} protein_sqanti/${prefix}_hashids_with_cpm_ORF.txt
 
     export R_LIBS_USER=""
     export R_LIBS="/usr/local/lib/R/site-library:/usr/lib/R/site-library:/usr/lib/R/library"
 
-    Rscript ${multisample_script} $args
+    Rscript ${multisample_script} \\
+        --basename ${prefix} \\
+        --count_file ${transcript_counts} \\
+        --orf_count_file ${orf_counts} \\
+        --sample_metadata ${sample_metadata} \\
+        --control_group ${control_group} \\
+        --experimental_group ${experimental_group} \\
+        --drimseq_min_gene_expr ${drimseq_min_gene_expr} \\
+        --drimseq_min_isoform_prop ${drimseq_min_isoform_prop} \\
+        --output_dir multisample_analysis \\
+        --threads ${task.cpus} \\
+        $args
 
-    # Move outputs from multisample_analysis to organized subdirectories
     mv multisample_analysis/${prefix}_DGE_* differential_gene_expression/ 2>/dev/null || true
     mv multisample_analysis/${prefix}_DTE_* differential_transcript_expression/ 2>/dev/null || true
     mv multisample_analysis/${prefix}_DE_ORF_* differential_ORF_expression/ 2>/dev/null || true
@@ -78,7 +78,7 @@ process DIFFERENTIAL_EXPRESSION {
     """
 
     stub:
-    def prefix = task.ext.prefix ?: "${meta.id}"
+    def prefix = task.ext.prefix ?: "${control_group}_${experimental_group}"
     """
     mkdir -p differential_gene_expression
     mkdir -p differential_transcript_expression

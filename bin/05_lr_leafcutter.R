@@ -13,7 +13,7 @@ suppressPackageStartupMessages({
   library(tidyverse)
   library(magrittr)
   library(rtracklayer)
-  library(Matrix) 
+  library(Matrix)
   library(igraph)
   library(optparse)
 })
@@ -21,26 +21,41 @@ suppressPackageStartupMessages({
 options(scipen = 999)
 
 # =============================================================================
-# Get environment variables and check required files
+# Get command line arguments and check required files
 # =============================================================================
 
-basename                 <- Sys.getenv("OUTPUT_BASE_NAME")
-#sqanti_transcript_dir   <- file.path(Sys.getenv("OUTPUT_DIR"), "sqanti_transcript")
-#sqanti_protein_dir      <- file.path(Sys.getenv("OUTPUT_DIR"), "protein_sqanti")
-leafcutter_analysis_dir  <- file.path(Sys.getenv("OUTPUT_DIR"), "multisample_analysis", "lr_leafcutter")
-metadata_file_path       <- Sys.getenv("SAMPLE_METADATA")
-
 option_list <- list(
-  make_option(c("--gtf"), type = "character", default = NULL, help = "GTF path"),
-  make_option(c("--counts"), type = "character", default = NULL, help = "Count matrix path"),
-  make_option(c("--mode"), type = "character", default = "exon", help = "CDS or exon")
+  make_option(c("--gtf"), type = "character", default = NULL,
+              help = "Path to filtered GTF file"),
+  make_option(c("--counts"), type = "character", default = NULL,
+              help = "Path to transcript count matrix"),
+  make_option(c("--sample_metadata"), type = "character", default = NULL,
+              help = "Path to sample metadata file"),
+  make_option(c("--basename"), type = "character", default = NULL,
+              help = "Output base name"),
+  make_option(c("--output_dir"), type = "character", default = NULL,
+              help = "Output directory for results"),
+  make_option(c("--mode"), type = "character", default = "exon",
+              help = "CDS or exon mode [default: %default]"),
+  make_option(c("--min_usage_ratio"), type = "double", default = 0.01,
+              help = "Minimum usage ratio for minicutter filtering [default: %default]")
 )
 
 opt <- parse_args(OptionParser(option_list = option_list))
 
-transcript_gtf <- opt$gtf
-count_file     <- opt$counts 
-mode           <- opt$mode
+required_args <- c("gtf", "counts", "sample_metadata", "basename", "output_dir")
+missing <- required_args[sapply(required_args, function(x) is.null(opt[[x]]))]
+if (length(missing) > 0) {
+  stop("Missing required arguments: ", paste0("--", missing, collapse = ", "))
+}
+
+transcript_gtf         <- opt$gtf
+count_file             <- opt$counts
+metadata_file_path     <- opt$sample_metadata
+basename               <- opt$basename
+leafcutter_analysis_dir <- opt$output_dir
+mode                   <- opt$mode
+min_usage_ratio        <- opt$min_usage_ratio
 
 stopifnot("Count file not found" = file.exists(count_file))
 stopifnot("GTF file not found" = file.exists(transcript_gtf))
@@ -288,7 +303,7 @@ minicutter = function(juncs, plot_summary = TRUE, min_usage_ratio = 0.01) {
   
   if(plot_summary){
     print("Printing summary of intron-cluster sizes = how many junctions across in clusters")
-    p = plot_cluster_sizes(juncs_filtered) + ggtitle("Post cluster refinemenet and removing lowly used junctions")
+    p = plot_cluster_sizes(juncs_filtered) + ggtitle("Post cluster refinement and removing lowly used junctions")
     print(p)
   }
   
@@ -326,7 +341,7 @@ lr_junctions_collapsed = lr_junctions %>%
   relocate(strand, .after = last_col())
 
 # Run minicutter and select non-constitutive junctions
-clusters = minicutter(juncs = lr_junctions_collapsed, plot_summary = TRUE, min_usage_ratio = 0.01)
+clusters = minicutter(juncs = lr_junctions_collapsed, plot_summary = TRUE, min_usage_ratio = min_usage_ratio)
 as_clusters = clusters %>% 
   select(chr = chrom, start, end, junc_id = name, cluster_idx, strand) %>%
   group_by(cluster_idx) %>%

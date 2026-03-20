@@ -309,7 +309,15 @@
                     "format": "file-path",
                     "exists": true,
                     "description": "Path to long-read leafcutter R script.",
-                    "help_text": "R script used for long-read leafcutter clustering and differential splicing analysis.",
+                    "help_text": "R script used for long-read leafcutter clustering analysis.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "leafcutter_ds_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to leafcutter differential splicing Python script.",
+                    "help_text": "Python script used for leafcutter differential splicing analysis (leafcutter_ds.py).",
                     "fa_icon": "far fa-file-code"
                 },
                 "multisample_script": {
@@ -319,6 +327,20 @@
                     "description": "Path to multi-sample analysis R script.",
                     "help_text": "R script used for differential expression and usage analysis with edgeR and DRIMSeq.",
                     "fa_icon": "far fa-file-code"
+                },
+                "drimseq_min_gene_expr": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Minimum gene-level expression for DRIMSeq filtering.",
+                    "help_text": "Genes with total counts below this threshold will be filtered out before differential usage analysis.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "drimseq_min_isoform_prop": {
+                    "type": "number",
+                    "default": 0.05,
+                    "description": "Minimum isoform/feature proportion for DRIMSeq filtering.",
+                    "help_text": "Isoforms/features with proportion below this threshold will be filtered out before differential usage analysis.",
+                    "fa_icon": "fas fa-percentage"
                 }
             }
         },

@@ -16,13 +16,16 @@ workflow MULTISAMPLE_ANALYSIS {
     ch_transcripts              // channel: [meta, filtered_gtf, transcript_counts]
     ch_orfs                     // channel: [meta, orf_counts]
     sample_metadata             // path: sample metadata CSV
-    lr_leafcutter_script        // path: R script for leafcutter
+    lr_leafcutter_script        // path: R script for leafcutter clustering
+    leafcutter_ds_script        // path: Python script for leafcutter differential splicing
     multisample_script          // path: R script for multisample analysis
     control_group               // val: control group name
     experimental_group          // val: experimental group name
     min_samples_per_intron      // val: minimum samples per intron
     min_samples_per_group       // val: minimum samples per group
     min_usage_ratio             // val: minimum usage ratio
+    drimseq_min_gene_expr       // val: minimum gene expression for DRIMSeq
+    drimseq_min_isoform_prop    // val: minimum isoform proportion for DRIMSeq
 
     main:
     ch_versions = channel.empty()
@@ -34,6 +37,7 @@ workflow MULTISAMPLE_ANALYSIS {
         ch_transcripts,
         sample_metadata,
         lr_leafcutter_script,
+        leafcutter_ds_script,
         control_group,
         min_samples_per_intron,
         min_samples_per_group,
@@ -54,7 +58,9 @@ workflow MULTISAMPLE_ANALYSIS {
         sample_metadata,
         multisample_script,
         control_group,
-        experimental_group
+        experimental_group,
+        drimseq_min_gene_expr,
+        drimseq_min_isoform_prop
     )
     ch_versions = ch_versions.mix(DIFFERENTIAL_EXPRESSION.out.versions)
 
