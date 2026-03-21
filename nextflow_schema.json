@@ -271,20 +271,8 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Enable multi-sample differential analysis subworkflow.",
-                    "help_text": "When enabled, runs differential splicing (leafcutter) and differential expression/usage analyses (edgeR/DRIMSeq).",
+                    "help_text": "When enabled, runs differential splicing (leafcutter) and differential expression/usage analyses (edgeR/DRIMSeq) for all pairwise comparisons between unique conditions in the samplesheet.",
                     "fa_icon": "fas fa-play"
-                },
-                "control_group": {
-                    "type": "string",
-                    "description": "Control/reference group name from sample metadata.",
-                    "help_text": "Name of the control group in the 'condition' or 'group' column of your samplesheet. Required if run_differential_analysis is enabled.",
-                    "fa_icon": "fas fa-check-circle"
-                },
-                "experimental_group": {
-                    "type": "string",
-                    "description": "Experimental/treatment group name from sample metadata.",
-                    "help_text": "Name of the experimental group in the 'condition' or 'group' column of your samplesheet. Required if run_differential_analysis is enabled.",
-                    "fa_icon": "fas fa-flask"
                 },
                 "min_samples_per_intron": {
                     "type": "integer",

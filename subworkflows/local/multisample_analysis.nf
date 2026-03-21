@@ -19,8 +19,6 @@ workflow MULTISAMPLE_ANALYSIS {
     lr_leafcutter_script        // path: R script for leafcutter clustering
     leafcutter_ds_script        // path: Python script for leafcutter differential splicing
     multisample_script          // path: R script for multisample analysis
-    control_group               // val: control group name
-    experimental_group          // val: experimental group name
     min_samples_per_intron      // val: minimum samples per intron
     min_samples_per_group       // val: minimum samples per group
     min_usage_ratio             // val: minimum usage ratio
@@ -30,15 +28,58 @@ workflow MULTISAMPLE_ANALYSIS {
     main:
     ch_versions = channel.empty()
 
+    // Parse metadata to generate all pairwise comparisons
+    def metadata_file = sample_metadata instanceof java.nio.file.Path ? sample_metadata.toFile() : new File(sample_metadata.toString())
+    def metadata_content = metadata_file.text
+    def lines = metadata_content.split('\n')
+    def header_parts = lines[0].split(',')
+    def group_idx = header_parts.findIndexOf { it.trim() == 'group' }
+
+    // Collect unique conditions
+    def unique_conditions = [] as Set
+    lines.drop(1).each { line ->
+        if (line.trim()) {
+            def parts = line.split(',')
+            if (parts.size() > group_idx) {
+                unique_conditions.add(parts[group_idx].trim())
+            }
+        }
+    }
+
+    // Generate all pairwise combinations
+    def condition_pairs = []
+    def conditions_list = unique_conditions.toList().sort()
+    conditions_list.eachWithIndex { cond1, i ->
+        conditions_list.eachWithIndex { cond2, j ->
+            if (j > i) {
+                condition_pairs << [cond1, cond2]
+            }
+        }
+    }
+
+    // Create channel from condition pairs
+    ch_comparison_pairs = channel.fromList(condition_pairs)
+        .map { pair ->
+            [pair[0], pair[1], "${pair[0]}_vs_${pair[1]}"]
+        }
+
+    // Replicate transcripts for each comparison
+    ch_transcripts_for_comparisons = ch_transcripts
+        .map { meta, gtf, counts -> [gtf, counts] }
+        .combine(ch_comparison_pairs)
+        .map { gtf, counts, control, experimental, comparison_id ->
+            [[id: comparison_id], gtf, counts, control]
+        }
+
     //
-    // MODULE: Run long-read leafcutter clustering and differential splicing
+    // MODULE: Run long-read leafcutter clustering and differential splicing for each comparison
     //
     LEAFCUTTER_LONGREAD (
-        ch_transcripts,
+        ch_transcripts_for_comparisons.map { meta, gtf, counts, control -> [meta, gtf, counts] },
         sample_metadata,
         lr_leafcutter_script,
         leafcutter_ds_script,
-        control_group,
+        ch_transcripts_for_comparisons.map { meta, gtf, counts, control -> control },
         min_samples_per_intron,
         min_samples_per_group,
         min_usage_ratio
@@ -46,19 +87,33 @@ workflow MULTISAMPLE_ANALYSIS {
     ch_versions = ch_versions.mix(LEAFCUTTER_LONGREAD.out.versions)
 
     //
-    // MODULE: Run differential expression and usage analysis
+    // MODULE: Run differential expression and usage analysis for each comparison
     //
-    // Join transcript and ORF counts by meta
-    ch_counts = ch_transcripts
-        .map { meta, gtf, counts -> [meta, counts] }
-        .join(ch_orfs, by: 0)
+    // Replicate ORFs for each comparison
+    ch_orfs_for_comparisons = ch_orfs
+        .map { meta, orf_counts -> orf_counts }
+        .combine(ch_comparison_pairs)
+        .map { orf_counts, control, experimental, comparison_id ->
+            [[id: comparison_id], orf_counts, control, experimental]
+        }
+
+    // Combine transcript counts with ORF counts for each comparison
+    ch_counts_for_comparisons = ch_transcripts_for_comparisons
+        .map { meta, gtf, counts, control -> [meta.id, meta, counts, control] }
+        .join(
+            ch_orfs_for_comparisons.map { meta, orf_counts, control, experimental -> [meta.id, orf_counts, experimental] },
+            by: 0
+        )
+        .map { comparison_id, meta, transcript_counts, control, orf_counts, experimental ->
+            [meta, transcript_counts, orf_counts, control, experimental]
+        }
 
     DIFFERENTIAL_EXPRESSION (
-        ch_counts,
+        ch_counts_for_comparisons.map { meta, transcript_counts, orf_counts, control, experimental -> [meta, transcript_counts, orf_counts] },
         sample_metadata,
         multisample_script,
-        control_group,
-        experimental_group,
+        ch_counts_for_comparisons.map { meta, transcript_counts, orf_counts, control, experimental -> control },
+        ch_counts_for_comparisons.map { meta, transcript_counts, orf_counts, control, experimental -> experimental },
         drimseq_min_gene_expr,
         drimseq_min_isoform_prop
     )

@@ -377,6 +377,7 @@ workflow LRP2 {
          ch_orfs = PREDICTED_PROTEOME.out.hashids_orf
 
          // Create RNA-only metadata file by filtering the original samplesheet
+         def rna_metadata_file = file("${workDir}/rna_samples_metadata.csv")
          def metadata_content = file(sample_metadata_file).text
          def lines = metadata_content.split('\n')
          def header_parts = lines[0].split(',')
@@ -398,7 +399,6 @@ workflow LRP2 {
                  }
              }
          }
-         def rna_metadata_file = file("${workDir}/rna_samples_metadata.csv")
          rna_metadata_file.text = rna_metadata_lines.join('\n') + '\n'
 
          MULTISAMPLE_ANALYSIS (
@@ -408,8 +408,6 @@ workflow LRP2 {
              file(params.lr_leafcutter_script),
              file(params.leafcutter_ds_script),
              file(params.multisample_script),
-             params.control_group,
-             params.experimental_group,
              params.min_samples_per_intron,
              params.min_samples_per_group,
              params.min_usage_ratio,
