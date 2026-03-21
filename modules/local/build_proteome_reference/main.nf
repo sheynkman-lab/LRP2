@@ -1,6 +1,6 @@
 process BUILD_PROTEOME_REFERENCE {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_single'
 
     conda "${moduleDir}/environment.yml"
     container "docker://docker.io/jtllab/lrp2-lite:latest"

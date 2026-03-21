@@ -1,6 +1,6 @@
 process NOVEL_PEPTIDES {
     tag "$meta.id"
-    label 'process_medium'
+    label 'process_low'
 
     conda "${moduleDir}/environment.yml"
     container "docker://docker.io/jtllab/lrp2-lite:latest"
