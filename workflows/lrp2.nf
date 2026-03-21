@@ -381,17 +381,43 @@ workflow LRP2 {
          // Prepare ORF counts channel
          ch_orfs = PREDICTED_PROTEOME.out.hashids_orf
 
+         // Create RNA-only metadata file by filtering the original samplesheet
+         def rna_metadata_file = file("${workDir}/rna_samples_metadata.csv")
+         def metadata_content = file(sample_metadata_file).text
+         def lines = metadata_content.split('\n')
+         def header_parts = lines[0].split(',')
+         def sample_name_idx = header_parts.findIndexOf { it.trim() == 'sample_name' }
+         def sample_path_idx = header_parts.findIndexOf { it.trim() == 'sample_path' }
+         def condition_idx = header_parts.findIndexOf { it.trim() == 'condition' }
+         def sample_type_idx = header_parts.findIndexOf { it.trim() == 'sample_type' }
+
+         // Filter to RNA samples and create new CSV with 'name' and 'group' columns
+         def rna_metadata_lines = ['name,sample_path,group,sample_type']
+         lines.drop(1).each { line ->
+             if (line.trim()) {
+                 def parts = line.split(',')
+                 if (parts.size() > sample_type_idx && parts[sample_type_idx].trim().toLowerCase() == 'rna') {
+                     def name = parts[sample_name_idx].trim()
+                     def path = parts[sample_path_idx].trim()
+                     def group = parts[condition_idx].trim()
+                     rna_metadata_lines << "${name},${path},${group},RNA"
+                 }
+             }
+         }
+         rna_metadata_file.text = rna_metadata_lines.join('\n') + '\n'
+
          MULTISAMPLE_ANALYSIS (
              ch_transcripts,
              ch_orfs,
-             file(sample_metadata_file),
+             rna_metadata_file,
              file(params.lr_leafcutter_script),
+             file(params.leafcutter_ds_script),
              file(params.multisample_script),
-             params.control_group,
-             params.experimental_group,
              params.min_samples_per_intron,
              params.min_samples_per_group,
-             params.min_usage_ratio
+             params.min_usage_ratio,
+             params.drimseq_min_gene_expr,
+             params.drimseq_min_isoform_prop
          )
          ch_versions = ch_versions.mix(MULTISAMPLE_ANALYSIS.out.versions)
      }
