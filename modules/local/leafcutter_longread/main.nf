@@ -1,6 +1,6 @@
 process LEAFCUTTER_LONGREAD {
     tag "$meta.id"
-    label 'process_low'
+    label 'process_high'
 
     conda "${moduleDir}/environment.yml"
     container "docker://docker.io/jtllab/lrp2-lite:latest"
@@ -32,7 +32,7 @@ process LEAFCUTTER_LONGREAD {
 
     script:
     def args = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${control_group}_${experimental_group}"
+    def prefix = task.ext.prefix ?: "${meta.id}"
     def min_samp_intron = min_samples_per_intron ?: 2
     def min_samp_group = min_samples_per_group ?: 2
     def usage_ratio = min_usage_ratio ?: 0.01
@@ -82,14 +82,11 @@ process LEAFCUTTER_LONGREAD {
     "${task.process}":
         r-base: \$(R --version | grep "R version" | sed 's/.*R version //g' | sed 's/ .*//g')
         python: \$(python3 --version | sed 's/Python //g')
-        numpy: \$(python -c "import numpy; print(numpy.__version__)")
-        scipy: \$(python -c "import scipy; print(scipy.__version__)")
-        pandas: \$(python -c "import pandas; print(pandas.__version__)")
     END_VERSIONS
     """
 
     stub:
-    def prefix = task.ext.prefix ?: "${control_group}_${experimental_group}"
+    def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}_transcriptome_corrected_filtered.psl
     touch ${prefix}_transcriptome_corrected_filtered_intron_coords.txt

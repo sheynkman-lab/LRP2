@@ -34,8 +34,6 @@ workflow MULTISAMPLE_ANALYSIS {
     def lines = metadata_content.split('\n')
     def header_parts = lines[0].split(',')
     def group_idx = header_parts.findIndexOf { it.trim() == 'group' }
-
-    // Collect unique conditions
     def unique_conditions = [] as Set
     lines.drop(1).each { line ->
         if (line.trim()) {
@@ -46,7 +44,6 @@ workflow MULTISAMPLE_ANALYSIS {
         }
     }
 
-    // Generate all pairwise combinations
     def condition_pairs = []
     def conditions_list = unique_conditions.toList().sort()
     conditions_list.eachWithIndex { cond1, i ->
@@ -57,13 +54,11 @@ workflow MULTISAMPLE_ANALYSIS {
         }
     }
 
-    // Create channel from condition pairs
     ch_comparison_pairs = channel.fromList(condition_pairs)
         .map { pair ->
             [pair[0], pair[1], "${pair[0]}_vs_${pair[1]}"]
         }
 
-    // Replicate transcripts for each comparison
     ch_transcripts_for_comparisons = ch_transcripts
         .map { meta, gtf, counts -> [gtf, counts] }
         .combine(ch_comparison_pairs)
@@ -89,7 +84,6 @@ workflow MULTISAMPLE_ANALYSIS {
     //
     // MODULE: Run differential expression and usage analysis for each comparison
     //
-    // Replicate ORFs for each comparison
     ch_orfs_for_comparisons = ch_orfs
         .map { meta, orf_counts -> orf_counts }
         .combine(ch_comparison_pairs)
@@ -97,7 +91,6 @@ workflow MULTISAMPLE_ANALYSIS {
             [[id: comparison_id], orf_counts, control, experimental]
         }
 
-    // Combine transcript counts with ORF counts for each comparison
     ch_counts_for_comparisons = ch_transcripts_for_comparisons
         .map { meta, gtf, counts, control -> [meta.id, meta, counts, control] }
         .join(

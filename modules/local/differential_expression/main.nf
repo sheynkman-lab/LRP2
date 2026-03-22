@@ -1,6 +1,6 @@
 process DIFFERENTIAL_EXPRESSION {
     tag "$meta.id"
-    label 'process_low'
+    label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
     container "docker://docker.io/jtllab/lrp2-lite:latest"
@@ -36,7 +36,9 @@ process DIFFERENTIAL_EXPRESSION {
 
     script:
     def args = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${control_group}_${experimental_group}"
+    def prefix = task.ext.prefix ?: "${meta.id}"
+    def drimseq_gene_expr = drimseq_min_gene_expr ?: 10
+    def drimseq_isoform_prop = drimseq_min_isoform_prop ?: 0.05
 
     """
     # Output subdirectories for organizing results
@@ -57,8 +59,8 @@ process DIFFERENTIAL_EXPRESSION {
         --sample_metadata ${sample_metadata} \\
         --control_group ${control_group} \\
         --experimental_group ${experimental_group} \\
-        --drimseq_min_gene_expr ${drimseq_min_gene_expr} \\
-        --drimseq_min_isoform_prop ${drimseq_min_isoform_prop} \\
+        --drimseq_min_gene_expr ${drimseq_gene_expr} \\
+        --drimseq_min_isoform_prop ${drimseq_isoform_prop} \\
         --output_dir multisample_analysis \\
         --threads ${task.cpus} \\
         $args
@@ -78,7 +80,7 @@ process DIFFERENTIAL_EXPRESSION {
     """
 
     stub:
-    def prefix = task.ext.prefix ?: "${control_group}_${experimental_group}"
+    def prefix = task.ext.prefix ?: "${meta.id}"
     """
     mkdir -p differential_gene_expression
     mkdir -p differential_transcript_expression

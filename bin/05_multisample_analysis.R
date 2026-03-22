@@ -164,12 +164,12 @@ sample_names   = sample_metadata$name
 
 cat("Running gene-level differential expression analysis...\n")
 
-# Aggregate transcripts to genes using ensg_gene_id
+# Aggregate transcripts to genes using reference_gene_id
 counts_gene_matrix = counts_raw %>%
-  select(ensg_gene_id, all_of(count_cols)) %>%
-  group_by(ensg_gene_id) %>%
+  select(reference_gene_id, all_of(count_cols)) %>%
+  group_by(reference_gene_id) %>%
   summarise(across(everything(), sum)) %>%
-  column_to_rownames("ensg_gene_id") %>%
+  column_to_rownames("reference_gene_id") %>%
   as.data.frame()
 
 # Create DGEList object
@@ -196,26 +196,26 @@ print(summary(decideTests(result_dge)))
 
 # Save results- combine with gene ids and cpm results
 gene_cpms = counts_raw %>%
-  select(ensg_gene_id, gene_name, all_of(cpm_cols)) %>%
-  group_by(ensg_gene_id, gene_name) %>%
+  select(reference_gene_id, gene_name, all_of(cpm_cols)) %>%
+  group_by(reference_gene_id, gene_name) %>%
   summarise(across(everything(), sum)) %>%
   ungroup() %>%
   distinct()
 
 dge_results %>%
-  rownames_to_column("ensg_gene_id") %>%
+  rownames_to_column("reference_gene_id") %>%
   left_join(gene_cpms) %>%
   write_tsv(file.path(multisample_analysis_dir, paste0(basename, "_DGE_edgeR_results.txt")))
 
 cpm(dge_raw) %>%
   as.data.frame() %>%
-  rownames_to_column("ensg_gene_id") %>%
+  rownames_to_column("reference_gene_id") %>%
   left_join(gene_cpms) %>%
   write_tsv(file.path(multisample_analysis_dir, paste0(basename, "_DGE_edgeR_raw_CPM_matrix.txt")))
 
 cpm(dge) %>%
   as.data.frame() %>%
-  rownames_to_column("ensg_gene_id") %>%
+  rownames_to_column("reference_gene_id") %>%
   left_join(gene_cpms) %>%
   write_tsv(file.path(multisample_analysis_dir, paste0(basename, "_DGE_edgeR_normalized_CPM_matrix.txt")))
 
@@ -260,7 +260,7 @@ print(summary(decideTests(result_dte)))
 
 # Save results
 transcript_cpms = counts_raw %>%
-  select(isoform_id, hash_id, ensg_gene_id, gene_name, enst_transcript_id, any_of("transcript_name"), all_of(cpm_cols)) %>%
+  select(isoform_id, hash_id, reference_gene_id, gene_name, reference_transcript_id, any_of("transcript_name"), all_of(cpm_cols)) %>%
   distinct()
 
 dte_results %>%
@@ -357,7 +357,7 @@ dev.off()
 cat("Running differential transcript usage analysis with DRIMSeq...\n")
 
 counts_drimseq = counts_raw %>%
-  select(gene_id = ensg_gene_id,      # DRIMSeq needs this named "gene_id"
+  select(gene_id = reference_gene_id,      # DRIMSeq needs this named "gene_id"
          feature_id = isoform_id,     # DRIMSeq needs this named "feature_id"
          all_of(count_cols)) %>%
   rename_with(~ sub("_counts$", "", .), .cols = all_of(count_cols))
@@ -419,7 +419,7 @@ dtu_tx_results = results(d, level = "feature") %>%
 
 # Get proportions from DRIMSeq and calculate means and deltas
 transript_usage_table = transcript_cpms %>% 
-  group_by(ensg_gene_id, gene_name) %>%
+  group_by(reference_gene_id, gene_name) %>%
   mutate(across(ends_with("_cpm"), 
                 ~ . / sum(., na.rm = TRUE),
                 .names = "{.col}_prop")) %>%
@@ -445,8 +445,8 @@ group_props = props_long %>%
 dtu_summary = dtu_tx_results %>%
   left_join(dtu_gene_results, by = "gene_id") %>%
   left_join(group_props, by = c("gene_id", "isoform_id" = "feature_id")) %>%
-  left_join(transript_usage_table, by = c("gene_id" = "ensg_gene_id", "isoform_id")) %>%
-  select(isoform_id, enst_transcript_id, any_of("transcript_name"), hash_id, lr_transcript, pvalue_transcript, adj_pvalue_transcript, ends_with("_cpm"), ends_with("_prop"), starts_with("group_prop_"), delta_proportion,
+  left_join(transript_usage_table, by = c("gene_id" = "reference_gene_id", "isoform_id")) %>%
+  select(isoform_id, reference_transcript_id, any_of("transcript_name"), hash_id, lr_transcript, pvalue_transcript, adj_pvalue_transcript, ends_with("_cpm"), ends_with("_prop"), starts_with("group_prop_"), delta_proportion,
          gene_id, gene_name, lr_gene, df_gene, pvalue_gene, adj_pvalue_gene)
 # Summary
 cat(sprintf("Genes with DTU (adj_pvalue < 0.05): %d\n", 
