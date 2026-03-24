@@ -63,18 +63,26 @@ workflow MULTISAMPLE_ANALYSIS {
         .map { meta, gtf, counts -> [gtf, counts] }
         .combine(ch_comparison_pairs)
         .map { gtf, counts, control, experimental, comparison_id ->
-            [[id: comparison_id], gtf, counts, control]
+            [[id: comparison_id], gtf, counts, control, experimental]
+        }
+
+    ch_transcripts_comparisons_split = ch_transcripts_for_comparisons
+        .multiMap { meta, gtf, counts, control, experimental ->
+            data: [meta, gtf, counts]
+            control: control
+            experimental: experimental
         }
 
     //
     // MODULE: Run long-read leafcutter clustering and differential splicing for each comparison
     //
     LEAFCUTTER_LONGREAD (
-        ch_transcripts_for_comparisons.map { meta, gtf, counts, control -> [meta, gtf, counts] },
+        ch_transcripts_comparisons_split.data,
         sample_metadata,
         lr_leafcutter_script,
         leafcutter_ds_script,
-        ch_transcripts_for_comparisons.map { meta, gtf, counts, control -> control },
+        ch_transcripts_comparisons_split.control,
+        ch_transcripts_comparisons_split.experimental,
         min_samples_per_intron,
         min_samples_per_group,
         min_usage_ratio
@@ -92,21 +100,28 @@ workflow MULTISAMPLE_ANALYSIS {
         }
 
     ch_counts_for_comparisons = ch_transcripts_for_comparisons
-        .map { meta, gtf, counts, control -> [meta.id, meta, counts, control] }
+        .map { meta, gtf, counts, control, experimental -> [meta.id, meta, counts, control, experimental] }
         .join(
-            ch_orfs_for_comparisons.map { meta, orf_counts, control, experimental -> [meta.id, orf_counts, experimental] },
+            ch_orfs_for_comparisons.map { meta, orf_counts, control, experimental -> [meta.id, orf_counts] },
             by: 0
         )
-        .map { comparison_id, meta, transcript_counts, control, orf_counts, experimental ->
+        .map { comparison_id, meta, transcript_counts, control, experimental, orf_counts ->
             [meta, transcript_counts, orf_counts, control, experimental]
         }
 
+    ch_counts_comparisons_split = ch_counts_for_comparisons
+        .multiMap { meta, transcript_counts, orf_counts, control, experimental ->
+            data: [meta, transcript_counts, orf_counts]
+            control: control
+            experimental: experimental
+        }
+
     DIFFERENTIAL_EXPRESSION (
-        ch_counts_for_comparisons.map { meta, transcript_counts, orf_counts, control, experimental -> [meta, transcript_counts, orf_counts] },
+        ch_counts_comparisons_split.data,
         sample_metadata,
         multisample_script,
-        ch_counts_for_comparisons.map { meta, transcript_counts, orf_counts, control, experimental -> control },
-        ch_counts_for_comparisons.map { meta, transcript_counts, orf_counts, control, experimental -> experimental },
+        ch_counts_comparisons_split.control,
+        ch_counts_comparisons_split.experimental,
         drimseq_min_gene_expr,
         drimseq_min_isoform_prop
     )

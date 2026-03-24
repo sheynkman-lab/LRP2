@@ -3,7 +3,7 @@ process LEAFCUTTER_LONGREAD {
     label 'process_high'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/jtllab/lrp2-lite:latest"
+    container "docker://docker.io/jtllab/leafcutter-longread:latest"
 
     input:
     tuple val(meta), path(filtered_gtf), path(transcript_counts)
@@ -11,6 +11,7 @@ process LEAFCUTTER_LONGREAD {
     path lr_leafcutter_script
     path leafcutter_ds_script
     val control_group
+    val experimental_group
     val min_samples_per_intron
     val min_samples_per_group
     val min_usage_ratio
@@ -59,23 +60,34 @@ process LEAFCUTTER_LONGREAD {
     mv multisample_analysis/lr_leafcutter/* . 2>/dev/null || true
 
     # Run differential splicing if script is provided
-    # Note: leafcutter_ds.py requires the 'leafcutter' Python package which should be
-    # available in the PYTHONPATH from the bin directory
+    # Note: leafcutter_ds.py requires the 'leafcutter' Python package which should be available in the PYTHONPATH from the bin directory
     if [ -f "${leafcutter_ds_script}" ]; then
-        # Add bin directory to Python path so leafcutter package can be imported
-        export PYTHONPATH=\$(dirname ${leafcutter_ds_script}):\${PYTHONPATH:-}
+    
+        # Filter groups file to only include samples from the two groups being compared since leafcutter_ds.py only supports pairwise comparisons
+        awk -v ctrl="${control_group}" -v exper="${experimental_group}" '\$2 == ctrl || \$2 == exper' ${prefix}_groups_file.txt > ${prefix}_groups_file_filtered.txt
+        n_control=\$(awk -v ctrl="${control_group}" '\$2 == ctrl' ${prefix}_groups_file_filtered.txt | wc -l)
+        n_experimental=\$(awk -v exper="${experimental_group}" '\$2 == exper' ${prefix}_groups_file_filtered.txt | wc -l)
 
-        python ${leafcutter_ds_script} \\
-            -0 ${control_group} \\
-            --min_samples_per_intron ${min_samp_intron} \\
-            --min_samples_per_group ${min_samp_group} \\
-            --num_threads ${task.cpus} \\
-            -o ${prefix} \\
-            ${prefix}_lr_leafcutter_perind_numers.counts.gz \\
-            ${prefix}_groups_file.txt || echo "WARNING: Leafcutter differential splicing failed"
+        if [ \$n_control -ge ${min_samp_group} ] && [ \$n_experimental -ge ${min_samp_group} ]; then
+
+            export PYTHONPATH=\$(dirname ${leafcutter_ds_script}):\${PYTHONPATH:-}
+            python ${leafcutter_ds_script} \\
+                -0 ${control_group} \\
+                --min_samples_per_intron ${min_samp_intron} \\
+                --min_samples_per_group ${min_samp_group} \\
+                --num_threads ${task.cpus} \\
+                -o ${prefix} \\
+                ${prefix}_lr_leafcutter_perind_numers.counts.gz \\
+                ${prefix}_groups_file_filtered.txt || echo "WARNING: Leafcutter differential splicing failed"
+        else
+            echo "WARNING: Insufficient number of samples for differential splicing analysis! "
+            echo "         leafcutter-longread requires at least ${min_samp_group} samples per group."
+            echo "         Found only \$n_control ${control_group} and \$n_experimental ${experimental_group} samples. 
+            echo "         Please adjust your sample groups or reduce the minimum samples per group threshold to run differential splicing analysis."
+        fi
     else
-        echo "NOTE: Leafcutter differential splicing script not provided - skipping DS analysis"
-        echo "      Clustering outputs (PSL, coords, subisoform counts) are still available"
+        echo "NOTE: Leafcutter differential splicing script not provided - skipping DS analysis."
+        echo "      Clustering outputs (PSL, coords, subisoform counts) will still be generated."
     fi
 
     cat <<-END_VERSIONS > versions.yml
