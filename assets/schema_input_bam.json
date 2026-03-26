@@ -16,8 +16,8 @@
             "sample_path": {
                 "type": "string",
                 "format": "file-path",
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(bam|raw|mzML|mzml|fasta)$",
-                "errorMessage": "Sample file must be provided, cannot contain spaces and must have extension '.bam', '.raw', '.mzML', '.mzml', or '.fasta' (for testing)"
+                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.(bam|fastq|fastq\\.gz|fq|fq\\.gz|raw|mzML|mzml|fasta)$",
+                "errorMessage": "Sample file must be provided, cannot contain spaces and must have extension '.bam', '.fastq', '.fastq.gz', '.fq', '.fq.gz', '.raw', '.mzML', '.mzml', or '.fasta' (for testing)"
             },
             "condition": {
                 "type": "string",
