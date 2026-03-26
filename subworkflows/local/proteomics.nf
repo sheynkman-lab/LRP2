@@ -69,13 +69,14 @@ workflow PROTEOMICS {
         .mix(ch_ms_branched.mzml)
 
     //
-    // Group mzML files by sample (meta.id) for multi-file samples
+    // fix: group mzML files by sample_name, not meta (different per file since different filename)
     //
     ch_mzml_grouped = ch_mzml_files
+        .map { meta, file -> [meta.sample_name, meta, file] }
         .groupTuple(by: 0)
-        .map { meta, files ->
-            // Keep files as list (FragPipe module handles both single and multiple files)
-            [meta, files]
+        .map { sample_name, metas, files ->
+            def grouped_meta = metas[0]
+            return [grouped_meta, files]
         }
 
     //
