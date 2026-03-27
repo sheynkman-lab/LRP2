@@ -305,13 +305,14 @@ workflow LRP2 {
         // Build proteome references per sample group
         // Prepare input channel for BUILD_PROTEOME_REFERENCE
         ch_build_ref_input = ch_protein_samples_grouped
-            .map { meta, _files ->
-                [meta, meta]  // Just pass meta for now
-            }
             .combine(ch_predicted_proteome_fasta)
             .combine(ch_transcript_counts)
-            .map { meta, _meta2, lrp_fasta, counts ->
-                return [meta, lrp_fasta, counts]
+            .combine(ch_protein_fasta)
+            .map { meta, _files, lrp_fasta, counts, gencode_fasta ->
+                // If lrp_fasta or counts are NO_FILE placeholders, create unique ones per sample to avoid Nextflow staging collisions when multiple samples use the same placeholder
+                def unique_lrp_fasta = lrp_fasta.name == 'NO_FILE' ? file("${meta.id}_NO_LRP_FASTA") : lrp_fasta
+                def unique_counts = counts.name == 'NO_FILE' ? file("${meta.id}_NO_COUNTS") : counts
+                return [meta, unique_lrp_fasta, unique_counts, gencode_fasta]
             }
 
         // Script path for build_mass_spec_reference.R
