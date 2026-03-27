@@ -6,7 +6,7 @@ process BUILD_PROTEOME_REFERENCE {
     container "docker://docker.io/jtllab/lrp2-lite:latest"
 
     input:
-    tuple val(meta), path(lrp_fasta), path(counts)
+    tuple val(meta), path(lrp_fasta), path(counts), path(gencode_fasta)
     path build_proteome_reference_script
     val genome_name
     val no_gencode
@@ -22,14 +22,17 @@ process BUILD_PROTEOME_REFERENCE {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
-    def lrp_fasta_arg = lrp_fasta.name != 'NO_FILE' ? "--lrp_fasta ${lrp_fasta}" : ""
-    def counts_arg = counts.name != 'NO_FILE' ? "--counts ${counts}" : ""
+    // Handle both generic NO_FILE and sample-specific placeholder names (e.g., sample1_NO_LRP_FASTA)
+    def lrp_fasta_arg = (lrp_fasta.name != 'NO_FILE' && !lrp_fasta.name.contains('_NO_LRP_FASTA')) ? "--lrp_fasta ${lrp_fasta}" : ""
+    def counts_arg = (counts.name != 'NO_FILE' && !counts.name.contains('_NO_COUNTS')) ? "--counts ${counts}" : ""
+    def gencode_fasta_arg = "--gencode_fasta ${gencode_fasta}"
     def gencode_flag = no_gencode ? "--no_gencode" : ""
 
     """
     Rscript ${build_proteome_reference_script} \\
         ${lrp_fasta_arg} \\
         ${counts_arg} \\
+        ${gencode_fasta_arg} \\
         --genome_name ${genome_name} \\
         ${gencode_flag} \\
         --sample_name ${prefix} \\
