@@ -54,6 +54,8 @@ option_list <- list(
               help = "Path to lrp pipeline protein FASTA"),
   make_option(c("--custom_fasta"), type = "character", default = NULL,
               help = "Path to user provided protein FASTA."),
+  make_option(c("--gencode_fasta"), type = "character", default = NULL,
+              help = "Path to GENCODE protein FASTA (will download if not provided)"),
   make_option(c("--genome_name"), type = "character", default = NULL,
               help = "Genome name (e.g., GRCh38.p14.v49) for file naming and GENCODE version extraction"),
   make_option(c("--no_gencode"), action = "store_true", default = FALSE,
@@ -126,15 +128,21 @@ combined_ref = tibble()
 
 # GENCODE (included by default unless --no_gencode)
 if (!opt$no_gencode) {
-  
-  gencode_url  = paste0("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_", opt$gencode_version, "/gencode.v", opt$gencode_version, ".pc_translations.fa.gz")
-  gencode_path = file.path(opt$outdir, basename(gencode_url))
-  
-  if (!file.exists(gencode_path)) {
-    cat("Downloading GENCODE v", opt$gencode_version, " protein FASTA...\n")
-    download.file(gencode_url, gencode_path, mode = "wb")
+
+  # Use provided GENCODE FASTA if available, otherwise download
+  if (!is.null(opt$gencode_fasta) && file.exists(opt$gencode_fasta)) {
+    cat("Using provided GENCODE protein FASTA:", opt$gencode_fasta, "\n")
+    gencode_path = opt$gencode_fasta
+  } else {
+    gencode_url  = paste0("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_", opt$gencode_version, "/gencode.v", opt$gencode_version, ".pc_translations.fa.gz")
+    gencode_path = file.path(opt$outdir, basename(gencode_url))
+
+    if (!file.exists(gencode_path)) {
+      cat("Downloading GENCODE v", opt$gencode_version, " protein FASTA...\n")
+      download.file(gencode_url, gencode_path, mode = "wb")
+    }
   }
-  
+
   # Header: ENSP|ENST|ENSG|OTTHUMG|OTTHUMT|TXNAME|GENE|LENGTH
   gencode_raw = fasta_to_tibble(gencode_path)
   gencode_ref = gencode_raw %>%
