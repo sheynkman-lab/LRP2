@@ -12,8 +12,8 @@ process BUILD_PROTEOME_REFERENCE {
     val no_gencode
 
     output:
-    tuple val(meta), path("*_reference.fasta"), emit: reference_fasta
-    tuple val(meta), path("*_reference.tsv"), emit: reference_tsv
+    tuple val(meta), path("*.proteomics.reference.fasta"), emit: reference_fasta
+    tuple val(meta), path("*.proteomics.reference.tsv"), emit: reference_tsv
     path "versions.yml", emit: versions
 
     when:
@@ -49,8 +49,8 @@ process BUILD_PROTEOME_REFERENCE {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch ${prefix}_reference.fasta
-    touch ${prefix}_reference.tsv
+    touch test.proteomics.reference.fasta
+    touch test.proteomics.reference.tsv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

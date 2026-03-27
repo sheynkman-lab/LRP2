@@ -15,17 +15,18 @@ process LEAFCUTTER_LONGREAD {
     val min_samples_per_intron
     val min_samples_per_group
     val min_usage_ratio
+    val dataset_name
 
     output:
-    tuple val(meta), path("*_transcriptome_corrected_filtered.psl"), emit: psl
-    tuple val(meta), path("*_transcriptome_corrected_filtered_intron_coords.txt"), emit: intron_coords
-    tuple val(meta), path("*_transcriptome_corrected_filtered_exon_coords.txt"), emit: exon_coords
-    tuple val(meta), path("*_lr_leafcutter_subisoform_clusters.txt"), emit: subisoform_clusters
-    tuple val(meta), path("*_lr_leafcutter_perind_numers.counts.gz"), emit: counts_matrix
-    tuple val(meta), path("*_groups_file.txt"), emit: groups_file
-    tuple val(meta), path("Rplots.pdf"), emit: rplots, optional: true
-    tuple val(meta), path("*_cluster_significance.txt"), emit: cluster_significance, optional: true
-    tuple val(meta), path("*_effect_sizes.txt"), emit: effect_sizes, optional: true
+    tuple val(meta), path("*transcriptome.filtered.psl"), emit: psl
+    tuple val(meta), path("*transcriptome.filtered_intron_coords.txt"), emit: intron_coords
+    tuple val(meta), path("*transcriptome.filtered_exon_coords.txt"), emit: exon_coords
+    tuple val(meta), path("*.lr_leafcutter.subisoform_clusters.txt"), emit: subisoform_clusters
+    tuple val(meta), path("*.lr_leafcutter.perind_numers.counts.gz"), emit: counts_matrix
+    tuple val(meta), path("*.lr_leafcutter.groups_file.txt"), emit: groups_file
+    tuple val(meta), path("lr_leafcutter.Rplots.pdf"), emit: rplots, optional: true
+    tuple val(meta), path("*.lr_leafcutter.ds_cluster_significance.txt"), emit: cluster_significance, optional: true
+    tuple val(meta), path("*.lr_leafcutter.ds_effect_sizes.txt"), emit: effect_sizes, optional: true
     path "versions.yml", emit: versions
 
     when:
@@ -39,8 +40,7 @@ process LEAFCUTTER_LONGREAD {
     def usage_ratio = min_usage_ratio ?: 0.01
 
     """
-    mkdir -p multisample_analysis/lr_leafcutter
-
+    
     # Ensure R can find packages in the container
     export R_LIBS_USER=""
     export R_LIBS="/usr/local/lib/R/site-library:/usr/lib/R/site-library:/usr/lib/R/library"
@@ -51,22 +51,19 @@ process LEAFCUTTER_LONGREAD {
         --counts ${transcript_counts} \\
         --sample_metadata ${sample_metadata} \\
         --basename ${prefix} \\
-        --output_dir multisample_analysis/lr_leafcutter \\
+        --output_dir . \\
         --mode exon \\
         --min_usage_ratio ${usage_ratio} \\
         $args
-
-    # Move leafcutter outputs from subdirectory to work directory root so detected
-    mv multisample_analysis/lr_leafcutter/* . 2>/dev/null || true
 
     # Run differential splicing if script is provided
     # Note: leafcutter_ds.py requires the 'leafcutter' Python package which should be available in the PYTHONPATH from the bin directory
     if [ -f "${leafcutter_ds_script}" ]; then
     
         # Filter groups file to only include samples from the two groups being compared since leafcutter_ds.py only supports pairwise comparisons
-        awk -v ctrl="${control_group}" -v exper="${experimental_group}" '\$2 == ctrl || \$2 == exper' ${prefix}_groups_file.txt > ${prefix}_groups_file_filtered.txt
-        n_control=\$(awk -v ctrl="${control_group}" '\$2 == ctrl' ${prefix}_groups_file_filtered.txt | wc -l)
-        n_experimental=\$(awk -v exper="${experimental_group}" '\$2 == exper' ${prefix}_groups_file_filtered.txt | wc -l)
+        awk -v ctrl="${control_group}" -v exper="${experimental_group}" '\$2 == ctrl || \$2 == exper' ${prefix}.lr_leafcutter.groups_file.txt > ${prefix}.lr_leafcutter.filtered_groups_file.txt
+        n_control=\$(awk -v ctrl="${control_group}" '\$2 == ctrl' ${prefix}.lr_leafcutter.filtered_groups_file.txt | wc -l)
+        n_experimental=\$(awk -v exper="${experimental_group}" '\$2 == exper' ${prefix}.lr_leafcutter.filtered_groups_file.txt | wc -l)
 
         if [ \$n_control -ge ${min_samp_group} ] && [ \$n_experimental -ge ${min_samp_group} ]; then
 
@@ -77,12 +74,12 @@ process LEAFCUTTER_LONGREAD {
                 --min_samples_per_group ${min_samp_group} \\
                 --num_threads ${task.cpus} \\
                 -o ${prefix} \\
-                ${prefix}_lr_leafcutter_perind_numers.counts.gz \\
-                ${prefix}_groups_file_filtered.txt || echo "WARNING: Leafcutter differential splicing failed"
+                ${prefix}.lr_leafcutter.perind_numers.counts.gz \\
+                ${prefix}.lr_leafcutter.filtered_groups_file.txt || echo "WARNING: Leafcutter differential splicing failed"
         else
             echo "WARNING: Insufficient number of samples for differential splicing analysis! "
             echo "         leafcutter-longread requires at least ${min_samp_group} samples per group."
-            echo "         Found only \$n_control ${control_group} and \$n_experimental ${experimental_group} samples. 
+            echo "         Found only \$n_control ${control_group} and \$n_experimental ${experimental_group} samples." 
             echo "         Please adjust your sample groups or reduce the minimum samples per group threshold to run differential splicing analysis."
         fi
     else
@@ -100,15 +97,15 @@ process LEAFCUTTER_LONGREAD {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch ${prefix}_transcriptome_corrected_filtered.psl
-    touch ${prefix}_transcriptome_corrected_filtered_intron_coords.txt
-    touch ${prefix}_transcriptome_corrected_filtered_exon_coords.txt
-    touch ${prefix}_lr_leafcutter_subisoform_clusters.txt
-    touch ${prefix}_lr_leafcutter_perind_numers.counts.gz
-    touch ${prefix}_groups_file.txt
-    touch Rplots.pdf
-    touch ${prefix}_cluster_significance.txt
-    touch ${prefix}_effect_sizes.txt
+    touch ${dataset_name}.transcriptome.filtered.psl
+    touch ${dataset_name}.transcriptome.filtered_intron_coords.txt
+    touch ${dataset_name}.transcriptome.filtered_exon_coords.txt
+    touch ${prefix}.lr_leafcutter.subisoform_clusters.txt
+    touch ${prefix}.lr_leafcutter.perind_numers.counts.gz
+    touch ${prefix}.lr_leafcutter.groups_file.txt
+    touch lr_leafcutter.Rplots.pdf
+    touch ${prefix}.lr_leafcutter.ds_cluster_significance.txt
+    touch ${prefix}.lr_leafcutter.ds_effect_sizes.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

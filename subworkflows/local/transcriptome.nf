@@ -70,23 +70,26 @@ workflow TRANSCRIPTOME {
     classification          = SQANTI_QC.out.classification                    // [meta, *_classification.txt]
     corrected_gtf           = SQANTI_QC.out.corrected_gtf                     // [meta, *_corrected.gtf]
     corrected_fasta         = SQANTI_QC.out.corrected_fasta                   // [meta, *_corrected.fasta]
-    corrected_genepred      = SQANTI_QC.out.corrected_genepred                // [meta, *_corrected.genePred]
-    corrected_cds_gff       = SQANTI_QC.out.corrected_cds_gff                 // [meta, *_corrected.gtf.cds.gff]
-    isoforms_gtf            = SQANTI_QC.out.isoforms_gtf                      // [meta, *.isoforms.gtf]
+//    corrected_genepred      = SQANTI_QC.out.corrected_genepred                // [meta, *_corrected.genePred]
+//    corrected_cds_gff       = SQANTI_QC.out.corrected_cds_gff                 // [meta, *_corrected.gtf.cds.gff]
+//    isoforms_gtf            = SQANTI_QC.out.isoforms_gtf                      // [meta, *.isoforms.gtf]
     junctions               = SQANTI_QC.out.junctions                         // [meta, *_junctions.txt]
-    params                  = SQANTI_QC.out.params                            // [meta, *.params.txt]
-    refannotation_genepred  = SQANTI_QC.out.refannotation_genepred            // [meta, refAnnotation_*.genePred]
-
+//    params                  = SQANTI_QC.out.params                            // [meta, *.params.txt]
+//    refannotation_genepred  = SQANTI_QC.out.refannotation_genepred            // [meta, refAnnotation_*.genePred]
+    
+    // GENERATE_HASHIDS outputs
+    hashids_mapping         = GENERATE_HASHIDS.out.hashids_mapping               // [meta, *_transcriptome_hashids_mapping.txt]
+    
     // FILTER_TRANSCRIPTOME outputs
-    transcriptome_classification = FILTER_TRANSCRIPTOME.out.classification           // [meta, *_transcriptome_classification.txt]
+//    transcriptome_classification = FILTER_TRANSCRIPTOME.out.classification           // [meta, *_transcriptome_classification.txt]
     classification_filtered = FILTER_TRANSCRIPTOME.out.classification_filtered       // [meta, *_classification_filtered.txt]
-    transcriptome_corrected_gtf = FILTER_TRANSCRIPTOME.out.corrected_gtf             // [meta, *_transcriptome_corrected.gtf]
+//    transcriptome_corrected_gtf = FILTER_TRANSCRIPTOME.out.corrected_gtf             // [meta, *_transcriptome_corrected.gtf]
     corrected_gtf_filtered  = FILTER_TRANSCRIPTOME.out.corrected_gtf_filtered        // [meta, *_corrected_filtered.gtf]
     corrected_bed_filtered  = FILTER_TRANSCRIPTOME.out.corrected_bed_filtered        // [meta, *_corrected_filtered.bed]
-    transcriptome_corrected_fasta = FILTER_TRANSCRIPTOME.out.corrected_fasta         // [meta, *_transcriptome_corrected.fasta]
+//    transcriptome_corrected_fasta = FILTER_TRANSCRIPTOME.out.corrected_fasta         // [meta, *_transcriptome_corrected.fasta]
     corrected_fasta_filtered= FILTER_TRANSCRIPTOME.out.corrected_fasta_filtered      // [meta, *_corrected_filtered.fasta]
-    corrected_psl           = FILTER_TRANSCRIPTOME.out.corrected_psl                 // [meta, *_transcriptome_corrected.psl]
-    hashids_mapping         = FILTER_TRANSCRIPTOME.out.hashids_mapping               // [meta, *_transcriptome_hashids_mapping.txt]
+//    corrected_psl           = FILTER_TRANSCRIPTOME.out.corrected_psl                 // [meta, *_transcriptome_corrected.psl]
+//    hashids_mapping         = FILTER_TRANSCRIPTOME.out.hashids_mapping               // [meta, *_transcriptome_hashids_mapping.txt]
     hashids_filtered        = FILTER_TRANSCRIPTOME.out.hashids_filtered              // [meta, *_hashids_with_cpm_filtered.txt]
     hashids_all             = FILTER_TRANSCRIPTOME.out.hashids_all                   // [meta, *_all_hashids_with_cpm.txt]
 

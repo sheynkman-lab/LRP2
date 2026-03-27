@@ -371,7 +371,7 @@ subisoform = by_isoform %>%
   mutate(subisoform_id = paste0(chr, ":", intron_starts, ":", intron_ends, ":clu_", cluster_idx)) %>%
   relocate((subisoform_id))
 
-write_tsv(subisoform, file = file.path(leafcutter_analysis_dir, paste0(basename, "_lr_leafcutter_subisoform_clusters.txt")), col_names = TRUE)
+write_tsv(subisoform, file = file.path(leafcutter_analysis_dir, paste0(basename, ".lr_leafcutter.subisoform_clusters.txt")), col_names = TRUE)
 
 # write out space delimited file with row names for diff splicing script
 out = subisoform %>%
@@ -380,7 +380,7 @@ out = subisoform %>%
   column_to_rownames("subisoform_id")
 
 write.table(out, 
-            file = gzfile(file.path(leafcutter_analysis_dir, paste0(basename, "_lr_leafcutter_perind_numers.counts.gz"))),
+            file = gzfile(file.path(leafcutter_analysis_dir, paste0(basename, ".lr_leafcutter.perind_numers.counts.gz"))),
             sep = " ",
             row.names = TRUE,
             col.names = TRUE,
@@ -398,4 +398,4 @@ if ("condition" %in% colnames(sample_metadata) && !("group" %in% colnames(sample
 }
 
 sample_metadata %>% select(name, group) %>%
-  write_tsv(file.path(leafcutter_analysis_dir, paste0(basename, "_groups_file.txt")), col_names = FALSE)
+  write_tsv(file.path(leafcutter_analysis_dir, paste0(basename, ".lr_leafcutter.groups_file.txt")), col_names = FALSE)

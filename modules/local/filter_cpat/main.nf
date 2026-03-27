@@ -11,8 +11,8 @@ process FILTER_CPAT {
     path filter_cpat_script
 
     output:
-    tuple val(meta), path("*_predicted_proteome_all_orfs_mapped.tsv"), emit: all_orfs_mapped
-    tuple val(meta), path("*_predicted_proteome_corrected_filtered_CDS.gtf"), emit: cds_gtf
+    tuple val(meta), path("*.predicted_proteome.CPAT_ORFs_mapped.tsv"), emit: all_orfs_mapped
+    tuple val(meta), path("*.predicted_proteome.best_ORF.gtf"), emit: cds_gtf
     path "versions.yml", emit: versions
 
     when:
@@ -24,9 +24,6 @@ process FILTER_CPAT {
     def cpat_coding_threshold = task.ext.cpat_coding_threshold ?: params.cpat_coding_threshold
 
     """
-    # Create output directory
-    mkdir -p orf_calling
-
     # Ensure R can find packages in the container
     export R_LIBS_USER=""
     export R_LIBS="/usr/local/lib/R/site-library:/usr/lib/R/site-library:/usr/lib/R/library"
@@ -40,13 +37,9 @@ process FILTER_CPAT {
         --sample_gtf ${corrected_gtf} \\
         --reference_gtf ${reference_gtf} \\
         --mapping_file ${mapping_file} \\
-        --output_dir orf_calling \\
+        --output_dir . \\
         --coding_threshold ${cpat_coding_threshold} \\
         $args
-
-    # Move and rename outputs from orf_calling directory to match expected naming convention
-    mv orf_calling/${prefix}.predicted_proteome.all_orfs_mapped.tsv ${prefix}_predicted_proteome_all_orfs_mapped.tsv
-    mv orf_calling/${prefix}.predicted_proteome.corrected_filtered_CDS.gtf ${prefix}_predicted_proteome_corrected_filtered_CDS.gtf
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
@@ -57,8 +50,8 @@ process FILTER_CPAT {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch ${prefix}_predicted_proteome_all_orfs_mapped.tsv
-    touch ${prefix}_predicted_proteome_corrected_filtered_CDS.gtf
+    touch ${prefix}.predicted_proteome.CPAT_ORFs_mapped.tsv
+    touch ${prefix}.predicted_proteome.best_ORF.gtf
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

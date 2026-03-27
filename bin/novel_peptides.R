@@ -17,9 +17,10 @@
 #'   - Optional: GTF with CDS coords for peptide mapping to genome
 #'
 #' Output:
-#'   - {sample_name}_novel_peptides.tsv with columns: Sequence, PSM, Intensity,
+#'   - {sample_name}.proteomics.novel_peptides.tsv with columns: Sequence, PSM, Intensity,
 #'     rna_detection_status, peptide_status, transcript_id, gene_id,
 #'     n_transcripts, n_high_confidence, fasta_headers
+#'   - {sample_name}.proteomics.all_peptides.bed (optional)
 #'     
 #' Usage:
 #'   Rscript novel_peptide.R --ms_search_software fragpipe --sample_name A549 --acquisition_type DIA --outdir results
@@ -302,7 +303,7 @@ if (opt$acquisition_type == "DIA" & opt$ms_search_software == "fragpipe") {
   if (!is.null(opt$fragpipe_results_dir)) {
     fragpipe_base = opt$fragpipe_results_dir
   } else {
-    fragpipe_base = file.path("S5_PROTEOMICS/M2_FRAGPIPE", opt$sample_name)
+    fragpipe_base = file.path("S5_PROTEOMICS/M3_FRAGPIPE", opt$sample_name)
   }
 
   # peptides
@@ -339,7 +340,7 @@ if (opt$acquisition_type == "DDA" & opt$ms_search_software == "fragpipe") {
   if (!is.null(opt$fragpipe_results_dir)) {
     fragpipe_base = opt$fragpipe_results_dir
   } else {
-    fragpipe_base = file.path("S5_PROTEOMICS/M2_FRAGPIPE", opt$sample_name)
+    fragpipe_base = file.path("S5_PROTEOMICS/M3_FRAGPIPE", opt$sample_name)
   }
 
   peptides_path = file.path(fragpipe_base, "combined_peptide.tsv")
@@ -422,7 +423,7 @@ out = status %>%
 # =============================================================================
 
 # Write output
-outfile = file.path(opt$outdir, paste0(opt$sample_name, "_novel_peptides.tsv"))
+outfile = file.path(opt$outdir, paste0(opt$sample_name, ".proteomics.novel_peptides.tsv"))
 write_tsv(out, outfile)
 
 # Summary
@@ -536,7 +537,7 @@ if (!is.null(opt$lr_cds_gtf) && !is.null(opt$lr_orf_fasta)) {
   all_bed = bind_rows(gencode_bed, lr_bed)
   
   if (nrow(all_bed) > 0) {
-    bed_outfile = file.path(opt$outdir, paste0(opt$sample_name, "_all_peptides.bed"))
+    bed_outfile = file.path(opt$outdir, paste0(opt$sample_name, ".proteomics.all_peptides.bed"))
     write_tsv(all_bed %>% select(1:12), bed_outfile, col_names = FALSE)
     cat("\nWrote", nrow(all_bed), "BED12 entries to", bed_outfile, "\n")
   }

@@ -278,7 +278,7 @@ workflow LRP2 {
             .map { rna_id, counts -> counts }
 
         // Extract CDS GTF and ORF FASTA for novel peptides classification
-        ch_lr_cds_gtf = PREDICTED_PROTEOME.out.protein_cds_gtf_copy
+        ch_lr_cds_gtf = PREDICTED_PROTEOME.out.cds_gtf
             .map { _meta, gtf -> gtf }
             .first()
             .ifEmpty(file('NO_FILE'))
@@ -418,7 +418,8 @@ workflow LRP2 {
              params.min_samples_per_group,
              params.min_usage_ratio,
              params.drimseq_min_gene_expr,
-             params.drimseq_min_isoform_prop
+             params.drimseq_min_isoform_prop,
+             params.dataset_name
          )
          ch_versions = ch_versions.mix(MULTISAMPLE_ANALYSIS.out.versions)
      }

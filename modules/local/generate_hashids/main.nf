@@ -12,8 +12,8 @@ process GENERATE_HASHIDS {
     path generate_hashids_script
 
     output:
-    tuple val(meta), path("sqanti_transcript/*_hashids_mapping.txt"), emit: hashids_mapping
-    tuple val(meta), path("sqanti_transcript/*_corrected.psl"), emit: corrected_psl
+    tuple val(meta), path("*.transcriptome.hashids_mapping.txt"), emit: hashids_mapping
+    tuple val(meta), path("*.transcriptome.psl"), emit: corrected_psl
     path "versions.yml", emit: versions
 
     when:
@@ -24,8 +24,7 @@ process GENERATE_HASHIDS {
     def prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    mkdir -p sqanti_transcript
-
+    
     # Ensure R can find packages in the container
     export R_LIBS_USER=""
     export R_LIBS="/usr/local/lib/R/site-library:/usr/lib/R/site-library:/usr/lib/R/library"
@@ -36,7 +35,7 @@ process GENERATE_HASHIDS {
         --classification ${classification} \\
         --reference_gtf ${reference_gtf} \\
         --hashlib_script ${hashlib_script} \\
-        --output_dir sqanti_transcript \\
+        --output_dir . \\
         $args
 
     cat <<-END_VERSIONS > versions.yml
@@ -49,9 +48,8 @@ process GENERATE_HASHIDS {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    mkdir -p sqanti_transcript
-    touch sqanti_transcript/${prefix}_hashids_mapping.txt
-    touch sqanti_transcript/${prefix}_corrected.psl
+    touch ${prefix}.transcriptome.hashids_mapping.txt
+    touch ${prefix}.transcriptome.psl
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

@@ -11,7 +11,7 @@ process ISOCALL_MERGE {
     tuple val(meta), path(profiles)
 
     output:
-    tuple val(meta), path("*_merged_profiles.gz"), emit: merged_profile
+    tuple val(meta), path("*.isocall.merged_profiles.gz"), emit: merged_profile
     path "versions.yml", emit: versions
 
     when:
@@ -24,7 +24,7 @@ process ISOCALL_MERGE {
     """
     isocall merge \\
         --profiles $profile_list \\
-        --output ${prefix}_merged_profiles.gz \\
+        --output ${prefix}.isocall.merged_profiles.gz \\
         $args
 
     cat <<-END_VERSIONS > versions.yml
@@ -36,7 +36,7 @@ process ISOCALL_MERGE {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch ${prefix}_merged_profiles.gz
+    touch ${prefix}.isocall.merged_profiles.gz
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
