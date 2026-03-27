@@ -1,4 +1,4 @@
-process SQANTI_PROTEIN_CLASSIFICATION {
+process SQANTI_PROTEIN {
     tag "$meta.id"
     label 'process_long'
 
@@ -11,7 +11,7 @@ process SQANTI_PROTEIN_CLASSIFICATION {
     path sqanti_protein_script
 
     output:
-    tuple val(meta), path("*.sqanti_protein_classification.tsv"), emit: protein_classification
+    tuple val(meta), path("*.predicted_proteome.best_ORF_SQANTI_classification.tsv"), emit: protein_classification
     path "versions.yml", emit: versions
 
     when:
@@ -50,7 +50,7 @@ process SQANTI_PROTEIN_CLASSIFICATION {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch ${prefix}.sqanti_protein_classification.tsv
+    touch ${prefix}.predicted_proteome.best_ORF_SQANTI_classification.tsv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

@@ -14,8 +14,8 @@
 #' always retained in full.
 #'
 #' Outputs:
-#'   - {prefix}_reference.fasta  Standardized headers: transcript_id|gene_id|pclass|status|reference_type
-#'   - {prefix}_reference.tsv    Matching metadata table
+#'   - {prefix}.proteomics.reference.fasta  Standardized headers: transcript_id|gene_id|pclass|status|reference_type
+#'   - {prefix}.proteomics.reference.tsv    Matching metadata table
 #'
 #' Usage:
 #'   Rscript build_mass_spec_reference.R --sample_name sample --lrp_fasta lrp_orfs.fasta --gencode_version 47 --counts counts.tsv --outdir results/
@@ -268,7 +268,7 @@ out_prefix = paste(prefix_parts, collapse = ".")
 cat("\nOutput prefix:", out_prefix, "\n")
 
 # Combined reference table (without sequences)
-write_tsv(select(combined_ref, -sequence), file.path(opt$outdir, paste0(out_prefix, "_reference.tsv")))
+write_tsv(select(combined_ref, -sequence), file.path(opt$outdir, paste0(out_prefix, ".proteomics.reference.tsv")))
 
 # Combined FASTA with standardized headers: transcript_id|gene_id|pclass|status|reference_type
 combined_ref %<>%
@@ -277,7 +277,7 @@ combined_ref %<>%
 fasta_out        = AAStringSet(combined_ref$sequence)
 names(fasta_out) = combined_ref$new_header
 
-writeXStringSet(fasta_out, file.path(opt$outdir, paste0(out_prefix, "_reference.fasta")))
+writeXStringSet(fasta_out, file.path(opt$outdir, paste0(out_prefix, ".proteomics.reference.fasta")))
 
 cat("\n--- Summary ---\n")
 cat("Combined reference:", nrow(combined_ref), "total entries\n")

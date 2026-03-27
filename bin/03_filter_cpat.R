@@ -16,8 +16,8 @@
 #' - Hashids mapping file (for restoring correct ID casing)
 #'
 #' Outputs:
-#' - *.predicted_proteome.all_orfs_mapped.tsv: all ORFs with genomic coordinates and quality scores
-#' - *.predicted_proteome.corrected_filtered_CDS.gtf: GTF with exon and CDS features for best ORF per transcript
+#' - *.predicted_proteome.CPAT_ORFs_mapped.tsv: all ORFs with genomic coordinates and quality scores
+#' - *.predicted_proteome.best_ORF.gtf: GTF with exon and CDS features for best ORF per transcript
 #' 
 
 # =============================================================================
@@ -353,7 +353,7 @@ plausible_orfs = mapped_orfs_classified %>% filter(orf_quality == "Clear Best OR
 best_orfs      = mapped_orfs_classified %>% filter(orf_quality == "Clear Best ORF")
 
 #write_tsv(best_orfs, file.path(cpat_dir, paste0(basename, "_best_orfs_mapped.tsv")))
-write_tsv(all_orfs, file.path(cpat_dir, paste0(basename, ".predicted_proteome.all_orfs_mapped.tsv")))
+write_tsv(all_orfs, file.path(cpat_dir, paste0(basename, ".predicted_proteome.CPAT_ORFs_mapped.tsv")))
 
 # === STEP 5: Write gtf for best ORFs, including CDS and exon types, no collapsing here ===
 cat("\nSTEP 5: Writing GTF of best ORFs with CDS and exon types")
@@ -366,7 +366,7 @@ all_cds_exons %<>%
   left_join(distinct(sample_gtf, transcript_id, gene_id), by = c("isoform_id" = "transcript_id"))
 updated_gtf = write_gtf_with_cds(sample_gtf, all_cds_exons)
 
-write.table(updated_gtf, file.path(cpat_dir, paste0(basename, ".predicted_proteome.corrected_filtered_CDS.gtf")), 
+write.table(updated_gtf, file.path(cpat_dir, paste0(basename, ".predicted_proteome.best_ORF.gtf")), 
             sep = "\t", 
             quote = FALSE, 
             row.names = FALSE, 
@@ -400,4 +400,4 @@ cat(paste0("- After further filtering, a 'Clear Best ORF' was identified for ", 
 cat("\n=== CPAT FILTER OUTPUT FILES ===\n")
 cat(paste0("All CPAT ORFs with Quality Metrics: ", basename, ".predicted_proteome.all_cpat_orfs_mapped.tsv\n"))
 #cat(paste0("The single best plausible ORF per transcript: ", basename, "_best_cpat_orfs_mapped.tsv"))
-cat(paste0("GTF contains exon type for all transcripts and CDS type for transcripts with a best plausible ORF: ", basename, ".predicted_proteome.corrected_filtered_CDS.gtf"))
+cat(paste0("GTF contains exon type for all transcripts and CDS type for transcripts with a best plausible ORF: ", basename, ".predicted_proteome.best_ORF.gtf"))

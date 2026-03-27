@@ -17,7 +17,7 @@
 #' - SQANTI classification file
 #' 
 #' Outputs:
-#' - *_hashids_mapping.txt
+#' - *.transcriptome.hashids_mapping.txt
 #' 
 
 # =============================================================================
@@ -184,7 +184,7 @@ extract_junction_hash = function(hash_id) {
 
 cat("\nSTEP 1: Generating hash ids for all transcripts")
 
-psl          = file.path(output_dir, paste0(basename, "_corrected.psl")) # output psl
+psl          = file.path(output_dir, paste0(basename, ".transcriptome.psl")) # output psl
 hashid_file  = file.path(output_dir, paste0(basename, "_hashids_raw.txt"))
 
 convert_gtf_to_psl(gtf_input_path  = sample_gtf, 
@@ -355,7 +355,7 @@ output_mapping %<>%
          any_of("transcript_name"),
          structural_category)
 
-mapping_output = file.path(output_dir, paste0(basename, "_hashids_mapping.txt"))
+mapping_output = file.path(output_dir, paste0(basename, ".transcriptome.hashids_mapping.txt"))
 write_tsv(output_mapping, mapping_output)
 
 n_total = nrow(output_mapping)

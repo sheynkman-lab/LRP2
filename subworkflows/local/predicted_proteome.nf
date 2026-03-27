@@ -5,8 +5,8 @@
 */
 include { CPAT_ORF                      } from '../../modules/local/cpat_orf/main'
 include { FILTER_CPAT                   } from '../../modules/local/filter_cpat/main'
-include { SQANTI_PROTEIN_CLASSIFICATION } from '../../modules/local/sqanti_protein_classification/main'
-include { PROTEIN_UTR_CLASSIFICATION    } from '../../modules/local/protein_utr_classification/main'
+include { SQANTI_PROTEIN                } from '../../modules/local/sqanti_protein/main'
+include { PROTEIN_CLASSIFICATION        } from '../../modules/local/protein_classification/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -54,18 +54,18 @@ workflow PREDICTED_PROTEOME {
     //
     // MODULE: Run SQANTI3 protein classification
     //
-    SQANTI_PROTEIN_CLASSIFICATION (
+    SQANTI_PROTEIN (
         FILTER_CPAT.out.cds_gtf,
         reference_gtf,
         sqanti_protein_script
     )
-    ch_versions = ch_versions.mix(SQANTI_PROTEIN_CLASSIFICATION.out.versions)
+    ch_versions = ch_versions.mix(SQANTI_PROTEIN.out.versions)
 
     //
     // MODULE: Custom protein and 5'UTR classification
     //
-    PROTEIN_UTR_CLASSIFICATION (
-        SQANTI_PROTEIN_CLASSIFICATION.out.protein_classification
+    PROTEIN_CLASSIFICATION (
+        SQANTI_PROTEIN.out.protein_classification
             .join(FILTER_CPAT.out.cds_gtf, by: 0)
             .join(ch_samples, by: 0)
             .join(FILTER_CPAT.out.all_orfs_mapped, by: 0)
@@ -74,7 +74,7 @@ workflow PREDICTED_PROTEOME {
         reference_gtf,
         protein_class_script
     )
-    ch_versions = ch_versions.mix(PROTEIN_UTR_CLASSIFICATION.out.versions)
+    ch_versions = ch_versions.mix(PROTEIN_CLASSIFICATION.out.versions)
 
     emit:
     // CPAT outputs
@@ -89,19 +89,15 @@ workflow PREDICTED_PROTEOME {
     cds_gtf                     = FILTER_CPAT.out.cds_gtf                                   // [meta, *_CDS.gtf]
 
     // SQANTI_PROTEIN outputs
-    protein_classification      = SQANTI_PROTEIN_CLASSIFICATION.out.protein_classification  // [meta, *.sqanti_protein_classification.tsv]
+    protein_classification      = SQANTI_PROTEIN.out.protein_classification  // [meta, *.sqanti_protein_classification.tsv]
 
-    // PROTEIN_UTR_CLASSIFICATION outputs
-    protein_all_isoforms        = PROTEIN_UTR_CLASSIFICATION.out.protein_all_isoforms       // [meta, protein_sqanti/*_protein_classification_all_isoforms.txt]
-    protein_all_orfs_fasta      = PROTEIN_UTR_CLASSIFICATION.out.protein_all_orfs_fasta     // [meta, protein_sqanti/*.predicted.proteome.all_best_orfs.fa]
-    hashids_orf                 = PROTEIN_UTR_CLASSIFICATION.out.hashids_orf                // [meta, protein_sqanti/*.predicted.proteome.high_confidence_ORF_cpm.txt]
-    protein_gtf                 = PROTEIN_UTR_CLASSIFICATION.out.protein_gtf                // [meta, protein_sqanti/*.predicted.proteome.high_confidence_ORF.gtf]
-    protein_bed                 = PROTEIN_UTR_CLASSIFICATION.out.protein_bed                // [meta, protein_sqanti/*.predicted.proteome.high_confidence_ORF.bed]
-    protein_classification_copy = PROTEIN_UTR_CLASSIFICATION.out.protein_classification_copy // [meta, protein_sqanti/*.sqanti_protein_classification.tsv]
-    protein_cds_gtf_copy        = PROTEIN_UTR_CLASSIFICATION.out.cds_gtf_copy               // [meta, orf_calling/*_corrected_filtered_CDS.gtf]
-    protein_all_orfs_mapped_copy = PROTEIN_UTR_CLASSIFICATION.out.all_orfs_mapped_copy      // [meta, orf_calling/*_all_orfs_mapped.tsv]
-
-    versions                    = ch_versions.unique().collectFile(name: 'versions.yml')
+    // PROTEIN_CLASSIFICATION outputs
+//    protein_all_isoforms         = PROTEIN_CLASSIFICATION.out.protein_all_isoforms       // [meta, protein_sqanti/*_protein_classification_all_isoforms.txt]
+    protein_all_orfs_fasta       = PROTEIN_CLASSIFICATION.out.protein_all_orfs_fasta     // [meta, protein_sqanti/*.predicted.proteome.all_best_orfs.fa]
+    hashids_orf                  = PROTEIN_CLASSIFICATION.out.hashids_orf                // [meta, protein_sqanti/*.predicted.proteome.high_confidence_ORF_cpm.txt]
+    protein_gtf                  = PROTEIN_CLASSIFICATION.out.protein_gtf                // [meta, protein_sqanti/*.predicted.proteome.high_confidence_ORF.gtf]
+    protein_bed                  = PROTEIN_CLASSIFICATION.out.protein_bed                // [meta, protein_sqanti/*.predicted.proteome.high_confidence_ORF.bed]
+    versions                     = ch_versions.unique().collectFile(name: 'versions.yml')
 }
 
 /*

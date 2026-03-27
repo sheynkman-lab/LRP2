@@ -1395,7 +1395,7 @@ if __name__ == "__main__":
 
     output_dir = args.output_dir
     output_prefix = args.output_prefix
-    output_filename = os.path.join(output_dir, output_prefix+'.sqanti_protein_classification.tsv')
+    output_filename = os.path.join(output_dir, output_prefix+'.predicted_proteome.best_ORF_SQANTI_classification.tsv')
 
     if os.path.exists(output_dir):
         if not os.path.isdir(output_dir):

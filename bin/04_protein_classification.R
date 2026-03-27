@@ -52,13 +52,13 @@
 #'  
 #' Outputs: 
 #' One row per transcript (not collapsed)
-#'  - *predicted_proteome.protein_classification_all_isoforms.txt
-#'  - *.predicted.proteome.all_best_orfs.fa (for proteome reference building)
+#'  - *.predicted_proteome.best_ORF_summary.txt
+#'  - *.predicted_proteome.best_ORF.fa (for proteome reference building)
 #' 
 #' One row per unique ORF (collapsed)
-#'  - *predicted.proteome.high_confidence_ORF_cpm.txt
-#'  - *predicted.proteome.high_confidence_ORF.gtf
-#'  - *predicted.proteome.high_confidence_ORF.bed 
+#'  - *.predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt
+#'  - *.predicted_proteome.collapsed_high_confidence_ORF.gtf
+#'  - *.predicted_proteome.collapsed_high_confidence_ORF.bed
 #'
 
 
@@ -1017,7 +1017,7 @@ full_protein %<>%
                 num_junc_after_stop_codon, num_nt_after_stop_codon, num_5utr_exons, tss_in_gc_exons, utr_cat, 
                 tclass = tx_cat, pclass = protein_classification_base, psubclass = protein_classification_subset, psubclass_short, filter_status)
 
-write_tsv(full_protein, file.path(output_dir, paste0(basename, ".predicted.proteome.protein_classification_all_isoforms.txt")))
+write_tsv(full_protein, file.path(output_dir, paste0(basename, ".predicted_proteome.best_ORF_summary.txt")))
 
 # Generate a matching amino acid fasta for mass spec reference- this will include lower confidence sequences such as NMD
 full = readDNAStringSet(sample_dna_fasta_path) # dna fasta
@@ -1053,7 +1053,7 @@ orf_groups %<>%
 
 protein_seqs        = AAStringSet(orf_groups$orf_aa_sequence)
 names(protein_seqs) = orf_groups$header
-writeXStringSet(protein_seqs, file.path(output_dir, paste0(basename, ".predicted.proteome.all_best_orfs.fa")))
+writeXStringSet(protein_seqs, file.path(output_dir, paste0(basename, ".predicted_proteome.best_ORF.fa")))
 
 # =======================================================================================
 # STEP 7: Write high confidence, ORF centric GTF and count file
@@ -1075,7 +1075,7 @@ hc_collapsed = hc_orf_groups %>%
   left_join(name_map, by = "orf_base_id") %>%
   select(orf_base_id, orf_all_isoform_id, gene_id, reference_gene_name, everything())
 
-write_tsv(hc_collapsed, file.path(output_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF_cpm.txt")))
+write_tsv(hc_collapsed, file.path(output_dir, paste0(basename, ".predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt")))
 
 # write a corresponding ORF centric gtf
 gtf = import(sample_cds_gtf_path) %>%
@@ -1119,10 +1119,10 @@ hc_gtf %<>%
 
 # calculate ratio
 gr_updated = makeGRangesFromDataFrame(hc_gtf, keep.extra.columns = TRUE)
-export(gr_updated, file.path(output_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF.gtf")), format = "gtf")
+export(gr_updated, file.path(output_dir, paste0(basename, ".predicted_proteome.collapsed_high_confidence_ORF.gtf")), format = "gtf")
 
 # convert to bed12
-gtf_to_bed12(gtf_path = file.path(output_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF.gtf")),
-             output_bed = file.path(output_dir, paste0(basename, ".predicted.proteome.high_confidence_ORF.bed")),
+gtf_to_bed12(gtf_path = file.path(output_dir, paste0(basename, ".predicted_proteome.collapsed_high_confidence_ORF.gtf")),
+             output_bed = file.path(output_dir, paste0(basename, ".predicted_proteome.collapsed_high_confidence_ORF.bed")),
              color_by = "avg_orf_ratio",
              track_name = paste0(basename, "_predicted_proteome"))

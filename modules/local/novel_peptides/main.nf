@@ -11,8 +11,8 @@ process NOVEL_PEPTIDES {
     val gencode_version
 
     output:
-    tuple val(meta), path("*_novel_peptides.tsv"), emit: novel_peptides
-    tuple val(meta), path("*_all_peptides.bed"), optional: true, emit: peptides_bed
+    tuple val(meta), path("*.proteomics.novel_peptides.tsv"), emit: novel_peptides
+    tuple val(meta), path("*.proteomics.all_peptides.bed"), optional: true, emit: peptides_bed
     path "versions.yml", emit: versions
 
     when:
@@ -54,14 +54,14 @@ process NOVEL_PEPTIDES {
         --outdir . \\
         $args
 
-    if [ ! -f "${prefix}_novel_peptides.tsv" ]; then
+    if [ ! -f "${prefix}.proteomics.novel_peptides.tsv" ]; then
         echo "ERROR: Novel peptides output file not created"
         exit 1
     fi
 
     echo ""
     echo "Novel peptides classification completed successfully!"
-    echo "Output: ${prefix}_novel_peptides.tsv"
+    echo "Output: ${prefix}.proteomics.novel_peptides.tsv"
     echo ""
 
     cat <<-END_VERSIONS > versions.yml
@@ -74,7 +74,7 @@ process NOVEL_PEPTIDES {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch ${prefix}_novel_peptides.tsv
+    touch ${prefix}.proteomics.novel_peptides.tsv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

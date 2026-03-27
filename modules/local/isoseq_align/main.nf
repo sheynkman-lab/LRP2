@@ -39,7 +39,7 @@ process ISOSEQ_ALIGN {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}.aligned.bam
-    touch ${prefix}.aligned.bam.pbi
+    touch ${prefix}.aligned.bam.bai
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

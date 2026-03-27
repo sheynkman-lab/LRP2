@@ -28,12 +28,12 @@ input:
       pattern: "*.R"
   - lr_cds_gtf:
       type: file
-      description: Long-read CDS GTF file from PROTEIN_UTR_CLASSIFICATION module (*_corrected_filtered_CDS.gtf)
+      description: Long-read CDS GTF file from FILTER_CPAT module (*.predicted_proteome.best_ORF.gtf)
       pattern: "*_corrected_filtered_CDS.gtf"
   - lr_orf_fasta:
       type: file
-      description: Long-read ORF FASTA file from PROTEIN_UTR_CLASSIFICATION module (*_predicted.proteome.all_best_orfs.fa)
-      pattern: "*_predicted.proteome.all_best_orfs.fa"
+      description: Long-read ORF FASTA file from PROTEIN_CLASSIFICATION module (*.predicted_proteome.best_ORF.fa)
+      pattern: "*.predicted_proteome.best_ORF.fa"
 
 output:
   - meta:

@@ -375,8 +375,8 @@ cat("\nWriting output files")
 # Build lookup from new isoform_id to original transcript_id
 id_lookup = mapping %>% select(isoform_id, original_transcript_id)
 
-write_tsv(sqanti_df_full, file.path(output_dir, paste0(basename, ".transcriptome.classification_all.txt")))
-write_tsv(sqanti_df, file.path(output_dir, paste0(basename, ".transcriptome.classification_filtered.txt")))
+#write_tsv(sqanti_df_full, file.path(output_dir, paste0(basename, ".transcriptome.classification_all.txt")))
+write_tsv(sqanti_df, file.path(output_dir, paste0(basename, ".transcriptome.filtered_SQANTI_classification.txt")))
 
 # FASTA — filter to kept transcripts and rename headers to new isoform_id
 sequences = readDNAStringSet(sqanti_fasta)
@@ -406,8 +406,8 @@ if (any(is.na(names(filtered_sequences)))) {
   stop("ERROR: Found NA values in sequence names after mapping. This should not happen.")
 }
 
-writeXStringSet(filtered_sequences, file.path(output_dir, paste0(basename, ".transcriptome.corrected_filtered.fasta")))
-cat("\nSaved ", length(filtered_sequences), " sequences to ", basename, ".transcriptome.corrected_filtered.fasta")
+writeXStringSet(filtered_sequences, file.path(output_dir, paste0(basename, ".transcriptome.filtered.fasta")))
+cat("\nSaved ", length(filtered_sequences), " sequences to ", basename, ".transcriptome.filtered.fasta")
 
 
 # sample gtf
@@ -438,17 +438,17 @@ filtered_gtf %<>%
   mutate(name = paste0(transcript_id, "|", avg_ratio))
 
 gr_updated = makeGRangesFromDataFrame(filtered_gtf, keep.extra.columns = TRUE)
-gtf_output = file.path(output_dir, paste0(basename, ".transcriptome.corrected_filtered.gtf"))
+gtf_output = file.path(output_dir, paste0(basename, ".transcriptome.filtered.gtf"))
 export(gr_updated, gtf_output, format = "gtf")
 
 # convert to bed12
 gtf_to_bed12(gtf_path = gtf_output,
-             output_bed = file.path(output_dir, paste0(basename, ".transcriptome.corrected_filtered.bed")),
+             output_bed = file.path(output_dir, paste0(basename, ".transcriptome.filtered.bed")),
              color_by = "avg_ratio")
 
 # Filtered hashid and cpm table
 all_ids %>% filter(isoform_id %in% kept_ids) %>%
-  write_tsv(file.path(output_dir, paste0(basename, ".transcriptome.hashids_with_cpm_filtered.txt")))
+  write_tsv(file.path(output_dir, paste0(basename, ".transcriptome.filtered_hashids_with_cpm.txt")))
 
 # Print summary
 cat("\n=== FILTERING SUMMARY ===\n")

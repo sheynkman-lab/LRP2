@@ -162,7 +162,7 @@ clu_to_chrclu = dict(zip(intron_meta["cluster"], intron_meta["chr"] + ':' + intr
 cluster_table['cluster'] = cluster_table['cluster'].map(clu_to_chrclu) 
 
 print('Saving results...')
-cluster_table.loc[:,('cluster', 'status', 'loglr', 'df', 'p', 'p.adjust', 'genes')].to_csv(output_prefix + "_cluster_significance.txt", sep = '\t', index = False, na_rep='NA')
+cluster_table.loc[:,('cluster', 'status', 'loglr', 'df', 'p', 'p.adjust', 'genes')].to_csv(output_prefix + ".lr_leafcutter.ds_cluster_significance.txt", sep = '\t', index = False, na_rep='NA')
 
 #just rearranging junction columns for backwards compatibility
 rename_juncs = dict(zip(list(junc_table.columns), list(junc_table.columns)))
@@ -172,7 +172,7 @@ logef_cols = list(junc_table.columns[junc_table.columns.str.startswith('logef_')
 psi_cols = list(junc_table.columns[junc_table.columns.str.startswith('psi_')])
 deltapsi_cols = list(junc_table.columns[junc_table.columns.str.startswith('deltapsi_')])
 
-junc_table.loc[:,['intron'] + logef_cols + psi_cols + deltapsi_cols].to_csv(output_prefix + "_effect_sizes.txt", sep = '\t', index = False, na_rep='NA')
+junc_table.loc[:,['intron'] + logef_cols + psi_cols + deltapsi_cols].to_csv(output_prefix + ".lr_leafcutter.ds_effect_sizes.txt", sep = '\t', index = False, na_rep='NA')
 
 wrap_up_end = timer()
 if args.timeit == True:

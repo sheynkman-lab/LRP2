@@ -14,8 +14,8 @@ process ISOCALL_CALL {
     path(config_toml)
 
     output:
-    tuple val(meta), path("*.isoforms.gtf.gz"), emit: gtf
-    tuple val(meta), path("*.count_matrix.txt"), emit: count_matrix
+    tuple val(meta), path("*.isocall.isoforms.gtf.gz"), emit: gtf
+    tuple val(meta), path("*.isocall.count_matrix.txt"), emit: count_matrix
     path "versions.yml", emit: versions
 
     when:
@@ -33,7 +33,7 @@ process ISOCALL_CALL {
         --merged-profile $merged_profile \\
         --known-isoforms $known_isoforms \\
         --reference $reference_fasta \\
-        --output-prefix ${prefix} \\
+        --output-prefix ${prefix}.isocall \\
         --config $config_toml \\
         --min-reads-per-isoform $min_read_support \\
         --max-bundles-per-gene $max_bundles_per_gene \\
@@ -48,8 +48,8 @@ process ISOCALL_CALL {
     stub:
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
-    touch ${prefix}.isoforms.gtf.gz
-    touch ${prefix}.count_matrix.txt
+    touch ${prefix}.isocall.isoforms.gtf.gz
+    touch ${prefix}.isocall.count_matrix.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
