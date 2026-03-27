@@ -198,7 +198,6 @@ process FRAGPIPE {
         --manifest \$WORK_DIR/manifest.fp-manifest \\
         --workdir \$WORK_DIR/results \\
         --config-tools-folder \$WORK_DIR/fragpipe_tools \\
-        --config-python /usr/bin/python3.11 \\
         --ram ${task.memory.toGiga()} \\
         --threads ${task.cpus} \\
         $args \\
