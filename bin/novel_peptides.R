@@ -460,7 +460,7 @@ if (!is.null(opt$lr_cds_gtf) && !is.null(opt$lr_orf_fasta)) {
   if (nrow(gencode_peptides) > 0) {
     cat("\n=== GENCODE peptides ===\n")
     
-    gencode_peptides %>%
+    gencode_peptides %<>%
       select(Sequence, transcript_id, gene_id, PSM) %>%
       separate_rows(transcript_id, sep = ",") %>%
       separate_rows(gene_id, sep = ",") %>%
