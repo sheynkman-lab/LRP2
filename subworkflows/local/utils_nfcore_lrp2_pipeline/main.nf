@@ -81,17 +81,22 @@ workflow PIPELINE_INITIALISATION {
     validateInputParameters()
 
     //
+    // Sanitize samplesheet to handle Excel-created files
+    //
+    def sanitized_input = sanitizeSamplesheet(params.input)
+
+    //
     // Create channel from input file provided through params.input
     //
 
     // Determine input type based on file content
-    def input_type = detectInputType(params.input)
+    def input_type = detectInputType(sanitized_input)
     def rna_channel_data = []
     def protein_channel_data = []
     def combined_channel_data = []
 
     if (input_type == "sample_path") {
-        def samplesheet_list = samplesheetToList(params.input, "${projectDir}/assets/schema_input_bam.json")
+        def samplesheet_list = samplesheetToList(sanitized_input, "${projectDir}/assets/schema_input_bam.json")
         // Expected structure: [meta, sample_path] where meta contains: sample_name, condition, sample_type, mass_spec_type
 
         def rna_samples = samplesheet_list.findAll { row ->
@@ -229,7 +234,7 @@ workflow PIPELINE_INITIALISATION {
 
     } else {
         // For FASTQ input, process as before but store in combined array
-        combined_channel_data = samplesheetToList(params.input, "${projectDir}/assets/schema_input.json")
+        combined_channel_data = samplesheetToList(sanitized_input, "${projectDir}/assets/schema_input.json")
             .collect { meta, fastq_1, fastq_2 ->
                 if (!fastq_2) {
                     return [ meta.id, meta + [ single_end:true ], [ fastq_1 ] ]
@@ -307,6 +312,39 @@ workflow PIPELINE_COMPLETION {
     FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+//
+// Sanitize samplesheet to handle Excel-created files (cleanup Windows line endings (\r) and BOM chars that get populated)
+//
+def sanitizeSamplesheet(input_file) {
+    def file = new File(input_file)
+    def content = file.getText('UTF-8')
+
+    def has_bom = content.startsWith('\uFEFF')
+    def has_windows_endings = content.contains('\r')
+
+    // If the file is already clean, return original path
+    if (!has_bom && !has_windows_endings) {
+        return input_file
+    }
+
+    // otherwise file needs sanitization - create sanitized version
+    log.info "Sanitizing samplesheet: Detected encoding issues (BOM: ${has_bom}, Windows line endings: ${has_windows_endings})"
+
+    // Remove BOM if present (UTF-8 BOM: EF BB BF)
+    if (has_bom) {
+        content = content.substring(1)
+    }
+    content = content.replaceAll('\r\n', '\n')  // Remove Windows line endings (\r\n -> \n)
+    content = content.replaceAll('\r', '\n')    // Remove any remaining carriage returns
+
+    // Write sanitized content to new samplesheet (need this because sampleseetToList() expects a filepath and not raw content)
+    def sanitized_file = new File("${input_file}.sanitized")
+    sanitized_file.write(content, 'UTF-8')
+    log.info "Sanitized samplesheet created at: ${sanitized_file}"
+
+    return sanitized_file.toString()
+}
+
 //
 // Check and validate pipeline parameters
 //
