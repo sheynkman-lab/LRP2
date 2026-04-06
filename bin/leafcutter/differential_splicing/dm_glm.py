@@ -2,7 +2,6 @@ import torch
 
 import pyro
 import pyro.distributions as dist
-
 from torch.distributions import constraints
 
 import numpy as np
@@ -10,11 +9,9 @@ import scipy.stats
 import time
 from sklearn import linear_model
 
-from leafcutter.differential_splicing.optim import fit_with_lbfgs
+from .optim import fit_with_lbfgs
 
 from dataclasses import dataclass
-
-#torch.set_num_threads(20)
 
 @dataclass
 class LeafcutterFit:
@@ -229,7 +226,7 @@ def fit_multinomial_glm(x, y, beta_init = None, fitter = fit_with_lbfgs, guide_t
 
     multinomial_model = LeafCutterModel(P, J, None, gamma_shape = None)
     guide = guide_type(beta_init, multinomial = True)
-    losses = fitter(multinomial_model, guide, [x, y])
+    losses = fitter(multinomial_model, guide, x, y)
     return guide.beta
 
 def fit_dm_glm(x, y, beta_init, conc_max = 3000., concShape=1.0001, concRate=1e-4, multiconc = True, fitter = fit_with_lbfgs, guide_type = DamCleverGuide, eps = 1.0e-8): 
@@ -258,7 +255,7 @@ def fit_dm_glm(x, y, beta_init, conc_max = 3000., concShape=1.0001, concRate=1e-
     
     model = LeafCutterModel(P, J, gamma_shape = concShape, gamma_rate = concRate, multiconc = multiconc, eps = eps)
     guide = guide_type(beta_init, multiconc = multiconc, conc_max = conc_max)
-    losses, exit_status = fitter(model, guide, [x, y])
+    losses, exit_status = fitter(model, guide, x, y)
 
     return LeafcutterFit(
             beta = guide.beta.clone().detach(), 
