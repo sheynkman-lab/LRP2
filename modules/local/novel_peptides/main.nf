@@ -6,7 +6,7 @@ process NOVEL_PEPTIDES {
     container "docker://docker.io/jtllab/lrp2-lite:latest"
 
     input:
-    tuple val(meta), val(fragpipe_results_dir), path(reference_fasta), path(lr_cds_gtf), path(lr_orf_fasta)
+    tuple val(meta), path(fragpipe_peptide_file), path(reference_fasta), path(lr_cds_gtf), path(lr_orf_fasta)
     path novel_peptides_script
     val gencode_version
 
@@ -34,11 +34,16 @@ process NOVEL_PEPTIDES {
     echo "Acquisition type: ${acquisition_type}"
     echo "LR CDS GTF: ${has_lr_data ? lr_cds_gtf : 'N/A (no matched RNA)'}"
     echo "LR ORF FASTA: ${has_lr_data ? lr_orf_fasta : 'N/A (no matched RNA)'}"
-    echo "FragPipe results directory: ${fragpipe_results_dir}"
+    echo "FragPipe peptide file: ${fragpipe_peptide_file}"
     echo ""
 
-    if [ ! -d "${fragpipe_results_dir}" ]; then
-        echo "ERROR: FragPipe results directory not found: ${fragpipe_results_dir}"
+    # Derive FragPipe results directory from the peptide file path
+    FRAGPIPE_RESULTS_DIR=\$(dirname "${fragpipe_peptide_file}")
+    echo "FragPipe results directory: \$FRAGPIPE_RESULTS_DIR"
+    echo ""
+
+    if [ ! -f "${fragpipe_peptide_file}" ]; then
+        echo "ERROR: FragPipe peptide file not found: ${fragpipe_peptide_file}"
         echo "Please check that FragPipe completed successfully."
         exit 1
     fi
@@ -47,7 +52,7 @@ process NOVEL_PEPTIDES {
         --sample_name ${prefix} \\
         --ms_search_software ${ms_search_software} \\
         --acquisition_type ${acquisition_type} \\
-        --fragpipe_results_dir ${fragpipe_results_dir} \\
+        --fragpipe_results_dir \$FRAGPIPE_RESULTS_DIR \\
         ${lr_gtf_arg} \\
         ${lr_fasta_arg} \\
         --gencode_version ${gencode_version} \\

@@ -167,31 +167,27 @@ workflow PROTEOMICS {
         ch_versions = ch_versions.mix(FRAGPIPE.out.versions)
         ch_psm_table = FRAGPIPE.out.psm_table
         ch_search_results = FRAGPIPE.out.results
-        
+
         // Step 4: Run NOVEL_PEPTIDES on FragPipe results
         // Extract GENCODE version from genome parameter (e.g., 'GRCh38.p14.v49' -> '49')
         def gencode_version = genome ? genome.tokenize('.')[-1].replaceAll(/[^0-9]/, '') : '49'
 
-        // Create channel with meta and path to published FragPipe results directory
-        ch_fragpipe_results_dir = ch_search_results.map { meta, _results ->
-            // Convert params.outdir to absolute path
-            def outdir_file = file(params.outdir)
-            def fragpipe_dir = "${outdir_file}/S5_PROTEOMICS/M3_FRAGPIPE/${meta.id}"
-            return [meta, fragpipe_dir]
-        }
+        // Merge DIA and DDA peptide files: since at least one will be present we make sure we get one of the actual files from FragPipe work directory, as fix for novel peptides stalling for larger datasets
+        ch_fragpipe_peptide_files = FRAGPIPE.out.peptide_tsv
+            .mix(FRAGPIPE.out.combined_peptide_tsv)
+            .map { meta, peptide_file -> [meta.sample_name, meta, peptide_file] }
 
-        // Join per-sample protein FASTA with FragPipe results directory, then add LR files conditionally based on whether sample has matched RNA
-        ch_novel_peptides_input = ch_fragpipe_results_dir
-            .map { meta, fragpipe_dir -> [meta.sample_name, meta, fragpipe_dir] }
+        // Join per-sample protein FASTA with FragPipe peptide files, then add LR files conditionally based on whether sample has matched RNA
+        ch_novel_peptides_input = ch_fragpipe_peptide_files
             .combine(ch_protein_dbs, by: 0)
-            .map { sample_name, meta, fragpipe_dir, protein_fasta ->
+            .map { sample_name, meta, peptide_file, protein_fasta ->
                 def rna_ids = rna_sample_ids.val
                 def lr_gtf_file = lr_cds_gtf.val
                 def lr_fasta_file = lr_orf_fasta.val
                 def has_rna = rna_ids.contains(sample_name)
                 def lr_gtf = has_rna ? lr_gtf_file : file("${sample_name}_NO_GTF")
                 def lr_fasta = has_rna ? lr_fasta_file : file("${sample_name}_NO_FASTA")
-                return [meta, fragpipe_dir, protein_fasta, lr_gtf, lr_fasta]
+                return [meta, peptide_file, protein_fasta, lr_gtf, lr_fasta]
             }
 
         def novel_peptides_script = file("${projectDir}/bin/novel_peptides.R")
