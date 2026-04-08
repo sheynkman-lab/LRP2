@@ -29,6 +29,7 @@ process FRAGPIPE {
     def replicate = meta.replicate ?: '1'
     def experiment = meta.id
     def decoy_tag = params.fragpipe_decoy_tag ?: 'rev_'
+    def threads = params.fragpipe_threads ?: task.cpus
     def mzml_list = mzml_files instanceof List ? mzml_files : [mzml_files]
     def use_custom_workflow = custom_workflow.name != 'NO_FILE'
     def workflow_name = data_type == 'DIA' ? 'DIA_SpecLib_Quant' : 'LFQ-MBR'
@@ -187,21 +188,21 @@ process FRAGPIPE {
 
     echo "FragPipe executable: \$FRAGPIPE_CMD"
     echo "RAM: ${task.memory.toGiga()} GB"
-    echo "Threads: ${task.cpus}"
+    echo "Threads: ${threads}"
     echo ""
     echo "Starting FragPipe headless execution..."
     echo "----------------------------------------------------------------------"
 
     # Run FragPipe with explicit output handling and SIGPIPE protection
     set -o pipefail
-    trap '' PIPE 
+    trap '' PIPE
     \$FRAGPIPE_CMD --headless \\
         --workflow \$WORK_DIR/workflow.workflow \\
         --manifest \$WORK_DIR/manifest.fp-manifest \\
         --workdir \$WORK_DIR/results \\
         --config-tools-folder \$WORK_DIR/fragpipe_tools \\
         --ram ${task.memory.toGiga()} \\
-        --threads ${task.cpus} \\
+        --threads ${threads} \\
         $args \\
         2>&1 | tee fragpipe_execution.log
 
