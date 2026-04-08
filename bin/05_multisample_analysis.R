@@ -104,7 +104,7 @@ cat("Workers: ", bpworkers(bp), "\n")
 # Configure transcript-level data for edgeR
 # =============================================================================
 
-cat("\n--- Reading transcript and ORF count files and sample sheet ---")
+cat("\n--- Reading transcript and ORF count files and sample sheet ---\n")
 
 # Gene and transcript df
 counts_raw         = as.data.frame(fread(count_file_path, header = TRUE))
@@ -162,7 +162,7 @@ sample_names   = sample_metadata$name
 # Differential Gene Expression with edgeR
 # =============================================================================
 
-cat("Running gene-level differential expression analysis...\n")
+cat("\nRunning gene-level differential expression analysis...\n")
 
 # Aggregate transcripts to genes using reference_gene_id
 counts_gene_matrix = counts_raw %>%
@@ -228,7 +228,7 @@ dev.off()
 # =============================================================================
 # Differential Transcript Expression with edgeR
 # =============================================================================
-cat("Running transcript-level differential expression analysis...\n")
+cat("\nRunning transcript-level differential expression analysis...\n")
 
 # Extract transcript count matrix
 counts_transcript_matrix = counts_raw %>%
@@ -289,7 +289,7 @@ dev.off()
 # =============================================================================
 # Differential ORF Expression with edgeR
 # =============================================================================
-cat("Running ORF-level differential expression analysis...\n")
+cat("\nRunning ORF-level differential expression analysis...\n")
 
 # Extract protein count matrix
 counts_orf_matrix = orf_counts_raw %>%
@@ -354,7 +354,15 @@ dev.off()
 # =============================================================================
 # Differential Transcript Usage with DRIMSeq
 # =============================================================================
-cat("Running differential transcript usage analysis with DRIMSeq...\n")
+cat("\nRunning differential transcript usage analysis with DRIMSeq...\n")
+
+# Fixing sample names for the match, DRIMSeq changes "-" to "." for example
+fix_drimseq_names = function(props_df, sample_names) {
+  mangled = make.names(sample_names)
+  idx = match(colnames(props_df), mangled)
+  colnames(props_df)[!is.na(idx)] = sample_names[idx[!is.na(idx)]]
+  props_df
+}
 
 counts_drimseq = counts_raw %>%
   select(gene_id = reference_gene_id,      # DRIMSeq needs this named "gene_id"
@@ -426,7 +434,7 @@ transript_usage_table = transcript_cpms %>%
   ungroup() %>%
   rename_with(~ str_replace(., "_cpm_prop$", "_prop"), ends_with("_cpm_prop"))
 
-props = proportions(d) # these are calculated per group not per sample
+props = proportions(d) %>% fix_drimseq_names(sample_names) # these are calculated per group not per sample
 
 props_long = props %>%
   pivot_longer(cols = -c(gene_id, feature_id), 
@@ -460,7 +468,7 @@ write_tsv(dtu_summary, file.path(multisample_analysis_dir, paste0(basename, "_DT
 # =============================================================================
 # Differential ORF Usage with DRIMSeq
 # =============================================================================
-cat("Running differential ORF usage analysis with DRIMSeq...\n")
+cat("\nRunning differential ORF usage analysis with DRIMSeq...\n")
 
 # Prepare DRIMSeq format from already-loaded ORF counts
 counts_drimseq_orf = orf_counts_raw %>%
@@ -523,7 +531,7 @@ orf_usage_table = orf_cpms %>%
   ungroup() %>%
   rename_with(~ str_replace(., "_cpm_prop$", "_prop"), ends_with("_cpm_prop"))
 
-props_orf = proportions(d_orf)
+props_orf = proportions(d_orf) %>% fix_drimseq_names(sample_names)
 
 props_orf_long = props_orf %>%
   pivot_longer(cols = -c(gene_id, feature_id), 
