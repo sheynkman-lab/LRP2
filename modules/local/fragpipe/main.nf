@@ -15,8 +15,8 @@ process FRAGPIPE {
     output:
     tuple val(meta), path("*.tsv"), emit: psm_table, optional: true
     tuple val(meta), path("results/**"), emit: results
-    tuple val(meta), path("results/**/peptide.tsv"), optional: true, emit: peptide_tsv
-    tuple val(meta), path("results/**/combined_peptide.tsv"), optional: true, emit: combined_peptide_tsv
+    tuple val(meta), path("results/peptide.tsv"), optional: true, emit: peptide_tsv
+    tuple val(meta), path("results/combined_peptide.tsv"), optional: true, emit: combined_peptide_tsv
     path "versions.yml", emit: versions
 
     when:

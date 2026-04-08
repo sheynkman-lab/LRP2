@@ -38,13 +38,18 @@ process NOVEL_PEPTIDES {
     echo ""
 
     # Derive FragPipe results directory from the peptide file path
-    FRAGPIPE_RESULTS_DIR=\$(dirname "${fragpipe_peptide_file}")
-    echo "FragPipe results directory: \$FRAGPIPE_RESULTS_DIR"
-    echo ""
-
     if [ ! -f "${fragpipe_peptide_file}" ]; then
         echo "ERROR: FragPipe peptide file not found: ${fragpipe_peptide_file}"
         echo "Please check that FragPipe completed successfully."
+        exit 1
+    fi
+
+    FRAGPIPE_PEPTIDE_REALPATH=\$(realpath "${fragpipe_peptide_file}")
+    FRAGPIPE_RESULTS_DIR=\$(dirname "\$FRAGPIPE_PEPTIDE_REALPATH")
+    echo "FragPipe results directory: \$FRAGPIPE_RESULTS_DIR"
+    echo ""
+    if [ ! -d "\$FRAGPIPE_RESULTS_DIR" ]; then
+        echo "ERROR: FragPipe results directory not found: \$FRAGPIPE_RESULTS_DIR"
         exit 1
     fi
 

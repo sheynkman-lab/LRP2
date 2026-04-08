@@ -173,8 +173,8 @@ workflow PROTEOMICS {
         def gencode_version = genome ? genome.tokenize('.')[-1].replaceAll(/[^0-9]/, '') : '49'
 
         // Merge DIA and DDA peptide files: since at least one will be present we make sure we get one of the actual files from FragPipe work directory, as fix for novel peptides stalling for larger datasets
-        ch_fragpipe_peptide_files = FRAGPIPE.out.peptide_tsv
-            .mix(FRAGPIPE.out.combined_peptide_tsv)
+        ch_fragpipe_peptide_files = FRAGPIPE.out.combined_peptide_tsv
+            .concat(FRAGPIPE.out.peptide_tsv)
             .map { meta, peptide_file -> [meta.sample_name, meta, peptide_file] }
 
         // Join per-sample protein FASTA with FragPipe peptide files, then add LR files conditionally based on whether sample has matched RNA
