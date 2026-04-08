@@ -52,42 +52,6 @@ workflow LRP2 {
         ch_fasta = fasta_file ? channel.value(fasta_file) : channel.empty()
     }
 
-    // Handle GTF decompression and create both uncompressed and gzipped versions
-    // ch_gtf: uncompressed GTF for TRANSCRIPTOME (SQANTI3)
-    // ch_gtf_gz: gzipped GTF for PACBIO_ISOCALL (ISOCALL_PREP)
-    def gtf_file = params.gencode_gtf ? file(params.gencode_gtf) : null
-    def is_gtf_gzipped = gtf_file && gtf_file.name.endsWith('.gz')
-
-    if (is_gtf_gzipped) {
-        // GTF is already gzipped - decompress for TRANSCRIPTOME and keep original for PACBIO_ISOCALL
-        ch_gtf_input = channel.of([[ id: 'gencode_gtf' ], gtf_file])
-        GUNZIP_GTF(ch_gtf_input)
-        ch_gtf = GUNZIP_GTF.out.gunzip.map { _meta, file -> file }.first()
-        ch_gtf_gz = channel.value(gtf_file)
-    } else {
-        // GTF is not gzipped - use as-is for TRANSCRIPTOME and compress for PACBIO_ISOCALL
-        ch_gtf = gtf_file ? channel.value(gtf_file) : channel.empty()
-        if (gtf_file) {
-            ch_gtf_gzip_input = channel.of([[ id: 'gencode_gtf' ], gtf_file])
-            GZIP_GTF(ch_gtf_gzip_input)
-            ch_gtf_gz = GZIP_GTF.out.gzip.map { _meta, file -> file }.first()
-        } else {
-            ch_gtf_gz = channel.empty()
-        }
-    }
-
-    // Handle gencode_fasta decompression (used by TRANSCRIPTOME)
-    def gencode_fasta_file = params.gencode_fasta ? file(params.gencode_fasta) : null
-    def is_gencode_fasta_gzipped = gencode_fasta_file && gencode_fasta_file.name.endsWith('.gz')
-
-    if (is_gencode_fasta_gzipped) {
-        ch_gencode_fasta_input = channel.of([[ id: 'gencode_fasta' ], gencode_fasta_file])
-        GUNZIP_GENCODE_FASTA(ch_gencode_fasta_input)
-        ch_gencode_fasta = GUNZIP_GENCODE_FASTA.out.gunzip.map { _meta, file -> file }.first()
-    } else {
-        ch_gencode_fasta = gencode_fasta_file ? channel.value(gencode_fasta_file) : channel.empty()
-    }
-
     //
     // Separate RNA and protein samples based on sample_type metadata
     //
@@ -128,6 +92,57 @@ workflow LRP2 {
             return count
         }
         .set { ch_rna_count }
+
+    //
+    // Handle GTF and gencode_fasta decompression ONLY if RNA samples are present
+    //
+    def gtf_file = params.gencode_gtf ? file(params.gencode_gtf) : null
+    def is_gtf_gzipped = gtf_file && gtf_file.name.endsWith('.gz')
+    def gencode_fasta_file = params.gencode_fasta ? file(params.gencode_fasta) : null
+    def is_gencode_fasta_gzipped = gencode_fasta_file && gencode_fasta_file.name.endsWith('.gz')
+
+    // Only process GTF/FASTA files if RNA samples are present
+    ch_rna_count
+        .map { count -> count > 0 }
+        .set { ch_has_rna_samples }
+
+    ch_gtf_input_conditional = ch_has_rna_samples
+        .filter { has_rna -> has_rna && gtf_file != null }
+        .map { _has_rna -> [[ id: 'gencode_gtf' ], gtf_file] }
+
+    if (is_gtf_gzipped && gtf_file) {
+        // GTF is already gzipped - decompress for TRANSCRIPTOME and keep original for PACBIO_ISOCALL
+        GUNZIP_GTF(ch_gtf_input_conditional)
+        ch_gtf = GUNZIP_GTF.out.gunzip.map { _meta, file -> file }
+        // For gzipped GTF, create channel from filtered input (will be empty if no RNA samples)
+        ch_gtf_gz = ch_gtf_input_conditional.map { _meta, file -> file }
+    } else if (gtf_file) {
+        // GTF is not gzipped - use as-is for TRANSCRIPTOME and compress for PACBIO_ISOCALL
+        ch_gtf = ch_has_rna_samples
+            .filter { has_rna -> has_rna }
+            .map { _has_rna -> gtf_file }
+            .ifEmpty(channel.value(gtf_file))
+        GZIP_GTF(ch_gtf_input_conditional)
+        ch_gtf_gz = GZIP_GTF.out.gzip.map { _meta, file -> file }
+    } else {
+        // No GTF file provided
+        ch_gtf = channel.empty()
+        ch_gtf_gz = channel.empty()
+    }
+
+    ch_gencode_fasta_input_conditional = ch_has_rna_samples
+        .filter { has_rna -> has_rna && is_gencode_fasta_gzipped && gencode_fasta_file != null }
+        .map { _has_rna -> [[ id: 'gencode_fasta' ], gencode_fasta_file] }
+
+    if (is_gencode_fasta_gzipped) {
+        GUNZIP_GENCODE_FASTA(ch_gencode_fasta_input_conditional)
+        ch_gencode_fasta = GUNZIP_GENCODE_FASTA.out.gunzip.map { _meta, file -> file }
+    } else {
+        ch_gencode_fasta = ch_has_rna_samples
+            .filter { has_rna -> has_rna && gencode_fasta_file != null }
+            .map { _has_rna -> gencode_fasta_file }
+            .ifEmpty(gencode_fasta_file ? channel.value(gencode_fasta_file) : channel.empty())
+    }
 
     //
     // SUBWORKFLOW: Run PacBio IsoCall analysis (only if RNA samples present)
