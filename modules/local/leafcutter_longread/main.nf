@@ -16,6 +16,7 @@ process LEAFCUTTER_LONGREAD {
     val min_samples_per_group
     val min_usage_ratio
     val dataset_name
+    val leafcutter_threads
 
     output:
     tuple val(meta), path("*transcriptome.filtered.psl"), emit: psl
@@ -38,6 +39,7 @@ process LEAFCUTTER_LONGREAD {
     def min_samp_intron = min_samples_per_intron ?: 2
     def min_samp_group = min_samples_per_group ?: 2
     def usage_ratio = min_usage_ratio ?: 0.01
+    def threads = leafcutter_threads ?: task.cpus
 
     """
     
@@ -72,7 +74,7 @@ process LEAFCUTTER_LONGREAD {
                 -0 ${control_group} \\
                 --min_samples_per_intron ${min_samp_intron} \\
                 --min_samples_per_group ${min_samp_group} \\
-                --num_threads ${task.cpus} \\
+                --num_threads ${threads} \\
                 -o ${prefix} \\
                 ${prefix}.lr_leafcutter.perind_numers.counts.gz \\
                 ${prefix}.lr_leafcutter.filtered_groups_file.txt || echo "WARNING: Leafcutter differential splicing failed"

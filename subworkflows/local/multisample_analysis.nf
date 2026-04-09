@@ -25,6 +25,7 @@ workflow MULTISAMPLE_ANALYSIS {
     drimseq_min_gene_expr       // val: minimum gene expression for DRIMSeq
     drimseq_min_isoform_prop    // val: minimum isoform proportion for DRIMSeq
     dataset_name                // val: dataset name for output file prefixing
+    leafcutter_threads          // val: number of threads for leafcutter (null = use task.cpus)
 
     main:
     ch_versions = channel.empty()
@@ -100,7 +101,8 @@ workflow MULTISAMPLE_ANALYSIS {
         min_samples_per_intron,
         min_samples_per_group,
         min_usage_ratio,
-        dataset_name
+        dataset_name,
+        leafcutter_threads
     )
     ch_versions = ch_versions.mix(LEAFCUTTER_LONGREAD.out.versions)
 

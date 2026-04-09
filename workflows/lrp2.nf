@@ -483,7 +483,8 @@ workflow LRP2 {
              params.min_usage_ratio,
              params.drimseq_min_gene_expr,
              params.drimseq_min_isoform_prop,
-             params.dataset_name
+             params.dataset_name,
+             params.leafcutter_threads
          )
          ch_versions = ch_versions.mix(MULTISAMPLE_ANALYSIS.out.versions)
      }
