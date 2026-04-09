@@ -2,6 +2,7 @@ import torch
 
 import pyro
 import pyro.distributions as dist
+
 from torch.distributions import constraints
 
 import numpy as np
@@ -9,9 +10,11 @@ import scipy.stats
 import time
 from sklearn import linear_model
 
-from .optim import fit_with_lbfgs
+from leafcutter.differential_splicing.optim import fit_with_lbfgs
 
 from dataclasses import dataclass
+
+#torch.set_num_threads(20)
 
 @dataclass
 class LeafcutterFit:
@@ -226,7 +229,7 @@ def fit_multinomial_glm(x, y, beta_init = None, fitter = fit_with_lbfgs, guide_t
 
     multinomial_model = LeafCutterModel(P, J, None, gamma_shape = None)
     guide = guide_type(beta_init, multinomial = True)
-    losses = fitter(multinomial_model, guide, x, y)
+    losses = fitter(multinomial_model, guide, [x, y])
     return guide.beta
 
 def fit_dm_glm(x, y, beta_init, conc_max = 3000., concShape=1.0001, concRate=1e-4, multiconc = True, fitter = fit_with_lbfgs, guide_type = DamCleverGuide, eps = 1.0e-8): 
@@ -255,7 +258,7 @@ def fit_dm_glm(x, y, beta_init, conc_max = 3000., concShape=1.0001, concRate=1e-
     
     model = LeafCutterModel(P, J, gamma_shape = concShape, gamma_rate = concRate, multiconc = multiconc, eps = eps)
     guide = guide_type(beta_init, multiconc = multiconc, conc_max = conc_max)
-    losses, exit_status = fitter(model, guide, x, y)
+    losses, exit_status = fitter(model, guide, [x, y])
 
     return LeafcutterFit(
             beta = guide.beta.clone().detach(), 
@@ -338,36 +341,60 @@ def dirichlet_multinomial_anova(x_full, x_null, y, init = "brr", **kwargs):
         else: 
             raise Exception(f"Unknown initialization strategy {init}")
    
-    # fit null model
-    start_time = time.time()
-    beta_init_null = get_init(x_null,y)
+    t0 = time.time()
+    beta_init_null = get_init(x_null, y)
+    t_null_init = time.time() - t0
+
+    t0 = time.time()
     null_fit = fit_dm_glm( x_null, y, beta_init_null, **kwargs )
-    elapsed_time = time.time() - start_time
-    #print(f"Elapsed time: {elapsed_time} seconds, {null_fit.loss}")
+    t_null_fit = time.time() - t0
 
     # fit full model, initialized at null model solution
     beta_init_full = torch.cat( (null_fit.beta, torch.zeros((P_full - P_null, J), **torch_types)) )
-    #beta_init_full -= beta_init_full.mean(1, keepdim = True) # shouldn't be necessary with the clever guides
+    t0 = time.time()
     full_fit = fit_dm_glm( x_full, y, beta_init_full, **kwargs )
-    
+    t_full_fit_from_null = time.time() - t0
+
     # fit full model, initialized "smartly", and check if this gives a better fit
-    beta_init_full = get_init(x_full,y)
+    t0 = time.time()
+    beta_init_full = get_init(x_full, y)
+    t_full_init = time.time() - t0
+
+    t0 = time.time()
     full_fit_smart = fit_dm_glm( x_full, y, beta_init_full, **kwargs )
-    if full_fit_smart.loss < full_fit.loss: # this initialization did better
+    t_full_fit_smart = time.time() - t0
+
+    smart_init_improved = full_fit_smart.loss < full_fit.loss
+    if smart_init_improved:
         full_fit = full_fit_smart
-    
+
     df=(P_full - P_null)*(J-1)
     refit_null_flag=False
     loglr = null_fit.loss - full_fit.loss
     lrtp = scipy.stats.chi2(df).sf(2.*loglr) # sf = 1-cdf
-    
+
+    t_refit_null = 0.
     if lrtp < 0.001: # if result looks highly significant, check if we could improve fit initializing null based on full
         beta_init_null = full_fit.beta[:P_null,:]
+        t0 = time.time()
         refit_null = fit_dm_glm(x_null, y, beta_init_null, **kwargs )
-        if refit_null.loss < refit_null.loss: # if new fit is better
+        t_refit_null = time.time() - t0
+        if refit_null.loss < null_fit.loss: # if new fit is better
             null_fit = refit_null
             refit_null_flag = True
             loglr = null_fit.loss-full_fit.loss
             lrtp = scipy.stats.chi2(df = df).sf(2.*loglr)
-    
-    return loglr, df, lrtp, null_fit, full_fit, refit_null_flag
+
+    timing = {
+        't_null_init':          t_null_init,
+        't_null_fit':           t_null_fit,
+        't_full_init':          t_full_init,
+        't_full_fit_from_null': t_full_fit_from_null,
+        't_full_fit_smart':     t_full_fit_smart,
+        't_refit_null':         t_refit_null,
+        'smart_init_improved':  smart_init_improved,
+        'null_exit_status':     null_fit.exit_status,
+        'full_exit_status':     full_fit.exit_status,
+    }
+
+    return loglr, df, lrtp, null_fit, full_fit, refit_null_flag, timing

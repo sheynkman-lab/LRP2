@@ -192,6 +192,7 @@ class MyLBFGS(torch.optim.LBFGS):
         
         # evaluate initial f(x) and df/dx
         orig_loss = closure()
+        
         loss = float(orig_loss)
         losses = [ loss ]
         
@@ -331,7 +332,7 @@ class MyLBFGS(torch.optim.LBFGS):
             # update func eval
             current_evals += ls_func_evals
             state['func_evals'] += ls_func_evals
-            
+
             losses.append( loss )
 
             ############################################################
@@ -370,24 +371,24 @@ class MyLBFGS(torch.optim.LBFGS):
 
         return losses # this implicitly return #iterations == len(losses)
 
-def fit_with_SVI(model, guide, x, y, iterations = 1500, loss_tol = 1e-3, adam_opts = {"lr": 0.02}):
+def fit_with_SVI(model, guide, data, iterations = 1500, loss_tol = 1e-3, adam_opts = {"lr": 0.02}, loss_func = Trace_ELBO()):
     """
     Fit the model using "SVI": but really there is no randomness so this should just be equivalent to stochastic gradient descent (SGD)
     """
     pyro.clear_param_store()
     optimizer = pyro.optim.Adam(adam_opts)
-    svi = SVI(model, guide, optimizer, Trace_ELBO())
+    svi = SVI(model, guide, optimizer, loss_func)
     losses = []
     old_loss = np.inf
     for i in range(iterations):
         #print(i,end="\r")
-        loss = svi.step(x,y)
+        loss = svi.step(*data)
         losses.append(loss)
         if np.abs(loss - old_loss) < loss_tol: break
         old_loss = loss
     return losses
 
-def manual_fit(model, guide, x, y, iterations = 1500, loss_tol = 1e-3, **adam_kwargs):
+def manual_fit(model, guide, data, iterations = 1500, loss_tol = 1e-3, **adam_kwargs):
     """
     Direct implementation of SGD. 
     """
@@ -396,7 +397,7 @@ def manual_fit(model, guide, x, y, iterations = 1500, loss_tol = 1e-3, **adam_kw
     
     if not "lr" in adam_kwargs: adam_kwargs["lr"] = 0.02
 
-    guide(x,y) # run once to instantiate params
+    guide(*data) # run once to instantiate params
     ps = pyro.get_param_store()
     params = [ p.unconstrained() for p in ps.values() ] # want to optimize in the constrained space 
 
@@ -405,7 +406,7 @@ def manual_fit(model, guide, x, y, iterations = 1500, loss_tol = 1e-3, **adam_kw
     old_loss = np.inf
     for i in range(iterations):
         #print(i,end="\r")
-        loss = loss_fn(model, guide, x, y)
+        loss = loss_fn(model, guide, *data)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -415,7 +416,7 @@ def manual_fit(model, guide, x, y, iterations = 1500, loss_tol = 1e-3, **adam_kw
         old_loss = loss_item
     return losses
 
-def fit_with_lbfgs(model, guide, x, y, outer_iterations = 1, **lbfgs_kwargs):
+def fit_with_lbfgs(model, guide, data, outer_iterations = 1, **lbfgs_kwargs):
     """
     Fit using LBFGS (which o.g. LeafCutter also used). 
     """
@@ -425,7 +426,7 @@ def fit_with_lbfgs(model, guide, x, y, outer_iterations = 1, **lbfgs_kwargs):
             lbfgs_kwargs[k] = v
     
     pyro.clear_param_store()
-    guide(x,y) # run once to instantiate params
+    guide(*data) # run once to instantiate params
     ps = pyro.get_param_store()
     params = [ p.unconstrained() for p in ps.values() ] # want to optimize in the constrained space 
     loss_fn = Trace_ELBO().differentiable_loss # JitTrace is actually slower it seems
@@ -436,13 +437,14 @@ def fit_with_lbfgs(model, guide, x, y, outer_iterations = 1, **lbfgs_kwargs):
     
     def closure(): # slightly awkward requirement of torch.optim.LBFGS
         optimizer.zero_grad()
-        loss = loss_fn(model, guide, x, y)
+        loss = loss_fn(model, guide, *data)
         loss.backward()
         return loss
+    
     losses = []
     for i in range(outer_iterations): # I think in principle we don't need this loop? 
         losses_here = optimizer.step(closure) # now returns a list of losses
         #losses += [ losses_here.item() ]
         losses += losses_here
-    #losses.append(loss_fn(model, guide, x, y).item())
+    #losses.append(loss_fn(model, guide, *data).item())
     return np.array(losses), optimizer.exit_status # "Converged" 

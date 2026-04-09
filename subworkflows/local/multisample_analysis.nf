@@ -25,33 +25,47 @@ workflow MULTISAMPLE_ANALYSIS {
     drimseq_min_gene_expr       // val: minimum gene expression for DRIMSeq
     drimseq_min_isoform_prop    // val: minimum isoform proportion for DRIMSeq
     dataset_name                // val: dataset name for output file prefixing
+    leafcutter_threads          // val: number of threads for leafcutter (null = use task.cpus)
 
     main:
     ch_versions = channel.empty()
 
-    // Parse metadata to generate all pairwise comparisons
+    // Parse metadata to generate pairwise comparisons, only for pairings where both conditions have >=2 samples
     def metadata_file = sample_metadata instanceof java.nio.file.Path ? sample_metadata.toFile() : new File(sample_metadata.toString())
     def metadata_content = metadata_file.text
     def lines = metadata_content.split('\n')
     def header_parts = lines[0].split(',')
     def group_idx = header_parts.findIndexOf { it.trim() == 'group' }
-    def unique_conditions = [] as Set
+    def name_idx = header_parts.findIndexOf { it.trim() == 'name' }
+    def samples_per_condition = [:].withDefault { [] }
     lines.drop(1).each { line ->
         if (line.trim()) {
             def parts = line.split(',')
             if (parts.size() > group_idx) {
-                unique_conditions.add(parts[group_idx].trim())
+                def condition = parts[group_idx].trim()
+                def sample_name = parts[name_idx].trim()
+                samples_per_condition[condition] << sample_name
             }
         }
     }
-
+    def valid_conditions = samples_per_condition.findAll { condition, samples -> samples.size() >= 2 }.keySet()
     def condition_pairs = []
-    def conditions_list = unique_conditions.toList().sort()
+    def skipped_pairs = []
+    def conditions_list = valid_conditions.toList().sort()
     conditions_list.eachWithIndex { cond1, i ->
         conditions_list.eachWithIndex { cond2, j ->
             if (j > i) {
                 condition_pairs << [cond1, cond2]
             }
+        }
+    }
+
+    // Log skipped conditions
+    def skipped_conditions = samples_per_condition.findAll { condition, samples -> samples.size() < 2 }
+    if (skipped_conditions.size() > 0) {
+        log.warn "Skipping ${skipped_conditions.size()} condition(s) with <2 samples from MULTISAMPLE_ANALYSIS:"
+        skipped_conditions.each { condition, samples ->
+            log.warn "  - ${condition}: ${samples.size()} sample(s)"
         }
     }
 
@@ -87,7 +101,8 @@ workflow MULTISAMPLE_ANALYSIS {
         min_samples_per_intron,
         min_samples_per_group,
         min_usage_ratio,
-        dataset_name
+        dataset_name,
+        leafcutter_threads
     )
     ch_versions = ch_versions.mix(LEAFCUTTER_LONGREAD.out.versions)
 

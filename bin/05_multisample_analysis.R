@@ -147,6 +147,22 @@ if (any(is.na(sample_metadata$name))) {
 control      = control_group
 experimental = experimental_group
 
+# Filter sample metadata to only include samples from the two groups being compared
+samples_to_keep = sample_metadata$group %in% c(control, experimental)
+if (sum(samples_to_keep) == 0) {
+  stop("No samples found for groups: ", control, " or ", experimental)
+}
+
+cat(sprintf("Filtering to %d samples from groups %s and %s\n",
+            sum(samples_to_keep), control, experimental))
+
+# Filter metadata and count column names to only contain those samples too
+sample_metadata = sample_metadata[samples_to_keep, ]
+count_cols = count_cols[samples_to_keep]
+cpm_cols = cpm_cols[samples_to_keep]
+orf_count_cols = orf_count_cols[samples_to_keep]
+orf_cpm_cols = orf_cpm_cols[samples_to_keep]
+
 group          = factor(sample_metadata$group, levels = c(control, experimental))
 expected_coef  = paste0("group", experimental)
 sample_names   = sample_metadata$name
