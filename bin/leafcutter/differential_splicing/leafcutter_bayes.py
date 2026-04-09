@@ -44,6 +44,10 @@ print(f"Loading counts from {args.counts_file}")
 if not pd.io.common.file_exists(args.counts_file):
     raise FileNotFoundError(f"File {args.counts_file} does not exist")
 counts = pd.read_table(args.counts_file, sep = '\s+')
+# Handle files with or without an index label in the header
+# If first column is non-numeric (e.g. junction IDs), use it as index
+if not pd.api.types.is_numeric_dtype(counts.iloc[:, 0]):
+    counts = counts.set_index(counts.columns[0])
 
 # Loading metadata from groups_file
 print(f"Loading metadata from {args.groups_file}")

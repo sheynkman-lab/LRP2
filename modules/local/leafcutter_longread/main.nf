@@ -76,6 +76,14 @@ process LEAFCUTTER_LONGREAD {
                 -o ${prefix} \\
                 ${prefix}.lr_leafcutter.perind_numers.counts.gz \\
                 ${prefix}.lr_leafcutter.filtered_groups_file.txt || echo "WARNING: Leafcutter differential splicing failed"
+
+            if [ -f "${prefix}_cluster_significance.txt" ]; then
+                mv ${prefix}_cluster_significance.txt ${prefix}.lr_leafcutter.ds_cluster_significance.txt
+            fi
+            if [ -f "${prefix}_effect_sizes.txt" ]; then
+                mv ${prefix}_effect_sizes.txt ${prefix}.lr_leafcutter.ds_effect_sizes.txt
+            fi
+            
         else
             echo "WARNING: Insufficient number of samples for differential splicing analysis! "
             echo "         leafcutter-longread requires at least ${min_samp_group} samples per group."

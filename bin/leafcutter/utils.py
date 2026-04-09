@@ -35,7 +35,10 @@ def get_intron_meta(introns):
     Returns: Data.frame with chr, start, end, cluster_name
     """
     intron_meta = pd.Series(introns).str.split(":", expand = True)
-    intron_meta.columns = ['chr', 'start', 'end', 'cluster']
+    if intron_meta.shape[1] == 4:
+        intron_meta.columns = ['chr', 'start', 'end', 'cluster']
+    elif intron_meta.shape[1] == 5:
+        intron_meta.columns = ['chr', 'start', 'end', 'cluster', 'annotation']
     return intron_meta
 
 def add_chr(chrs):
@@ -44,5 +47,4 @@ def add_chr(chrs):
     if not ('chr' in str(chrs[0])): 
         chrs = 'chr' + chrs
     return chrs
-
 
