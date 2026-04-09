@@ -83,7 +83,10 @@ process LEAFCUTTER_LONGREAD {
             if [ -f "${prefix}_effect_sizes.txt" ]; then
                 mv ${prefix}_effect_sizes.txt ${prefix}.lr_leafcutter.ds_effect_sizes.txt
             fi
-            
+
+            # Replace the unfiltered groups file with the filtered one used by analysis for output dir
+            mv ${prefix}.lr_leafcutter.filtered_groups_file.txt ${prefix}.lr_leafcutter.groups_file.txt
+
         else
             echo "WARNING: Insufficient number of samples for differential splicing analysis! "
             echo "         leafcutter-longread requires at least ${min_samp_group} samples per group."
