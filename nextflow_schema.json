@@ -316,6 +316,13 @@
                     "help_text": "R script used for differential expression and usage analysis with edgeR and DRIMSeq.",
                     "fa_icon": "far fa-file-code"
                 },
+                "leafcutter_threads": {
+                    "type": "integer",
+                    "default": 12,
+                    "description": "Number of threads for leafcutter differential splicing.",
+                    "help_text": "Specify the number of threads to use for leafcutter differential splicing analysis. If not specified, defaults to using the number of CPUs allocated to the process (12 for process_high).",
+                    "fa_icon": "fas fa-microchip"
+                },
                 "drimseq_min_gene_expr": {
                     "type": "integer",
                     "default": 10,
