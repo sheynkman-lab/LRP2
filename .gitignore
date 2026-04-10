@@ -64,7 +64,16 @@ log_files/*
 results/*
 fragpipe_tools/*
 
+# Test data
+test_data/run_rna_only/test_results/
+test_data/run_fragpipe_rna/test_results/
+
 jurkat_test_results/*
+
+# leafcutter
+bin/leafcutter/__pycache__/
+bin/leafcutter/differential_splicing/__pycache__/
+
 <<<<<<< HEAD
 
 environments/leafcutter_env/*
