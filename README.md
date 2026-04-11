@@ -503,13 +503,23 @@ For detailed information about output files, please refer to the [output documen
 
 ### Development Team
 
-The LRP2 pipeline was developed by the Sheynkman Lab and Knowles Lab:
+The LRP2 pipeline was developed through a collaboration by the Sheynkman Lab and Knowles Lab:
 
-- **Megan Schertzer**, Sheynkman Lab - Module code development
-- **Julia Lewandowski**, Knowles Lab - Pipeline implementation
+- **Megan D. Schertzer**, Sheynkman Lab - Module code development
+- **Julia T. Lewandowski**, Knowles Lab - Pipeline implementation
 
-We thank the following people for their extensive assistance in the development of this pipeline...
+We thank the following people for their extensive assistance in the development of this pipeline: 
+- **Emily F. Watts**, Sheynkman Lab - Contributions to LRP and conception of multi-sample analysis paradigm
+- **Madison M. Mehlferber**, Sheynkman Lab - Pipeline testing and feedback
 - **Will Rosenow**, Sheynkman Lab - Pipeline testing and feedback
+- **Scott I. Adamson**, Knowles Lab - Development of leafcutter-py 
+- **Jocelyne Bruand**, Pacific Biosciences - Development of Isocall 
+- **Elizabeth Tseng**, Pacific Biosciences - Development of Isocall 
+- **Egor Dolzhenko**, Pacific Bioscience - Lead Developer of Isocall 
+
+We especially thank the PIs associated with this project: 
+- **David A. Knowles**, Development of Leafcutter and project support / funding 
+- **Gloria Sheynkman**, Development/conceptualization of LRP and project support / funding
 
 ## License
 
