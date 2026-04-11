@@ -301,41 +301,6 @@ nextflow run /path/to/LRP2 --help
 > [!WARNING]
 > Please provide pipeline parameters via the CLI as shown or using the Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration except for parameters.
 
-## Sample Data
-
-### Downloading Sample Data
-
-Example sample data for testing the pipeline is available on Zenodo:
-
-**Zenodo DOI:** [10.5281/zenodo.18065306](https://zenodo.org/records/18065306)
-
-The sample dataset includes chromosome 22 data from a PacBio Iso-Seq experiment studying RBFOX2 splicing regulation:
-- `230801_pacbio_rbfox2_control_chr22.flnc.bam` - Control sample (chr22 only)
-- `230801_pacbio_rbfox2_RB-G5_chr22.flnc.bam` - RBFOX2 knockdown sample (chr22 only)
-
-### Using Sample Data
-
-An example samplesheet for the sample data is included in `sample_data/samplesheet.csv`. After downloading the BAM files from Zenodo, you can run the pipeline on the sample data:
-
-```bash
-# Download sample data from Zenodo
-wget https://zenodo.org/records/18065306/files/230801_pacbio_rbfox2_control_chr22.flnc.bam
-wget https://zenodo.org/records/18065306/files/230801_pacbio_rbfox2_RB-G5_chr22.flnc.bam
-
-# Move files to sample_data directory
-mv *.flnc.bam sample_data/
-
-# Run pipeline with sample data
-nextflow run /path/to/LRP2 \
-    --input sample_data/samplesheet.csv \
-    --outdir results \
-    --genome GRCh38.p14.v46 \
-    -profile singularity
-```
-
-> [!NOTE]
-> The sample data is restricted to chromosome 22 for RNA samples and only a subset of peptides for mass spec samples to reduce file size and computation time, making it ideal for testing the pipeline and becoming familiar with the workflow. We highly recommend trying out the sample data prior to running with your own data!
-
 ## Test Data
 
 The pipeline includes test data for quick validation of the installation and functionality. Test data is located in the `test_data/` directory and includes subsetted paired RNA and mass spec data for ENCODE4 K562 and HepG2 samples.
