@@ -334,7 +334,61 @@ nextflow run /path/to/LRP2 \
 ```
 
 > [!NOTE]
-> The sample data is restricted to chromosome 22 to reduce file size and computation time, making it ideal for testing the pipeline and becoming familiar with the workflow. We highly recommend trying out the sample data prior to running with your own data.
+> The sample data is restricted to chromosome 22 for RNA samples and only a subset of peptides for mass spec samples to reduce file size and computation time, making it ideal for testing the pipeline and becoming familiar with the workflow. We highly recommend trying out the sample data prior to running with your own data!
+
+## Test Data
+
+The pipeline includes test data for quick validation of the installation and functionality. Test data is located in the `test_data/` directory and includes subsetted paired RNA and mass spec data for ENCODE4 K562 and HepG2 samples.
+
+### Running RNA-only Test
+
+To run the RNA-only test profile, you may run:
+
+```bash
+nextflow run sheynkmanlab/lrp2 \
+    -profile test_rna,<docker/singularity> \
+    --outdir test_results
+```
+
+This will process RNA samples from both K562 and HepG2 cell lines using the test configuration.
+
+### Running RNA + DDA Mass Spec Test
+
+To run the RNA + DDA mass spectrometry test profile with FragPipe, you must first obtain a FragPipe license token:
+
+1. **Obtain FragPipe Token**: Run the following curl command with your information:
+
+```bash
+curl --location --request POST \
+    'https://msfragger-upgrader.nesvilab.org/upgrader/upgrade_download.php' \
+    --form 'transfer="academic"' \
+    --form 'agreement2="true"' \
+    --form 'agreement3="true"' \
+    --form "first_name=YOUR_FIRST_NAME" \
+    --form "last_name=YOUR_LAST_NAME" \
+    --form "email=YOUR_EMAIL" \
+    --form "organization=YOUR_INSTITUTION" \
+    --form "download=4.4.1\$zip" \
+    --form 'is_fragpipe="true"' \
+    > /dev/null 2>&1
+```
+
+You will receive a 6-digit token via email.
+
+2. **Run the test**: Use the token and your registration information:
+
+```bash
+nextflow run sheynkmanlab/lrp2 \
+    -profile test_dda,<docker/singularity> \
+    --outdir test_results_dda \
+    --fragpipe_first_name YOUR_FIRST_NAME \
+    --fragpipe_last_name YOUR_LAST_NAME \
+    --fragpipe_email YOUR_EMAIL \
+    --fragpipe_institution YOUR_INSTITUTION \
+    --fragpipe_token 123456
+```
+
+Note: The `test_dda` profile automatically sets `--protein_search fragpipe` and `--fragpipe_license_accept true` so you do not need to specify these parameters.
 
 ## Pipeline Output
 
