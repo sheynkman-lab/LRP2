@@ -41,10 +41,10 @@ cd LRP2
 
 Start a persistent terminal session so the pipeline keeps running if you lose your connection:
 ```bash
-tmux new -s lrp2
+screen -S lrp2
 ```
-> **Tip**: To detach from tmux, press `Ctrl+B` then `D`. To reattach later: `tmux attach -t lrp2`
-> **Tip**: You can also use `screen` instead of `tmux` if preferred.
+> **Tip**: To detach from screen, press `Ctrl+A` then `D`. To reattach later: `screen -r lrp2`
+> **Tip**: UVA Rivanna only supports `screen`, but you can use `tmux new -s lrp2` on other systems if preferred.
 
 Request an interactive job with enough resources for the test dataset:
 ```bash
@@ -178,7 +178,7 @@ nextflow run /path/to/LRP2 \
 
 ## Reference Genome Support
 
-The pipeline supports three reference genome sources:
+Genome support is under active development. Currently, it is recommended to use GENCODE reference, with support for any version. RefSeq and custom support coming soon, along with support for mouse.
 
 1. **GENCODE genomes** (recommended) — High-quality annotations with multiple release versions (e.g., `--genome GRCh38.p14.v49`)
 2. **RefSeq genomes (via iGenomes)** — Standard genome builds using NCBI/Ensembl annotations (e.g., `--genome GRCh38`)
