@@ -107,27 +107,17 @@ nextflow run . -profile test_dda,singularity --outdir test_results_dda \
 
 Prepare a samplesheet CSV describing your input data:
 
-```csv
-sample_name,sample_path,condition,sample_type,mass_spec_type
-control_rep1,/path/to/control_rep1.flnc.bam,control,RNA,none
-control_rep2,/path/to/control_rep2.flnc.bam,control,RNA,none
-control_rep3,/path/to/control_rep3.flnc.bam,control,RNA,none
-treatment_rep1,/path/to/treatment_rep1.flnc.bam,treatment,RNA,none
-treatment_rep2,/path/to/treatment_rep2.flnc.bam,treatment,RNA,none
-treatment_rep3,/path/to/treatment_rep3.flnc.bam,treatment,RNA,none
-control_protein,/path/to/control_injection1.raw,control,protein,DDA
-control_protein,/path/to/control_injection2.raw,control,protein,DDA
-control_protein,/path/to/control_injection3.raw,control,protein,DDA
-treatment_protein,/path/to/treatment_frac1.mzML,treatment,protein,DIA
-treatment_protein,/path/to/treatment_frac2.mzML,treatment,protein,DIA
-```
+![Samplesheet structure](assets/samplesheet_structure.png)
+
+> **Note**: Each RNA sample must have a unique `sample_name`, these are used by Isocall to label count matrix columns. For protein samples, all raw files originating from the same biological sample (e.g., multiple fractions or injection replicates) should share the same `sample_name` so they are combined and searched together in FragPipe. This `sample_name` should match the corresponding RNA sample to link the RNA and protein data. The predicted proteome from that sample will be included in the proteomics search database.
+> **Note**: If a protein sample has no matched RNA sample, give it a unique `sample_name` that does not match any RNA sample; in this case, only the GENCODE reference proteome will be used as the proteomics search database. 
 
 **Required columns:**
 
-- `sample_name`: Each RNA sample must have a distinct value. The sample names are used by Isocall to label count matrix columns. Protein samples with matching `sample_name` and `condition` are grouped together. Do not include any spaces in this value.
+- `sample_name`: Each RNA sample must have a distinct value. Do not include any spaces in this value.
 - `sample_path`: Absolute or relative path to the file. RNA samples should be PacBio FLNC `.bam` or `.fastq` files. Protein samples should be `.raw` or `.mzML` files.
 - `condition`: Sample group (e.g., "control", "treatment"). Used for differential analysis, which performs pairwise comparisons between groups. Two or more groups are supported. If you do not want differential analysis, assign the same condition to all samples. Do not include any spaces in this value.
-- `sample_type`: Either ``RNA`` or ``protein``.
+- `sample_type`: Either `RNA` or `protein`.
 - `mass_spec_type`: `DDA` or `DIA`. Required for protein samples. For RNA samples, specify `none`.
 
 
