@@ -142,8 +142,8 @@ process FRAGPIPE {
 
     # Update workflow with database path and decoy tag
     WORK_DIR="\$(pwd)"
-    echo "database.db-path=\$WORK_DIR/database_with_decoys.fasta" >> workflow.workflow
-    echo "database.decoy-tag=${decoy_tag}" >> workflow.workflow
+    printf "\ndatabase.db-path=%s\n" "\$WORK_DIR/database_with_decoys.fasta" >> workflow.workflow
+    printf "database.decoy-tag=%s\n" "${decoy_tag}" >> workflow.workflow
 
     echo ""
 
@@ -364,12 +364,10 @@ process FRAGPIPE {
     echo "FragPipe analysis completed for: ${meta.id}"
     echo "=========================================================================="
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        fragpipe: \$(\$FRAGPIPE_CMD --version 2>&1 | grep -oP 'FragPipe \\K[0-9.]+' || echo "${params.fragpipe_version}")
-        msfragger: \$(basename ${msfragger_jar} | grep -oP 'MSFragger-\\K[0-9.]+' || echo "unknown")
-        ionquant: \$(basename ${ionquant_jar} | grep -oP 'IonQuant-\\K[0-9.]+' || echo "unknown")
-    END_VERSIONS
+    echo "\"${task.process}\":" > versions.yml
+    echo "    fragpipe: \$(\$FRAGPIPE_CMD --version 2>&1 | grep -oP 'FragPipe \\K[0-9.]+' || echo \"${params.fragpipe_version}\")" >> versions.yml
+    echo "    msfragger: \$(basename ${msfragger_jar} | grep -oP 'MSFragger-\\K[0-9.]+' || echo \"unknown\")" >> versions.yml
+    echo "    ionquant: \$(basename ${ionquant_jar} | grep -oP 'IonQuant-\\K[0-9.]+' || echo \"unknown\")" >> versions.yml
     """
 
     stub:
@@ -380,11 +378,9 @@ process FRAGPIPE {
     touch results/psm.tsv
     touch results/combined_protein.tsv
 
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        fragpipe: ${params.fragpipe_version}
-        msfragger: 4.1
-        ionquant: 1.10.12
-    END_VERSIONS
+    echo "\"${task.process}\":" > versions.yml
+    echo "    fragpipe: ${params.fragpipe_version}" >> versions.yml
+    echo "    msfragger: 4.1" >> versions.yml
+    echo "    ionquant: 1.10.12" >> versions.yml
     """
 }
