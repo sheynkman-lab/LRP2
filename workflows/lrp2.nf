@@ -231,49 +231,117 @@ workflow LRP2 {
     // Determine protein FASTA for proteomics analysis
     // Priority: 1) User-provided --protein_fasta, 2) Auto-detect from GENCODE genome, 3) Skip if neither available
     //
-    def protein_fasta_path = params.protein_fasta
+    //def protein_fasta_path = params.protein_fasta
 
     // If not provided by user, get from GENCODE genome default
-    if (!protein_fasta_path && params.gencode_refs?.containsKey(params.genome)) {
-        protein_fasta_path = params.gencode_refs[params.genome].protein_fasta
-        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Auto-detected protein FASTA from GENCODE genome ${params.genome}: ${protein_fasta_path}${colors.reset}-"
+    //if (!protein_fasta_path && params.gencode_refs?.containsKey(params.genome)) {
+    //    protein_fasta_path = params.gencode_refs[params.genome].protein_fasta
+    //    log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Auto-detected protein FASTA from GENCODE genome ${params.genome}: ${protein_fasta_path}${colors.reset}-"
+    //}
+    
+    // Resolve GENCODE protein FASTA from --genome (e.g., GRCh38.p14.v49)
+    def gencode_protein_fasta_path = null
+    if (params.gencode_refs?.containsKey(params.genome)) {
+      gencode_protein_fasta_path = params.gencode_refs[params.genome].protein_fasta
+      log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} GENCODE protein FASTA resolved from --genome ${params.genome}: ${gencode_protein_fasta_path}${colors.reset}-"
     }
-
-    def protein_fasta_file = protein_fasta_path ? file(protein_fasta_path) : null
-    def is_protein_fasta_gzipped = protein_fasta_file && protein_fasta_file.name.endsWith('.gz')
-
-    if (is_protein_fasta_gzipped) {
-        ch_protein_fasta_input = channel.of([[ id: 'protein_fasta' ], protein_fasta_file])
-        GUNZIP_PROTEIN_FASTA(ch_protein_fasta_input)
-        ch_protein_fasta = GUNZIP_PROTEIN_FASTA.out.gunzip.map { _meta, file -> file }
-    } else {
-        ch_protein_fasta = protein_fasta_file ? channel.value(protein_fasta_file) : channel.empty()
+    
+    // Resolve custom protein FASTA (optional, user-provided via --custom_protein_fasta)
+    def custom_protein_fasta_path = params.custom_protein_fasta ?: null
+    if (custom_protein_fasta_path) {
+      log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Custom protein FASTA provided: ${custom_protein_fasta_path}${colors.reset}-"
     }
+    
+    // LRP protein fasta when only proteomics subworflow is run
+    def lrp_protein_fasta_path = params.lrp_protein_fasta ?: null
+    if (lrp_protein_fasta_path) {
+        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} LRP protein FASTA provided: ${lrp_protein_fasta_path}${colors.reset}-"
+    }
+    
+    if (lrp_protein_fasta_path && custom_protein_fasta_path) {
+        error "--lrp_protein_fasta and --custom_protein_fasta are mutually exclusive. Provide one or neither."
+    }
+    
+    //def protein_fasta_file = protein_fasta_path ? file(protein_fasta_path) : null
+    //def is_protein_fasta_gzipped = protein_fasta_file && protein_fasta_file.name.endsWith('.gz')
+
+    //if (is_protein_fasta_gzipped) {
+    //    ch_protein_fasta_input = channel.of([[ id: 'protein_fasta' ], protein_fasta_file])
+    //    GUNZIP_PROTEIN_FASTA(ch_protein_fasta_input)
+    //    ch_protein_fasta = GUNZIP_PROTEIN_FASTA.out.gunzip.map { _meta, file -> file }
+    //} else {
+    //    ch_protein_fasta = protein_fasta_file ? channel.value(protein_fasta_file) : channel.empty()
+    //}
+    
+    // Log skip if no protein samples
+    ch_protein_count
+        .subscribe { count ->
+            if (count == 0) {
+                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No protein samples detected - skipping PROTEOMICS subworkflow${colors.reset}-"
+            }
+        }
+
+    ch_has_protein_samples = ch_protein_count.map { count -> count > 0 }
 
     //
     // SUBWORKFLOW: Run proteomics analysis
     // Runs if protein_fasta is available (either user-provided or auto-detected) AND protein samples are present
     //
-    ch_protein_count
-        .subscribe { count ->
-            if (protein_fasta_path && count == 0) {
-                log.warn "-${colors.purple}[sheynkmanlab/lrp2]${colors.yellow} Protein FASTA available but no protein samples detected - skipping PROTEOMICS subworkflow${colors.reset}-"
-            } else if (!protein_fasta_path && count > 0) {
-                log.warn "-${colors.purple}[sheynkmanlab/lrp2]${colors.yellow} Protein samples detected but no protein FASTA available (neither --protein_fasta provided nor auto-detected from GENCODE genome) - skipping PROTEOMICS subworkflow${colors.reset}-"
-            } else if (!protein_fasta_path && count == 0) {
-                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No protein samples detected - skipping PROTEOMICS subworkflow${colors.reset}-"
-            }
-        }
+    //ch_protein_count
+    //    .subscribe { count ->
+    //        if (protein_fasta_path && count == 0) {
+    //            log.warn "-${colors.purple}[sheynkmanlab/lrp2]${colors.yellow} Protein FASTA available but no protein samples detected - skipping PROTEOMICS subworkflow${colors.reset}-"
+    //        } else if (!protein_fasta_path && count > 0) {
+    //            log.warn "-${colors.purple}[sheynkmanlab/lrp2]${colors.yellow} Protein samples detected but no protein FASTA available (neither --protein_fasta provided nor auto-detected from GENCODE genome) - skipping PROTEOMICS subworkflow${colors.reset}-"
+    //        } else if (!protein_fasta_path && count == 0) {
+    //            log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No protein samples detected - skipping PROTEOMICS subworkflow${colors.reset}-"
+    //        }
+    //    }
 
     // note: pipeline will only execute PROTEOMICS if protein_fasta is available (user-provided or auto-detected)
-    if (protein_fasta_path) {
+    //if (protein_fasta_path) {
+    if (gencode_protein_fasta_path || custom_protein_fasta_path || lrp_protein_fasta_path) {
         ch_metamorpheus_config = channel.value(
             params.metamorpheus_config ?
                 file(params.metamorpheus_config) :
                 file("${projectDir}/sample_data/SearchTask.toml")
         )
         ch_mm_writable = channel.value(file("${projectDir}/assets/mm_writable_placeholder"))
+        
+        //
+        // Decompress GENCODE protein FASTA if provided and gzipped (only when protein samples exist)
+        //
+        def gencode_protein_fasta_file = gencode_protein_fasta_path ? file(gencode_protein_fasta_path) : null
+        def is_gencode_protein_fasta_gzipped = gencode_protein_fasta_file && gencode_protein_fasta_file.name.endsWith('.gz')
 
+        if (is_gencode_protein_fasta_gzipped && gencode_protein_fasta_file) {
+            ch_gencode_protein_fasta_input = ch_has_protein_samples
+                .filter { it }
+                .map { _has_protein -> [[ id: 'gencode_protein_fasta' ], gencode_protein_fasta_file] }
+            GUNZIP_PROTEIN_FASTA(ch_gencode_protein_fasta_input)
+            ch_gencode_protein_fasta = GUNZIP_PROTEIN_FASTA.out.gunzip.map { _meta, file -> file }
+        } else if (gencode_protein_fasta_file) {
+            ch_gencode_protein_fasta = channel.value(gencode_protein_fasta_file)
+        } else {
+            ch_gencode_protein_fasta = channel.value(file('NO_FILE'))
+        }
+        
+        //
+        // Resolve custom protein FASTA channel
+        //
+        def custom_protein_fasta_file = custom_protein_fasta_path ? file(custom_protein_fasta_path) : null
+        ch_custom_protein_fasta = custom_protein_fasta_file
+            ? channel.value(custom_protein_fasta_file)
+            : channel.value(file('NO_FILE'))
+        
+        //
+        // Resolve LRP protein FASTA channel (user-provided, for proteomics-only runs)
+        //
+        def lrp_protein_fasta_file = lrp_protein_fasta_path ? file(lrp_protein_fasta_path) : null
+        ch_lrp_protein_fasta = lrp_protein_fasta_file
+            ? channel.value(lrp_protein_fasta_file)
+            : channel.value(file('NO_FILE'))
+            
         // BUILD_PROTEOME_REFERENCE search db creation logic:
         // - If RNA samples were processed, we build sample-specific references with LRP proteome + GENCODE concatenated
         // - If no RNA samples then we build GENCODE-only references per sample group
@@ -282,7 +350,7 @@ workflow LRP2 {
         ch_predicted_proteome_fasta = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
             .map { _meta, fasta -> fasta }
             .first()
-            .ifEmpty(file('NO_FILE'))
+            .ifEmpty(lrp_protein_fasta_file ?: file('NO_FILE'))
 
         ch_transcript_counts_with_id = TRANSCRIPTOME.out.hashids_all
             .map { meta, counts -> [meta.id, counts] }
@@ -319,17 +387,31 @@ workflow LRP2 {
 
         // Build proteome references per sample group
         // Prepare input channel for BUILD_PROTEOME_REFERENCE
+        //ch_build_ref_input = ch_protein_samples_grouped
+        //    .combine(ch_predicted_proteome_fasta)
+        //    .combine(ch_transcript_counts)
+        //    .combine(ch_protein_fasta)
+        //    .map { meta, _files, lrp_fasta, counts, gencode_fasta ->
+        //        // If lrp_fasta or counts are NO_FILE placeholders, create unique ones per sample to avoid Nextflow staging collisions when multiple samples use the same placeholder
+        //        def unique_lrp_fasta = lrp_fasta.name == 'NO_FILE' ? file("${meta.id}_NO_LRP_FASTA") : lrp_fasta
+        //        def unique_counts = counts.name == 'NO_FILE' ? file("${meta.id}_NO_COUNTS") : counts
+        //        return [meta, unique_lrp_fasta, unique_counts, gencode_fasta]
+        //    }
+        
         ch_build_ref_input = ch_protein_samples_grouped
             .combine(ch_predicted_proteome_fasta)
             .combine(ch_transcript_counts)
-            .combine(ch_protein_fasta)
-            .map { meta, _files, lrp_fasta, counts, gencode_fasta ->
-                // If lrp_fasta or counts are NO_FILE placeholders, create unique ones per sample to avoid Nextflow staging collisions when multiple samples use the same placeholder
+            .combine(ch_custom_protein_fasta)
+            .combine(ch_gencode_protein_fasta)
+            .map { meta, _files, lrp_fasta, counts, custom_fasta, gencode_protein_fasta ->
+                // Create unique placeholder names per sample to avoid Nextflow staging collisions
                 def unique_lrp_fasta = lrp_fasta.name == 'NO_FILE' ? file("${meta.id}_NO_LRP_FASTA") : lrp_fasta
                 def unique_counts = counts.name == 'NO_FILE' ? file("${meta.id}_NO_COUNTS") : counts
-                return [meta, unique_lrp_fasta, unique_counts, gencode_fasta]
+                def unique_custom = custom_fasta.name == 'NO_FILE' ? file("${meta.id}_NO_CUSTOM_FASTA") : custom_fasta
+                def unique_gencode = gencode_protein_fasta.name == 'NO_FILE' ? file("${meta.id}_NO_GENCODE_PROTEIN_FASTA") : gencode_protein_fasta
+                return [meta, unique_lrp_fasta, unique_counts, unique_custom, unique_gencode]
             }
-
+            
         // Script path for build_mass_spec_reference.R
         ch_build_proteome_script = channel.value(file("${projectDir}/bin/build_mass_spec_reference.R"))
 
