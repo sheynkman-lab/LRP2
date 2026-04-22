@@ -6,7 +6,7 @@ process NOVEL_PEPTIDES {
     container "docker://docker.io/jtllab/lrp2-lite:latest"
 
     input:
-    tuple val(meta), path(fragpipe_peptide_file), path(reference_fasta), path(lr_cds_gtf), path(lr_orf_fasta)
+    tuple val(meta), path(fragpipe_peptide_file), path(reference_fasta), path(custom_gtf), path(custom_fasta), path(gencode_gtf), path(gencode_fasta)
     path novel_peptides_script
     val gencode_version
 
@@ -23,17 +23,22 @@ process NOVEL_PEPTIDES {
     def prefix = task.ext.prefix ?: "${meta.id}"
     def ms_search_software = meta.protein_search ?: 'fragpipe'
     def acquisition_type = meta.mass_spec_type ?: 'DDA'
-    def has_lr_data = (!lr_cds_gtf.name.contains('_NO_GTF') && !lr_orf_fasta.name.contains('_NO_FASTA'))
-    def lr_gtf_arg = has_lr_data ? "--lr_cds_gtf ${lr_cds_gtf}" : ""
-    def lr_fasta_arg = has_lr_data ? "--lr_orf_fasta ${lr_orf_fasta}" : ""
+    def has_custom_data = (!custom_gtf.name.contains('_NO_GTF') && !custom_fasta.name.contains('_NO_FASTA'))
+    def custom_gtf_arg = has_custom_data ? "--custom_gtf ${custom_gtf}" : ""
+    def custom_fasta_arg = has_custom_data ? "--custom_fasta ${custom_fasta}" : ""
+    def has_gencode_data = (!gencode_gtf.name.contains('_NO_GTF') && !gencode_fasta.name.contains('_NO_FASTA'))
+    def gencode_gtf_arg = has_gencode_data ? "--gencode_gtf ${gencode_gtf}" : ""
+    def gencode_fasta_arg = has_gencode_data ? "--gencode_fasta ${gencode_fasta}" : ""
 
     """
     echo "NOVEL PEPTIDES CLASSIFICATION: ${meta.id}"
     echo "Sample: ${prefix}"
     echo "Search software: ${ms_search_software}"
     echo "Acquisition type: ${acquisition_type}"
-    echo "LR CDS GTF: ${has_lr_data ? lr_cds_gtf : 'N/A (no matched RNA)'}"
-    echo "LR ORF FASTA: ${has_lr_data ? lr_orf_fasta : 'N/A (no matched RNA)'}"
+    echo "Custom GTF: ${has_custom_data ? custom_gtf : 'N/A (no custom data)'}"
+    echo "Custom FASTA: ${has_custom_data ? custom_fasta : 'N/A (no custom data)'}"
+    echo "GENCODE GTF: ${has_gencode_data ? gencode_gtf : 'N/A (will use fallback)'}"
+    echo "GENCODE FASTA: ${has_gencode_data ? gencode_fasta : 'N/A (will use fallback)'}"
     echo "FragPipe peptide file: ${fragpipe_peptide_file}"
     echo ""
 
@@ -58,8 +63,10 @@ process NOVEL_PEPTIDES {
         --ms_search_software ${ms_search_software} \\
         --acquisition_type ${acquisition_type} \\
         --fragpipe_results_dir \$FRAGPIPE_RESULTS_DIR \\
-        ${lr_gtf_arg} \\
-        ${lr_fasta_arg} \\
+        ${custom_gtf_arg} \\
+        ${custom_fasta_arg} \\
+        ${gencode_gtf_arg} \\
+        ${gencode_fasta_arg} \\
         --gencode_version ${gencode_version} \\
         --outdir . \\
         $args

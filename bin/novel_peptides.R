@@ -55,10 +55,14 @@ option_list = list(
               help = "Fragpipe acquisition tpye: 'DIA' or 'DDA' [required for fragpipe]"),
   make_option(c("--fragpipe_results_dir"), type = "character", default = NULL,
               help = "Path to FragPipe results directory (e.g., results/S5_PROTEOMICS/M3_FRAGPIPE/sample_name)"),
-  make_option(c("--lr_cds_gtf"), type = "character", default = NULL,
-              help = "Path to LR transcript GTF with CDS entries (enables peptide-to-genome mapping)"),
-  make_option(c("--lr_orf_fasta"), type = "character", default = NULL,
-              help = "Path to LR protein FASTA (required if --lr_cds_gtf is provided)"),
+  make_option(c("--custom_gtf"), type = "character", default = NULL,
+              help = "Path to custom/LRP transcript GTF with CDS entries"),
+  make_option(c("--custom_fasta"), type = "character", default = NULL,
+              help = "Path to custom/LRP protein FASTA (headers: transcript_id|gene_id at minimum)"),
+  make_option(c("--gencode_fasta"), type = "character", default = NULL,
+              help = "Path to GENCODE protein FASTA (pc_translations.fa)"),
+  make_option(c("--gencode_gtf"), type = "character", default = NULL,
+              help = "Path to GENCODE annotation GTF (basic.annotation.gtf)"),
   make_option(c("--gencode_version"), type = "character", default = "46",
               help = "GENCODE version for GTF download [default: 46]"),
   make_option(c("--species"), type = "character", default = "human",
@@ -90,13 +94,22 @@ if (!opt$species %in% c("human", "mouse")) {
   stop("--species must be 'human' or 'mouse' to pull proper GENCODE gtf")
 }
 
-# optional lr fasta and gtf requirements if peptide mapping
-if (!is.null(opt$lr_cds_gtf) && is.null(opt$lr_orf_fasta)) {
-  stop("--lr_orf_fasta is required when --lr_cds_gtf is provided")
+# optional custom fasta and gtf requirements if peptide mapping
+if (!is.null(opt$custom_gtf) && is.null(opt$custom_fasta)) {
+  stop("--custom_fasta is required when --custom_gtf is provided")
 }
-if (!is.null(opt$lr_orf_fasta) && is.null(opt$lr_cds_gtf)) {
-  stop("--lr_cds_gtf is required when --lr_orf_fasta is provided")
+if (!is.null(opt$custom_fasta) && is.null(opt$custom_gtf)) {
+  stop("--custom_gtf is required when --custom_fasta is provided")
 }
+
+# gencode fasta and gtf should be provided together
+if (!is.null(opt$gencode_fasta) && is.null(opt$gencode_gtf)) {
+  stop("--gencode_gtf is required when --gencode_fasta is provided")
+}
+if (!is.null(opt$gencode_gtf) && is.null(opt$gencode_fasta)) {
+  stop("--gencode_fasta is required when --gencode_gtf is provided")
+}
+
 # =============================================================================
 # Function to map peptides to genome
 # =============================================================================
@@ -447,40 +460,48 @@ cat("  Annotated (GENCODE only):", n_annotated_gencode, "\n")
 cat("  Peptides with best status NMD:", sum(out$best_status == "NMD", na.rm = TRUE), "\n")
 
 # =============================================================================
-# Optional: Map peptides to genomic coordinates
+# Map peptides to genomic coordinates
 # =============================================================================
 
-if (!is.null(opt$lr_cds_gtf) && !is.null(opt$lr_orf_fasta)) {
+# GENCODE and custom/LRP are independent — either or both can run
+# Each requires its own FASTA + GTF pair
+
+gencode_bed = NULL
+custom_bed = NULL
+
+# --- GENCODE peptides (runs whenever there are GENCODE-only peptides) ---
+
+gencode_peptides = out %>%
+  filter(rna_detection_status == "RNA_not_detected")
+
+if (nrow(gencode_peptides) > 0) {
+  cat("\n=== GENCODE peptides ===\n")
   
-  # --- GENCODE peptides ---
-  gencode_bed = NULL
-  gencode_peptides = out %>%
-    filter(rna_detection_status == "RNA_not_detected")
+  gencode_peptides %<>%
+    select(Sequence, transcript_id, gene_id, PSM) %>%
+    separate_rows(transcript_id, sep = ",") %>%
+    separate_rows(gene_id, sep = ",") %>%
+    filter(transcript_id != "NA")
   
-  if (nrow(gencode_peptides) > 0) {
-    cat("\n=== GENCODE peptides ===\n")
+  # Remove peptides mapping to multiple genes
+  multi_gene = gencode_peptides %>%
+    distinct(Sequence, gene_id) %>%
+    count(Sequence) %>%
+    filter(n > 1)
+  cat("Removing", nrow(multi_gene), "peptides mapping to multiple genes\n")
+  
+  unique_gencode_peptides = gencode_peptides %>%
+    filter(!Sequence %in% multi_gene$Sequence) %>%
+    distinct(Sequence, transcript_id, PSM) %>%
+    group_by(Sequence, PSM) %>%
+    slice(1) %>%
+    ungroup()
     
-    gencode_peptides %<>%
-      select(Sequence, transcript_id, gene_id, PSM) %>%
-      separate_rows(transcript_id, sep = ",") %>%
-      separate_rows(gene_id, sep = ",") %>%
-      filter(transcript_id != "NA")
-    
-    # Remove peptides mapping to multiple genes
-    multi_gene = gencode_peptides %>%
-      distinct(Sequence, gene_id) %>%
-      count(Sequence) %>%
-      filter(n > 1)
-    cat("Removing", nrow(multi_gene), "peptides mapping to multiple genes\n")
-    
-    unique_gencode_peptides = gencode_peptides %>%
-      filter(!Sequence %in% multi_gene$Sequence) %>%
-      distinct(Sequence, transcript_id, PSM) %>%
-      group_by(Sequence, PSM) %>%
-      slice(1) %>%
-      ungroup()
-    
-    # Download gencode fasta and gtf
+  # Use provided GENCODE files, fall back to download
+  if (!is.null(opt$gencode_fasta) && !is.null(opt$gencode_gtf)) {
+    gencode_fa_local_path = opt$gencode_fasta
+    gencode_gtf_local_path = opt$gencode_gtf
+  } else {
     if (opt$species == "human") {
       gencode_base = paste0("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_", opt$gencode_version)
       gencode_ver = paste0("v", opt$gencode_version)
@@ -501,14 +522,17 @@ if (!is.null(opt$lr_cds_gtf) && !is.null(opt$lr_orf_fasta)) {
     if (!file.exists(gencode_gtf_local_path)) {
       download.file(gencode_gtf, gencode_gtf_local_path, mode = "wb")
     }
-    
-    # Map GENCODE peptides
-    gencode_bed = map_peptides_to_genome(unique_gencode_peptides, gencode_fa_local_path, gencode_gtf_local_path)
-    
   }
   
-  # --- LRP peptides ---
-  cat("\n=== LRP Peptides ===\n")
+  # Map GENCODE peptides
+  gencode_bed = map_peptides_to_genome(unique_gencode_peptides, gencode_fa_local_path, gencode_gtf_local_path)
+  
+}
+  
+# --- Custom/LRP peptides (only when custom/lrp fasta + gtf provided) ---
+if (!is.null(opt$custom_fasta) && !is.null(opt$custom_gtf)) {
+  cat("\n=== Custom/LRP Peptides ===\n")
+  
   lr_peptides = out %>%
     filter(rna_detection_status == "RNA_detected") %>%
     select(Sequence, transcript_id, gene_id, PSM) %>%
@@ -530,18 +554,18 @@ if (!is.null(opt$lr_cds_gtf) && !is.null(opt$lr_orf_fasta)) {
     slice(1) %>%
     ungroup() %>%
     mutate(transcript_id = as.character(transcript_id))
-
-  # Map LR peptides
-  lr_bed = map_peptides_to_genome(unique_lr_peptides, opt$lr_orf_fasta, opt$lr_cds_gtf)
   
-  all_bed = bind_rows(gencode_bed, lr_bed)
-  
-  if (nrow(all_bed) > 0) {
-    bed_outfile = file.path(opt$outdir, paste0(opt$sample_name, ".proteomics.all_peptides.bed"))
-    write_tsv(all_bed %>% select(1:12), bed_outfile, col_names = FALSE)
-    cat("\nWrote", nrow(all_bed), "BED12 entries to", bed_outfile, "\n")
-  }
-  
+  # Map custom/LRP peptides
+  custom_bed = map_peptides_to_genome(unique_lr_peptides, opt$custom_fasta, opt$custom_gtf)
 }
+
+all_bed = bind_rows(gencode_bed, custom_bed)
+
+if (nrow(all_bed) > 0) {
+  bed_outfile = file.path(opt$outdir, paste0(opt$sample_name, ".proteomics.all_peptides.bed"))
+  write_tsv(all_bed %>% select(1:12), bed_outfile, col_names = FALSE)
+  cat("\nWrote", nrow(all_bed), "BED12 entries to", bed_outfile, "\n")
+}
+
 
 cat("\nDone.\n")

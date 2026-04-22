@@ -252,6 +252,12 @@ workflow LRP2 {
       log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Custom protein FASTA provided: ${custom_protein_fasta_path}${colors.reset}-"
     }
     
+    // Resolve custom GTF (optional, paired with custom_protein_fasta)
+    def custom_gtf_file = params.custom_gtf ? file(params.custom_gtf) : null
+    if (custom_gtf_file) {
+        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Custom GTF provided: ${custom_gtf_file}${colors.reset}-"
+    }
+    
     // LRP protein fasta when only proteomics subworflow is run
     def lrp_protein_fasta_path = params.lrp_protein_fasta ?: null
     if (lrp_protein_fasta_path) {
@@ -261,6 +267,13 @@ workflow LRP2 {
     if (lrp_protein_fasta_path && custom_protein_fasta_path) {
         error "--lrp_protein_fasta and --custom_protein_fasta are mutually exclusive. Provide one or neither."
     }
+    
+    // Resolve LRP GTF (optional, for proteomics-only runs with prior LRP output)
+    def lrp_gtf_file = params.lrp_gtf ? file(params.lrp_gtf) : null
+    if (lrp_gtf_file) {
+        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} LRP GTF provided: ${lrp_gtf_file}${colors.reset}-"
+    }
+
     
     //def protein_fasta_file = protein_fasta_path ? file(protein_fasta_path) : null
     //def is_protein_fasta_gzipped = protein_fasta_file && protein_fasta_file.name.endsWith('.gz')
@@ -360,17 +373,24 @@ workflow LRP2 {
         ch_transcript_counts = ch_transcript_counts_with_id
             .map { rna_id, counts -> counts }
 
-        // Extract CDS GTF and ORF FASTA for novel peptides classification
+        // NOVEL_PEPTIDES Extract CDS GTF and ORF FASTA
         ch_lr_cds_gtf = PREDICTED_PROTEOME.out.cds_gtf
             .map { _meta, gtf -> gtf }
             .first()
-            .ifEmpty(file('NO_FILE'))
+            .ifEmpty(lrp_gtf_file ?: custom_gtf_file ?: file('NO_FILE'))
 
         ch_lr_orf_fasta = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
             .map { _meta, fasta -> fasta }
             .first()
-            .ifEmpty(file('NO_FILE'))
+            .ifEmpty(lrp_protein_fasta_file ?: custom_protein_fasta_file ?: file('NO_FILE'))
 
+        // Resolve GENCODE annotation GTF for novel peptides BED mapping
+        // Use the already-decompressed ch_gtf if available, otherwise resolve from params
+        def gencode_gtf_for_novel = params.gencode_gtf ? file(params.gencode_gtf) : null
+        ch_gencode_gtf_for_novel = gencode_gtf_for_novel
+            ? channel.value(gencode_gtf_for_novel)
+            : channel.value(file('NO_FILE'))
+            
         // Create a channel that maps each protein sample to its sample_name for grouping
         // Group protein samples by sample_name (the biosample group)
         ch_protein_samples_grouped = ch_protein_samples_filtered
@@ -451,8 +471,10 @@ workflow LRP2 {
             params.fragpipe_license_accept,
             // Novel peptides inputs
             ch_rna_sample_names,    // List of RNA sample names to check for matches
-            ch_lr_cds_gtf,          // LR CDS GTF (for samples with matched RNA)
-            ch_lr_orf_fasta,        // LR ORF FASTA (for samples with matched RNA)
+            ch_lr_cds_gtf,          // Custom/LRP CDS GTF (for samples with matched RNA)
+            ch_lr_orf_fasta,        // Custom/LRP ORF FASTA (for samples with matched RNA)
+            ch_gencode_gtf_for_novel,   // GENCODE annotation GTF (for BED mapping)
+            ch_gencode_protein_fasta,   // GENCODE protein FASTA (for BED mapping)
             params.genome
         )
         ch_versions = ch_versions.mix(PROTEOMICS.out.versions.ifEmpty([]))
