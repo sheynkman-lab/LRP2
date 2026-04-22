@@ -48,9 +48,9 @@ screen -S lrp2
 
 Request an interactive job with enough resources for the test dataset:
 ```bash
-ijob -c 4 --mem=32G -p standard -A your_allocation --time=4:00:00
+ijob -c 4 --mem=64G -p your_slurm_partition -A your_allocation --time=4:00:00
 ```
-> **Note**: Adjust for your HPC system. Replace `standard` with your SLURM partition and `your_allocation` with your SLURM allocation group. The `-c` (CPUs) and `--mem` values above are sufficient for the test dataset.
+> **Note**: Adjust for your HPC system. Replace `your_slurm_partition` with your SLURM partition and `your_allocation` with your SLURM allocation group. The `-c` (CPUs) and `--mem` values above are sufficient for the test dataset.
 
 Load the required modules:
 ```bash
@@ -59,12 +59,14 @@ module load nextflow apptainer
 
 ### Run the RNA-only test dataset
 
-From the `LRP2` directory, run the RNA-only test:
+From the `LRP2` directory, you can run the RNA-only test two ways:
+
+To run locally:
 ```bash
 nextflow run . -profile test_rna,singularity --outdir test_results
 ```
 
-To submit individual tasks to the SLURM scheduler instead of running locally:
+To submit individual tasks to the SLURM scheduler (recommended):
 ```bash
 nextflow run . -profile test_rna,singularity,slurm --outdir test_results
 ```
@@ -91,16 +93,28 @@ curl --location --request POST \
 
 2. Check your email for a 6-digit token.
 
-3. From the `LRP2` directory, run the RNA + DDA proteomics test with your registration details:
+3. From the `LRP2` directory, you can run the RNA + DDA proteomics test with your registration details two ways:
 
+To run locally:
 ```bash
 nextflow run . -profile test_dda,singularity --outdir test_results_dda \
-    --fragpipe_first_name YOUR_FIRST_NAME \
-    --fragpipe_last_name YOUR_LAST_NAME \
-    --fragpipe_email YOUR_EMAIL \
-    --fragpipe_institution YOUR_INSTITUTION \
-    --fragpipe_token YOUR_TOKEN
+    --fragpipe_first_name "YOUR_FIRST_NAME" \
+    --fragpipe_last_name "YOUR_LAST_NAME" \
+    --fragpipe_email "YOUR_EMAIL" \
+    --fragpipe_institution "YOUR_INSTITUTION" \
+    --fragpipe_token "YOUR_TOKEN"
 ```
+
+To submit individual tasks to the SLURM scheduler (recommended):
+```bash
+nextflow run . -profile test_dda,singularity,slurm --outdir test_results_dda \
+    --fragpipe_first_name "YOUR_FIRST_NAME" \
+    --fragpipe_last_name "YOUR_LAST_NAME" \
+    --fragpipe_email "YOUR_EMAIL" \
+    --fragpipe_institution "YOUR_INSTITUTION" \
+    --fragpipe_token "YOUR_TOKEN"
+```
+
 > **Note**: The `test_dda` profile automatically sets `--protein_search fragpipe` and `--fragpipe_license_accept true`.
 
 ## Preparing Input Data
