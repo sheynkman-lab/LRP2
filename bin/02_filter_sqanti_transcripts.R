@@ -201,11 +201,15 @@ mapping = read_tsv(mapping_file, show_col_types = FALSE)
 # SQANTI classification file- add sample names, calculate cpm on all transcripts before filtering
 sqanti_df = read_tsv(classification_file, show_col_types = FALSE)
 
-# Remove "FL." prefix and rename count columns with "_counts" suffix
-fl_cols = grep("^FL\\.", colnames(sqanti_df), value = TRUE)
-sample_names_from_fl = sub("^FL\\.", "", fl_cols)
-colnames(sqanti_df) = ifelse(colnames(sqanti_df) %in% fl_cols,
-                             paste0(sample_names_from_fl, "_counts"),
+# # Remove "FL." prefix and rename count columns with "_counts" suffix
+# fl_cols = grep("^FL\\.", colnames(sqanti_df), value = TRUE)
+# sample_names_from_fl = sub("^FL\\.", "", fl_cols)
+# colnames(sqanti_df) = ifelse(colnames(sqanti_df) %in% fl_cols,
+#                              paste0(sample_names_from_fl, "_counts"),
+#                              colnames(sqanti_df))
+
+colnames(sqanti_df) = ifelse(grepl("^FL\\.", colnames(sqanti_df)),
+                             paste0(sub("^FL\\.", "", colnames(sqanti_df)), "_counts"),
                              colnames(sqanti_df))
 
 counts_cols = grep("_counts$", colnames(sqanti_df), value = TRUE)
