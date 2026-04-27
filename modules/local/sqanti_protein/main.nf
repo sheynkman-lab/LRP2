@@ -3,7 +3,7 @@ process SQANTI_PROTEIN {
     label 'process_long'
 
     conda "${moduleDir}/environment.yml"
-    container 'docker://docker.io/anaconesalab/sqanti3:v6.0.1'
+    container 'docker://docker.io/anaconesalab/sqanti3:v5.5.4'
 
     input:
     tuple val(meta), path(cds_gtf)
