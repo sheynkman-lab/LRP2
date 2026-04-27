@@ -3,7 +3,7 @@ process SQANTI_QC {
     label 'process_long'
 
     conda "${moduleDir}/environment.yml"
-    container 'docker://docker.io/anaconesalab/sqanti3:v6.0.1'
+    container 'docker://docker.io/anaconesalab/sqanti3:5.2.2'
 
     input:
     tuple val(meta), path(isoforms_gtf), path(flnc_count)
