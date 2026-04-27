@@ -476,13 +476,6 @@
                     "fa_icon": "fas fa-search",
                     "enum": ["fragpipe", "metamorpheus"]
                 },
-                "fragpipe_version": {
-                    "type": "string",
-                    "default": "24.0",
-                    "description": "FragPipe version to use.",
-                    "help_text": "Specify the FragPipe version for proteomics analysis.",
-                    "fa_icon": "fas fa-tag"
-                },
                 "fragpipe_tools_dir": {
                     "type": "string",
                     "format": "directory-path",

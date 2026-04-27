@@ -3,7 +3,7 @@ process FRAGPIPE {
     label 'process_high_memory'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/fcyucn/fragpipe:${params.fragpipe_version}"
+    container "docker://docker.io/fcyucn/fragpipe:24.0"
 
     input:
     tuple val(meta), path(mzml_files), path(protein_fasta)
@@ -176,8 +176,8 @@ process FRAGPIPE {
     # Find FragPipe executable
     if command -v fragpipe &> /dev/null; then
         FRAGPIPE_CMD="fragpipe"
-    elif [ -f "/fragpipe_bin/fragpipe-${params.fragpipe_version}/fragpipe-${params.fragpipe_version}/bin/fragpipe" ]; then
-        FRAGPIPE_CMD="/fragpipe_bin/fragpipe-${params.fragpipe_version}/fragpipe-${params.fragpipe_version}/bin/fragpipe"
+    elif [ -f "/fragpipe_bin/fragpipe-24.0/fragpipe-24.0/bin/fragpipe" ]; then
+        FRAGPIPE_CMD="/fragpipe_bin/fragpipe-24.0/fragpipe-24.0/bin/fragpipe"
     elif [ -d "/fragpipe_bin" ]; then
         FRAGPIPE_CMD=\$(find /fragpipe_bin -name "fragpipe" -type f -executable 2>/dev/null | head -1)
         if [ -z "\$FRAGPIPE_CMD" ]; then
@@ -369,7 +369,7 @@ process FRAGPIPE {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        fragpipe: \$(\$FRAGPIPE_CMD --version 2>&1 | grep -oP 'FragPipe \\K[0-9.]+' || echo "${params.fragpipe_version}")
+        fragpipe: \$(\$FRAGPIPE_CMD --version 2>&1 | grep -oP 'FragPipe \\K[0-9.]+' || echo "24.0")
         msfragger: \$(basename ${msfragger_jar} | grep -oP 'MSFragger-\\K[0-9.]+' || echo "unknown")
         ionquant: \$(basename ${ionquant_jar} | grep -oP 'IonQuant-\\K[0-9.]+' || echo "unknown")
     END_VERSIONS
@@ -385,7 +385,7 @@ process FRAGPIPE {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        fragpipe: ${params.fragpipe_version}
+        fragpipe: 24.0
         msfragger: 4.1
         ionquant: 1.10.12
     END_VERSIONS
