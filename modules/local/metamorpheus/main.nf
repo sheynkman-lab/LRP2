@@ -13,7 +13,7 @@ process METAMORPHEUS {
 
         # Auto-extract MetaMorpheus default files from container on first run
         METAMORPH_DATA_DIR="${projectDir}/assets/metamorpheus_data"
-        CONTAINER="\${NXF_SINGULARITY_CACHEDIR:-${projectDir}/singularity_cache}/docker.io-smithchemwisc-metamorpheus-latest.img"
+        CONTAINER="\${NXF_SINGULARITY_CACHEDIR:-${projectDir}/work/singularity}/docker.io-smithchemwisc-metamorpheus-latest.img"
 
         if [ ! -f "\${METAMORPH_DATA_DIR}/Mods/ProteaseMods.txt" ]; then
             LOCK_FILE="\${METAMORPH_DATA_DIR}/.extraction.lock"
