@@ -32,8 +32,10 @@ workflow PROTEOMICS {
 
     // Novel peptides inputs
     rna_sample_ids              // channel: List of RNA sample IDs (to check for matched RNA data)
-    lr_cds_gtf                  // path: Long-read CDS GTF (only for samples with matched RNA sample)
-    lr_orf_fasta                // path: Long-read ORF FASTA (only for samples with matched RNA sample)
+    lr_cds_gtf                  // path: Custom/LRP CDS GTF (only for samples with matched RNA sample)
+    lr_orf_fasta                // path: Custom/LRP ORF FASTA (only for samples with matched RNA sample)
+    gencode_gtf_for_novel       // path: GENCODE annotation GTF (for novel peptides BED mapping)
+    gencode_fasta_for_novel     // path: GENCODE protein FASTA (for novel peptides BED mapping)
     genome                      // val: Genome reference name (e.g., 'GRCh38.p14.v49')
 
     main:
@@ -181,13 +183,15 @@ workflow PROTEOMICS {
         ch_novel_peptides_input = ch_fragpipe_peptide_files
             .combine(ch_protein_dbs, by: 0)
             .map { sample_name, meta, peptide_file, protein_fasta ->
-                def rna_ids = rna_sample_ids.val
-                def lr_gtf_file = lr_cds_gtf.val
-                def lr_fasta_file = lr_orf_fasta.val
-                def has_rna = rna_ids.contains(sample_name)
-                def lr_gtf = has_rna ? lr_gtf_file : file("${sample_name}_NO_GTF")
-                def lr_fasta = has_rna ? lr_fasta_file : file("${sample_name}_NO_FASTA")
-                return [meta, peptide_file, protein_fasta, lr_gtf, lr_fasta]
+                def custom_gtf = lr_cds_gtf.val
+                def custom_fasta = lr_orf_fasta.val
+                def gc_gtf = gencode_gtf_for_novel.val
+                def gc_fasta = gencode_fasta_for_novel.val
+                return [meta, peptide_file, protein_fasta,
+                        custom_gtf.name != 'NO_FILE' ? custom_gtf : file("${sample_name}_NO_GTF"),
+                        custom_fasta.name != 'NO_FILE' ? custom_fasta : file("${sample_name}_NO_FASTA"),
+                        gc_gtf.name != 'NO_FILE' ? gc_gtf : file("${sample_name}_NO_GTF"),
+                        gc_fasta.name != 'NO_FILE' ? gc_fasta : file("${sample_name}_NO_FASTA")]
             }
 
         def novel_peptides_script = file("${projectDir}/bin/novel_peptides.R")
