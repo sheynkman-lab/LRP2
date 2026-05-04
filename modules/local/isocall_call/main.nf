@@ -15,7 +15,7 @@ process ISOCALL_CALL {
 
     output:
     tuple val(meta), path("*.isocall.isoforms.gtf.gz"), emit: gtf
-    tuple val(meta), path("*.isocall.count_matrix.txt"), emit: count_matrix
+    tuple val(meta), path("*.isocall.count_matrix.csv"), emit: count_matrix
     path "versions.yml", emit: versions
 
     when:
@@ -38,7 +38,9 @@ process ISOCALL_CALL {
         --min-reads-per-isoform $min_read_support \\
         --max-bundles-per-gene $max_bundles_per_gene \\
         $args
-
+    
+    mv ${prefix}.isocall.count_matrix.txt ${prefix}.isocall.count_matrix.csv
+    
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         isocall: \$( isocall --version 2>&1 | sed 's/isocall //g' )
@@ -49,7 +51,7 @@ process ISOCALL_CALL {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}.isocall.isoforms.gtf.gz
-    touch ${prefix}.isocall.count_matrix.txt
+    touch ${prefix}.isocall.count_matrix.csv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

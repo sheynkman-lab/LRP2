@@ -30,8 +30,9 @@ process SQANTI_QC {
     def prefix = task.ext.prefix ?: "${meta.id}"
 
     """
+    
     source /conda/miniconda3/etc/profile.d/conda.sh
-    conda activate SQANTI3.env
+    conda activate sqanti3
 
     # Decompress GTF if it's gzipped
     ISOFORMS_INPUT="$isoforms_gtf"
@@ -45,16 +46,13 @@ process SQANTI_QC {
     fi
 
     sqanti3_qc.py \\
-        --force_id_ignore \\
-        --skipORF \\
-        --output ${prefix}.transcriptome \\
-        --dir . \\
-        --cpus $task.cpus \\
+        --isoforms "\$ISOFORMS_INPUT" \\
+        --refGTF $reference_gtf \\
+        --refFasta $reference_fasta \\
+        -o ${prefix}.transcriptome \\
+        -d . \\
         --report skip \\
-        --fl_count $flnc_count \\
-        "\$ISOFORMS_INPUT" \\
-        $reference_gtf \\
-        $reference_fasta \\
+        --fl $flnc_count \\
         $args
     
     mv ${prefix}.transcriptome_classification.txt ${prefix}.transcriptome.SQANTI_classification.txt
@@ -64,7 +62,7 @@ process SQANTI_QC {
     
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        sqanti3: 5.2.2
+        sqanti3: 6.0.1
     END_VERSIONS
     """
 
@@ -78,7 +76,7 @@ process SQANTI_QC {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        sqanti3: 5.2.2
+        sqanti3: 6.0.1
     END_VERSIONS
     """
 }
