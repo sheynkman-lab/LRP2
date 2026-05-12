@@ -93,25 +93,17 @@ curl --location --request POST \
 
 2. Check your email for a 6-digit token.
 
-3. From the `LRP2` directory, you can run the RNA + DDA proteomics test with your registration details two ways:
+3. From the `LRP2` directory, you can run the RNA + DDA proteomics test with your token two ways:
 
 To run locally:
 ```bash
 nextflow run . -profile test_dda,singularity --outdir test_results_dda \
-    --fragpipe_first_name "YOUR_FIRST_NAME" \
-    --fragpipe_last_name "YOUR_LAST_NAME" \
-    --fragpipe_email "YOUR_EMAIL" \
-    --fragpipe_institution "YOUR_INSTITUTION" \
     --fragpipe_token "YOUR_TOKEN"
 ```
 
 To submit individual tasks to the SLURM scheduler (recommended):
 ```bash
 nextflow run . -profile test_dda,singularity,slurm --outdir test_results_dda \
-    --fragpipe_first_name "YOUR_FIRST_NAME" \
-    --fragpipe_last_name "YOUR_LAST_NAME" \
-    --fragpipe_email "YOUR_EMAIL" \
-    --fragpipe_institution "YOUR_INSTITUTION" \
     --fragpipe_token "YOUR_TOKEN"
 ```
 
@@ -163,19 +155,14 @@ nextflow run /path/to/LRP2 \
 
 ### With proteomics (FragPipe)
 
-Requires protein samples in the samplesheet and a FragPipe academic license (see [Run the RNA + DDA proteomics test dataset](#run-the-rna--dda-proteomics-test-dataset) above for license setup).
+Requires protein samples in the samplesheet and a FragPipe academic license token (see [Run the RNA + DDA proteomics test dataset](#run-the-rna--dda-proteomics-test-dataset) above for obtaining a token).
 ```bash
 nextflow run /path/to/LRP2 \
     --input samplesheet.csv \
     --outdir results \
     --genome GRCh38.p14.v49 \
     --protein_search fragpipe \
-    --fragpipe_first_name YOUR_FIRST_NAME \
-    --fragpipe_last_name YOUR_LAST_NAME \
-    --fragpipe_email YOUR_EMAIL \
-    --fragpipe_institution YOUR_INSTITUTION \
     --fragpipe_token YOUR_TOKEN \
-    --fragpipe_license_accept true \
     -profile singularity,slurm
 ```
 > **Note**: When both RNA and protein samples are provided, the pipeline searches against the predicted proteome combined with a reference protein FASTA (auto-detected from the genome or provided via `--protein_fasta`). For protein-only samples, only the reference database is used.

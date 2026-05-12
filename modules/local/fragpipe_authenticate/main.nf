@@ -1,14 +1,19 @@
 /*
  * FRAGPIPE_AUTHENTICATE: Interactive license acceptance and tool download
  *
- * This module handles the one-time setup for FragPipe with TWO modes:
+ * This module handles the one-time setup for FragPipe with THREE modes:
  *
  * MODE 1 - INTERACTIVE (Default, like FragNFlow):
  *   - Checks if tools already exist
  *   - If not: displays license, collects user info, sends registration, prompts for token
  *   - If yes: skips download, uses cached tools
  *
- * MODE 2 - NON-INTERACTIVE (For HPC batch jobs):
+ * MODE 2 - TOKEN-ONLY (Simplified for HPC):
+ *   - User provides only --fragpipe_token parameter
+ *   - Skips registration (user already ran curl command to get token)
+ *   - Goes straight to downloading tools with provided token
+ *
+ * MODE 3 - FULL NON-INTERACTIVE (Legacy HPC mode):
  *   - User provides all parameters via command line
  *   - No prompts, fully automated
  *
@@ -49,8 +54,17 @@ process FRAGPIPE_AUTHENTICATE {
     task.ext.when == null || task.ext.when
 
     script:
-    // Detect mode: if any required param is empty/false, use interactive mode
-    def interactive_mode = first_name == '' || last_name == '' || email == '' || institution == '' || token == '' || license_accept == false
+    // Detect mode:
+    // - MODE 1 (Interactive): All params empty/false
+    // - MODE 2 (Token-only): Only token provided, rest empty/false
+    // - MODE 3 (Full non-interactive): All params provided
+    def has_token = token != ''
+    def has_user_info = first_name != '' && last_name != '' && email != '' && institution != ''
+    def has_license = license_accept == true
+
+    def interactive_mode = !has_token && !has_user_info && !has_license
+    def token_only_mode = has_token && !has_user_info && !has_license
+    def full_mode = has_token && has_user_info && has_license
     """
     #!/bin/bash
     set -euo pipefail
@@ -91,11 +105,25 @@ process FRAGPIPE_AUTHENTICATE {
         echo ""
 
         #
-        # STEP 2: Determine mode (interactive vs non-interactive)
+        # STEP 2: Determine mode (interactive vs token-only vs full non-interactive)
         #
         INTERACTIVE="${interactive_mode}"
+        TOKEN_ONLY="${token_only_mode}"
+        FULL_MODE="${full_mode}"
 
-        if [ "\$INTERACTIVE" = "true" ]; then
+        if [ "\$TOKEN_ONLY" = "true" ]; then
+            #
+            # TOKEN-ONLY MODE
+            #
+            echo "\${CYAN}=========================================================================="
+            echo "                    TOKEN-ONLY MODE"
+            echo "==========================================================================\${RESET}"
+            echo ""
+            echo "Using token provided via --fragpipe_token parameter"
+            echo "Skipping registration (assuming you already obtained token via curl)"
+            echo ""
+            USER_TOKEN="${token}"
+        elif [ "\$INTERACTIVE" = "true" ]; then
             #
             # INTERACTIVE MODE
             #
@@ -201,53 +229,62 @@ process FRAGPIPE_AUTHENTICATE {
         fi
 
         #
-        # STEP 3: Send registration to Nesvilab
+        # STEP 3: Get latest version and send registration (skip registration for token-only mode)
         #
-        echo "\${YELLOW}Registering with Nesvilab upgrader server...\${RESET}"
+        # Get latest MSFragger version (needed for all modes for download URLs)
+        echo "\${YELLOW}Querying latest MSFragger version...\${RESET}"
         MSFRAGGER_VERSION=\$(curl -s https://msfragger-upgrader.nesvilab.org/upgrader/latest_version.php)
         echo "Latest MSFragger version: \$MSFRAGGER_VERSION"
-
-        curl --location --request POST \\
-            'https://msfragger-upgrader.nesvilab.org/upgrader/upgrade_download.php' \\
-            --form 'transfer="academic"' \\
-            --form 'agreement2="true"' \\
-            --form 'agreement3="true"' \\
-            --form "first_name=\$USER_FIRST_NAME" \\
-            --form "last_name=\$USER_LAST_NAME" \\
-            --form "email=\$USER_EMAIL" \\
-            --form "organization=\$USER_INSTITUTION" \\
-            --form "download=\${MSFRAGGER_VERSION}\\\$zip" \\
-            --form 'is_fragpipe="true"' \\
-            > /dev/null 2>&1
-
-        echo "\${GREEN}✓ Registration sent successfully!\${RESET}"
         echo ""
 
-        #
-        # STEP 4: Get authentication token
-        #
-        if [ "\$INTERACTIVE" = "true" ]; then
-            echo "\${YELLOW}=========================================================================="
-            echo "                    AUTHENTICATION TOKEN REQUIRED"
-            echo "==========================================================================\${RESET}"
-            echo ""
-            echo "A 6-digit verification code has been sent to: \$USER_EMAIL"
-            echo "\${CYAN}Please check your email (including spam folder)\${RESET}"
-            echo ""
+        # Send registration to Nesvilab (skip for token-only mode since user already did this)
+        if [ "\$TOKEN_ONLY" = "false" ]; then
+            echo "\${YELLOW}Registering with Nesvilab upgrader server...\${RESET}"
 
-            # Prompt for token with validation
-            while true; do
-                read -p "Enter the 6-digit authentication code: " USER_TOKEN
-                if [[ "\$USER_TOKEN" =~ ^[0-9]{6}\$ ]]; then
-                    echo "\${GREEN}✓ Token accepted: \$USER_TOKEN\${RESET}"
-                    break
-                else
-                    echo "\${RED}✗ Invalid token. Please enter exactly 6 digits.\${RESET}"
-                fi
-            done
-        else
-            echo "Using token from parameters: ${token}"
-            USER_TOKEN="${token}"
+            curl --location --request POST \\
+                'https://msfragger-upgrader.nesvilab.org/upgrader/upgrade_download.php' \\
+                --form 'transfer="academic"' \\
+                --form 'agreement2="true"' \\
+                --form 'agreement3="true"' \\
+                --form "first_name=\$USER_FIRST_NAME" \\
+                --form "last_name=\$USER_LAST_NAME" \\
+                --form "email=\$USER_EMAIL" \\
+                --form "organization=\$USER_INSTITUTION" \\
+                --form "download=\${MSFRAGGER_VERSION}\\\$zip" \\
+                --form 'is_fragpipe="true"' \\
+                > /dev/null 2>&1
+
+            echo "\${GREEN}✓ Registration sent successfully!\${RESET}"
+            echo ""
+        fi
+
+        #
+        # STEP 4: Get authentication token (skip for token-only mode - already set)
+        #
+        if [ "\$TOKEN_ONLY" = "false" ]; then
+            if [ "\$INTERACTIVE" = "true" ]; then
+                echo "\${YELLOW}=========================================================================="
+                echo "                    AUTHENTICATION TOKEN REQUIRED"
+                echo "==========================================================================\${RESET}"
+                echo ""
+                echo "A 6-digit verification code has been sent to: \$USER_EMAIL"
+                echo "\${CYAN}Please check your email (including spam folder)\${RESET}"
+                echo ""
+
+                # Prompt for token with validation
+                while true; do
+                    read -p "Enter the 6-digit authentication code: " USER_TOKEN
+                    if [[ "\$USER_TOKEN" =~ ^[0-9]{6}\$ ]]; then
+                        echo "\${GREEN}✓ Token accepted: \$USER_TOKEN\${RESET}"
+                        break
+                    else
+                        echo "\${RED}✗ Invalid token. Please enter exactly 6 digits.\${RESET}"
+                    fi
+                done
+            else
+                echo "Using token from parameters: ${token}"
+                USER_TOKEN="${token}"
+            fi
         fi
 
         echo ""
@@ -281,28 +318,53 @@ process FRAGPIPE_AUTHENTICATE {
             echo ""
             echo "To fix this issue:"
             echo ""
-            echo -e "  \${CYAN}1.\${RESET} Check your email (\$USER_EMAIL) for a \${CYAN}NEW\${RESET} verification code"
-            echo -e "     \${YELLOW}(The code expires quickly - usually within minutes to hours)\${RESET}"
-            echo ""
-            echo -e "  \${CYAN}2.\${RESET} If you don't have a recent email, request a new token by running:"
-            echo ""
-            echo -e "\${GREEN}"
-            echo "     curl --location --request POST \\\\"
-            echo "       'https://msfragger-upgrader.nesvilab.org/upgrader/upgrade_download.php' \\\\"
-            echo "       --form 'transfer=\"academic\"' \\\\"
-            echo "       --form 'agreement2=\"true\"' \\\\"
-            echo "       --form 'agreement3=\"true\"' \\\\"
-            echo "       --form 'first_name=\$USER_FIRST_NAME' \\\\"
-            echo "       --form 'last_name=\$USER_LAST_NAME' \\\\"
-            echo "       --form 'email=\$USER_EMAIL' \\\\"
-            echo "       --form 'organization=\$USER_INSTITUTION' \\\\"
-            echo "       --form 'download=\${MSFRAGGER_VERSION}\\\$zip' \\\\"
-            echo "       --form 'is_fragpipe=\"true\"'"
-            echo -e "\${RESET}"
-            echo ""
-            echo -e "  \${CYAN}3.\${RESET} Update your pipeline command with the new token:"
-            echo ""
-            echo -e "     \${GREEN}--fragpipe_token XXXXXX\${RESET}"
+
+            if [ "\$TOKEN_ONLY" = "true" ]; then
+                echo -e "  \${CYAN}1.\${RESET} Request a new token by running this curl command:"
+                echo ""
+                echo -e "\${GREEN}"
+                echo "     curl --location --request POST \\\\"
+                echo "       'https://msfragger-upgrader.nesvilab.org/upgrader/upgrade_download.php' \\\\"
+                echo "       --form 'transfer=\"academic\"' \\\\"
+                echo "       --form 'agreement2=\"true\"' \\\\"
+                echo "       --form 'agreement3=\"true\"' \\\\"
+                echo "       --form 'first_name=YOUR_FIRST_NAME' \\\\"
+                echo "       --form 'last_name=YOUR_LAST_NAME' \\\\"
+                echo "       --form 'email=YOUR_EMAIL' \\\\"
+                echo "       --form 'organization=YOUR_INSTITUTION' \\\\"
+                echo "       --form 'download=4.4.1\\\\\\\$zip' \\\\"
+                echo "       --form 'is_fragpipe=\"true\"'"
+                echo -e "\${RESET}"
+                echo ""
+                echo -e "  \${CYAN}2.\${RESET} Check your email for the new 6-digit token"
+                echo ""
+                echo -e "  \${CYAN}3.\${RESET} Update your pipeline command with the new token:"
+                echo ""
+                echo -e "     \${GREEN}--fragpipe_token XXXXXX\${RESET}"
+            else
+                echo -e "  \${CYAN}1.\${RESET} Check your email (\$USER_EMAIL) for a \${CYAN}NEW\${RESET} verification code"
+                echo -e "     \${YELLOW}(The code expires quickly - usually within minutes to hours)\${RESET}"
+                echo ""
+                echo -e "  \${CYAN}2.\${RESET} If you don't have a recent email, request a new token by running:"
+                echo ""
+                echo -e "\${GREEN}"
+                echo "     curl --location --request POST \\\\"
+                echo "       'https://msfragger-upgrader.nesvilab.org/upgrader/upgrade_download.php' \\\\"
+                echo "       --form 'transfer=\"academic\"' \\\\"
+                echo "       --form 'agreement2=\"true\"' \\\\"
+                echo "       --form 'agreement3=\"true\"' \\\\"
+                echo "       --form 'first_name=\$USER_FIRST_NAME' \\\\"
+                echo "       --form 'last_name=\$USER_LAST_NAME' \\\\"
+                echo "       --form 'email=\$USER_EMAIL' \\\\"
+                echo "       --form 'organization=\$USER_INSTITUTION' \\\\"
+                echo "       --form 'download=\${MSFRAGGER_VERSION}\\\$zip' \\\\"
+                echo "       --form 'is_fragpipe=\"true\"'"
+                echo -e "\${RESET}"
+                echo ""
+                echo -e "  \${CYAN}3.\${RESET} Update your pipeline command with the new token:"
+                echo ""
+                echo -e "     \${GREEN}--fragpipe_token XXXXXX\${RESET}"
+            fi
             echo ""
             echo -e "  \${CYAN}4.\${RESET} Resume the pipeline run:"
             echo ""
