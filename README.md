@@ -182,13 +182,65 @@ nextflow run /path/to/LRP2 \
 
 ## Reference Genome Support
 
-Genome support is under active development. Currently, it is recommended to use GENCODE reference, with support for any version. RefSeq and custom support coming soon, along with support for mouse.
+The pipeline supports multiple multi-species (human, mouse) reference genome sources: 
 
-1. **GENCODE genomes** (recommended) — High-quality annotations with multiple release versions (e.g., `--genome GRCh38.p14.v49`)
-2. **RefSeq genomes (via iGenomes)** — Standard genome builds using NCBI/Ensembl annotations (e.g., `--genome GRCh38`)
-3. **Custom references** — Provide your own FASTA and GTF files using `--fasta`, `--gencode_fasta`, and `--gencode_gtf`
+1. **GENCODE genomes** (recommended) — High-quality annotations with multiple release versions
+   - Human: `GRCh38.p14.v49`, `GRCh38.p14.v48`, ..., `GRCh38.p14.v44`, `GRCh38.p13.v43`, ..., `GRCh37.p13.v19`
+   - Mouse: `GRCm39.vM38`, `GRCm39.vM37`, `GRCm39.vM36`, `GRCm39.vM35`, `GRCm39.vM34`
+2. **Custom references** — Provide your own FASTA and GTF files by setting the `--gencode_fasta` and `--gencode_gtf` parameters
+3. **RefSeq genomes (under development)** — Standard genome builds using NCBI/Ensembl annotations (e.g., `GRCh38`, `GRCm38`)
 
-The pipeline automatically downloads the appropriate FASTA and GTF files based on your `--genome` selection.
+Currently, it is recommended to use GENCODE reference, with support for any version. The pipeline automatically downloads the appropriate FASTA and GTF files based on your `--genome` selection.
+
+Support for RefSeq / igenomes is under active development.
+
+### Viewing Available Genomes
+
+To see all available preconfigured `--genome` options, run this command from the LRP2 directory:
+
+```bash
+grep -oE "^        '[^']+'" conf/gencode_references.config | tr -d "'" | tr -d ' ' | sort
+```
+
+### Multi-Species Support
+
+The pipeline supports both human and mouse data analysis. The species being analyzed is automatically detected from the `--genome` parameter when using predefined GENCODE references:
+
+**Human data:**
+```bash
+nextflow run /path/to/LRP2 \
+    --input samplesheet.csv \
+    --outdir results \
+    --genome GRCh38.p14.v49 \
+    -profile singularity,slurm
+```
+
+**Mouse data:**
+```bash
+nextflow run /path/to/LRP2 \
+    --input samplesheet.csv \
+    --outdir results \
+    --genome GRCm39.vM34 \
+    -profile singularity,slurm
+```
+
+Species determines which CPAT model files (human vs mouse-specific models) are used for ORF prediction.
+
+### Using Custom References
+
+When providing custom FASTA and GTF files instead of using a predefined `--genome`, you **must explicitly specify** the `--species` parameter:
+
+```bash
+nextflow run /path/to/LRP2 \
+    --input samplesheet.csv \
+    --outdir results \
+    --gencode_fasta /path/to/custom_genome.fa \
+    --gencode_gtf /path/to/custom_annotation.gtf \
+    --species mouse \
+    -profile singularity,slurm
+```
+
+> **Important**: The `--species` parameter is required when using custom references to ensure the correct CPAT models are used for ORF prediction. Valid values are `human` or `mouse`.
 
 ## Parameters
 
@@ -212,7 +264,7 @@ The pipeline automatically downloads the appropriate FASTA and GTF files based o
 
 ### Predicted Proteome Subworkflow
 
-- `--species` — `human` or `mouse` (default: `human`)
+- `--species` — Species: `human` or `mouse`. Auto-detected from `--genome` when using predefined GENCODE references. **Required** when using custom FASTA/GTF files.
 - `--min_orf` — Minimum ORF length in nucleotides (default: `75`)
 - `--cpat_coding_threshold` — Coding probability threshold (default: human=0.364, mouse=0.44)
 - `--protein_class_keep` — Protein categories to retain (default: `FPM,NPC,NPE`)
