@@ -39,22 +39,33 @@ workflow LRP2 {
     def colors = logColours(params.monochrome_logs)
 
     //
-    // Decompress reference files if they are gzipped (e.g. GENCODE files gzipped by default)
+    // Separate RNA and protein samples based on sample_type metadata
+    // Note: Genome FASTA decompression is deferred until after we determine if RNA samples are present
     //
-    def fasta_file = params.fasta ? file(params.fasta) : null
-    def is_fasta_gzipped = fasta_file && fasta_file.name.endsWith('.gz')
+    // Parse samplesheet synchronously to determine if RNA samples exist (for conditional subworkflow execution)
+    def samplesheet_file = file(params.input)
+    def samplesheet_content = samplesheet_file.text
+    def samplesheet_lines = samplesheet_content.split('\n')
+    def samplesheet_header_parts = samplesheet_lines[0].split(',')
+    def sample_type_idx = samplesheet_header_parts.findIndexOf { it.trim() == 'sample_type' }
 
-    if (is_fasta_gzipped) {
-        ch_fasta_input = channel.of([[ id: 'genome_fasta' ], fasta_file])
-        GUNZIP_FASTA(ch_fasta_input)
-        ch_fasta = GUNZIP_FASTA.out.gunzip.map { _meta, file -> file }.first()
-    } else {
-        ch_fasta = fasta_file ? channel.value(fasta_file) : channel.empty()
+    def has_rna_samples_sync = false
+    def has_protein_samples_sync = false
+
+    samplesheet_lines.drop(1).each { line ->
+        if (line.trim()) {
+            def parts = line.split(',')
+            if (parts.size() > sample_type_idx) {
+                def sample_type = parts[sample_type_idx].trim().toLowerCase()
+                if (sample_type == 'rna') {
+                    has_rna_samples_sync = true
+                } else if (sample_type == 'protein') {
+                    has_protein_samples_sync = true
+                }
+            }
+        }
     }
 
-    //
-    // Separate RNA and protein samples based on sample_type metadata
-    //
     // Create separate RNA and protein channels using filter
     ch_rna_samples = ch_samplesheet
         .filter { meta, _data ->
@@ -94,17 +105,36 @@ workflow LRP2 {
         .set { ch_rna_count }
 
     //
-    // Handle GTF and gencode_fasta decompression ONLY if RNA samples are present
+    // Handle genome FASTA, GTF, and gencode_fasta decompression ONLY if RNA samples are present
     //
+    def fasta_file = params.fasta ? file(params.fasta) : null
+    def is_fasta_gzipped = fasta_file && fasta_file.name.endsWith('.gz')
     def gtf_file = params.gencode_gtf ? file(params.gencode_gtf) : null
     def is_gtf_gzipped = gtf_file && gtf_file.name.endsWith('.gz')
     def gencode_fasta_file = params.gencode_fasta ? file(params.gencode_fasta) : null
     def is_gencode_fasta_gzipped = gencode_fasta_file && gencode_fasta_file.name.endsWith('.gz')
 
-    // Only process GTF/FASTA files if RNA samples are present
+    // Only process genome FASTA, GTF, and gencode FASTA files if RNA samples are present
     ch_rna_count
         .map { count -> count > 0 }
         .set { ch_has_rna_samples }
+
+    // Decompress genome FASTA only if RNA samples are present
+    ch_fasta_input_conditional = ch_has_rna_samples
+        .filter { has_rna -> has_rna && is_fasta_gzipped && fasta_file != null }
+        .map { _has_rna -> [[ id: 'genome_fasta' ], fasta_file] }
+
+    if (is_fasta_gzipped && fasta_file) {
+        GUNZIP_FASTA(ch_fasta_input_conditional)
+        ch_fasta = GUNZIP_FASTA.out.gunzip.map { _meta, file -> file }
+    } else if (fasta_file) {
+        ch_fasta = ch_has_rna_samples
+            .filter { has_rna -> has_rna }
+            .map { _has_rna -> fasta_file }
+            .ifEmpty(channel.value(fasta_file))
+    } else {
+        ch_fasta = channel.empty()
+    }
 
     ch_gtf_input_conditional = ch_has_rna_samples
         .filter { has_rna -> has_rna && gtf_file != null }
@@ -145,71 +175,79 @@ workflow LRP2 {
     }
 
     //
-    // SUBWORKFLOW: Run PacBio IsoCall analysis (only if RNA samples present)
+    // Define sample metadata file (used by both RNA subworkflows and multisample analysis)
     //
-    // IsoCall requires config TOML and gzipped GTF reference
-    ch_isocall_config = channel.value(file("${projectDir}/bin/isocall_config.toml"))
-
-    PACBIO_ISOCALL (
-        ch_rna_samples_filtered,
-        ch_fasta,
-        ch_gtf_gz,
-        ch_isocall_config
-    )
-    ch_versions = ch_versions.mix(PACBIO_ISOCALL.out.versions.ifEmpty([]))
-
-    //
-    // SUBWORKFLOW: Run SQANTI3 QC and filtering (only if RNA samples present)
-    //
-    // Note: samplesheet is used as sample_metadata
     sample_metadata_file = params.sample_metadata ?: params.input
 
-    TRANSCRIPTOME (
-        PACBIO_ISOCALL.out.called_gtf
-            .join(PACBIO_ISOCALL.out.count_matrix, by: 0)
-            .map { meta, gtf, count ->
-                [meta, gtf, count] },
-        ch_gtf,
-        ch_gencode_fasta,
-        file(sample_metadata_file),
-        file(params.filter_script),
-        file(params.hashlib_script),
-        file(params.generate_hashids_script)
-    )
-    ch_versions = ch_versions.mix(TRANSCRIPTOME.out.versions.ifEmpty([]))
+    //
+    // RNA-specific subworkflows (only execute if RNA samples are present)
+    //
+    if (has_rna_samples_sync) {
+        //
+        // SUBWORKFLOW: Run PacBio IsoCall analysis
+        //
+        // IsoCall requires config TOML and gzipped GTF reference
+        ch_isocall_config = channel.value(file("${projectDir}/bin/isocall_config.toml"))
 
-    //
-    // SUBWORKFLOW: Run predicted proteome analysis (only if RNA samples present)
-    //
-    // Log species information
-    if (params.genome && params.gencode_refs?.containsKey(params.genome)) {
-        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Auto-detected species from genome ${params.genome}: ${params.species}${colors.reset}-"
-    } else if (params.species) {
-        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Species: ${params.species}${colors.reset}-"
+        PACBIO_ISOCALL (
+            ch_rna_samples_filtered,
+            ch_fasta,
+            ch_gtf_gz,
+            ch_isocall_config
+        )
+        ch_versions = ch_versions.mix(PACBIO_ISOCALL.out.versions.ifEmpty([]))
+
+        //
+        // SUBWORKFLOW: Run SQANTI3 QC and filtering
+        //
+
+        TRANSCRIPTOME (
+            PACBIO_ISOCALL.out.called_gtf
+                .join(PACBIO_ISOCALL.out.count_matrix, by: 0)
+                .map { meta, gtf, count ->
+                    [meta, gtf, count] },
+            ch_gtf,
+            ch_gencode_fasta,
+            file(sample_metadata_file),
+            file(params.filter_script),
+            file(params.hashlib_script),
+            file(params.generate_hashids_script)
+        )
+        ch_versions = ch_versions.mix(TRANSCRIPTOME.out.versions.ifEmpty([]))
+
+        //
+        // SUBWORKFLOW: Run predicted proteome analysis
+        //
+        // Log species information
+        if (params.genome && params.gencode_refs?.containsKey(params.genome)) {
+            log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Auto-detected species from genome ${params.genome}: ${params.species}${colors.reset}-"
+        } else if (params.species) {
+            log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Species: ${params.species}${colors.reset}-"
+        }
+
+        // Determine species-specific CPAT files
+        def hexamer_file = params.species == 'human' ?
+            file(params.human_hexamer) : file(params.mouse_hexamer)
+        def logit_model = params.species == 'human' ?
+            file(params.human_logit_model) : file(params.mouse_logit_model)
+
+        PREDICTED_PROTEOME (
+            TRANSCRIPTOME.out.corrected_fasta_filtered
+                .join(TRANSCRIPTOME.out.corrected_gtf_filtered, by: 0)
+                .join(TRANSCRIPTOME.out.classification_filtered, by: 0)
+                .join(TRANSCRIPTOME.out.hashids_filtered, by: 0)
+                .join(TRANSCRIPTOME.out.hashids_mapping, by: 0)
+                .map { meta, fasta, gtf, classification, hashids, mapping ->
+                    [meta, fasta, gtf, classification, hashids, mapping] },
+            ch_gtf,
+            hexamer_file,
+            logit_model,
+            file(params.filter_cpat_script),
+            file(params.sqanti_protein_script),
+            file(params.protein_class_script)
+        )
+        ch_versions = ch_versions.mix(PREDICTED_PROTEOME.out.versions.ifEmpty([]))
     }
-
-    // Determine species-specific CPAT files
-    def hexamer_file = params.species == 'human' ?
-        file(params.human_hexamer) : file(params.mouse_hexamer)
-    def logit_model = params.species == 'human' ?
-        file(params.human_logit_model) : file(params.mouse_logit_model)
-
-    PREDICTED_PROTEOME (
-        TRANSCRIPTOME.out.corrected_fasta_filtered
-            .join(TRANSCRIPTOME.out.corrected_gtf_filtered, by: 0)
-            .join(TRANSCRIPTOME.out.classification_filtered, by: 0)
-            .join(TRANSCRIPTOME.out.hashids_filtered, by: 0)
-            .join(TRANSCRIPTOME.out.hashids_mapping, by: 0)
-            .map { meta, fasta, gtf, classification, hashids, mapping ->
-                [meta, fasta, gtf, classification, hashids, mapping] },
-        ch_gtf,
-        hexamer_file,
-        logit_model,
-        file(params.filter_cpat_script),
-        file(params.sqanti_protein_script),
-        file(params.protein_class_script)
-    )
-    ch_versions = ch_versions.mix(PREDICTED_PROTEOME.out.versions.ifEmpty([]))
 
     //
     // SUBWORKFLOW: Run proteomics analysis (only if protein samples are present)
@@ -318,9 +356,9 @@ workflow LRP2 {
     //        }
     //    }
 
-    // note: pipeline will only execute PROTEOMICS if protein_fasta is available (user-provided or auto-detected)
+    // note: pipeline will only execute PROTEOMICS if protein_fasta is available (user-provided or auto-detected) AND protein samples exist
     //if (protein_fasta_path) {
-    if (gencode_protein_fasta_path || custom_protein_fasta_path || lrp_protein_fasta_path) {
+    if ((gencode_protein_fasta_path || custom_protein_fasta_path || lrp_protein_fasta_path) && has_protein_samples_sync) {
         ch_metamorpheus_config = channel.value(
             params.metamorpheus_config ?
                 file(params.metamorpheus_config) :
@@ -367,29 +405,38 @@ workflow LRP2 {
         // - If no RNA samples then we build GENCODE-only references per sample group
 
         // Extract outputs from RNA subworkflows if available (keep the RNA sample meta.id for use in filtering by CPM column name)
-        ch_predicted_proteome_fasta = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
-            .map { _meta, fasta -> fasta }
-            .first()
-            .ifEmpty(lrp_protein_fasta_file ?: file('NO_FILE'))
+        if (has_rna_samples_sync) {
+            ch_predicted_proteome_fasta = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
+                .map { _meta, fasta -> fasta }
+                .first()
+                .ifEmpty(lrp_protein_fasta_file ?: file('NO_FILE'))
 
-        ch_transcript_counts_with_id = TRANSCRIPTOME.out.hashids_all
-            .map { meta, counts -> [meta.id, counts] }
-            .first()
-            .ifEmpty(['NO_RNA_SAMPLE', file('NO_FILE')])
+            ch_transcript_counts_with_id = TRANSCRIPTOME.out.hashids_all
+                .map { meta, counts -> [meta.id, counts] }
+                .first()
+                .ifEmpty(['NO_RNA_SAMPLE', file('NO_FILE')])
 
-        ch_transcript_counts = ch_transcript_counts_with_id
-            .map { rna_id, counts -> counts }
+            ch_transcript_counts = ch_transcript_counts_with_id
+                .map { rna_id, counts -> counts }
 
-        // NOVEL_PEPTIDES Extract CDS GTF and ORF FASTA
-        ch_lr_cds_gtf = PREDICTED_PROTEOME.out.cds_gtf
-            .map { _meta, gtf -> gtf }
-            .first()
-            .ifEmpty(lrp_gtf_file ?: custom_gtf_file ?: file('NO_FILE'))
+            // NOVEL_PEPTIDES Extract CDS GTF and ORF FASTA
+            ch_lr_cds_gtf = PREDICTED_PROTEOME.out.cds_gtf
+                .map { _meta, gtf -> gtf }
+                .first()
+                .ifEmpty(lrp_gtf_file ?: custom_gtf_file ?: file('NO_FILE'))
 
-        ch_lr_orf_fasta = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
-            .map { _meta, fasta -> fasta }
-            .first()
-            .ifEmpty(lrp_protein_fasta_file ?: custom_protein_fasta_file ?: file('NO_FILE'))
+            ch_lr_orf_fasta = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
+                .map { _meta, fasta -> fasta }
+                .first()
+                .ifEmpty(lrp_protein_fasta_file ?: custom_protein_fasta_file ?: file('NO_FILE'))
+        } else {
+            // No RNA samples - use placeholder/user-provided files for proteomics-only mode
+            ch_predicted_proteome_fasta = channel.value(lrp_protein_fasta_file ?: file('NO_FILE'))
+            ch_transcript_counts_with_id = channel.value(['NO_RNA_SAMPLE', file('NO_FILE')])
+            ch_transcript_counts = channel.value(file('NO_FILE'))
+            ch_lr_cds_gtf = channel.value(lrp_gtf_file ?: custom_gtf_file ?: file('NO_FILE'))
+            ch_lr_orf_fasta = channel.value(lrp_protein_fasta_file ?: custom_protein_fasta_file ?: file('NO_FILE'))
+        }
 
         // Resolve GENCODE annotation GTF for novel peptides BED mapping
         // Use the already-decompressed ch_gtf if available, otherwise resolve from params
@@ -507,12 +554,12 @@ workflow LRP2 {
     def header_parts = lines[0].split(',')
     def sample_name_idx = header_parts.findIndexOf { it.trim() == 'sample_name' }
     def condition_idx = header_parts.findIndexOf { it.trim() == 'condition' }
-    def sample_type_idx = header_parts.findIndexOf { it.trim() == 'sample_type' }
+    def multisample_sample_type_idx = header_parts.findIndexOf { it.trim() == 'sample_type' }
     def samples_per_condition = [:].withDefault { [] }
     lines.drop(1).each { line ->
         if (line.trim()) {
             def parts = line.split(',')
-            if (parts.size() > sample_type_idx && parts[sample_type_idx].trim().toLowerCase() == 'rna') {
+            if (parts.size() > multisample_sample_type_idx && parts[multisample_sample_type_idx].trim().toLowerCase() == 'rna') {
                 def condition = parts[condition_idx].trim()
                 def sample_name = parts[sample_name_idx].trim()
                 samples_per_condition[condition] << sample_name
@@ -578,7 +625,7 @@ workflow LRP2 {
          lines.drop(1).each { line ->
              if (line.trim()) {
                  def parts = line.split(',')
-                 if (parts.size() > sample_type_idx && parts[sample_type_idx].trim().toLowerCase() == 'rna') {
+                 if (parts.size() > multisample_sample_type_idx && parts[multisample_sample_type_idx].trim().toLowerCase() == 'rna') {
                      def name = parts[sample_name_idx].trim()
                      def path = parts[sample_path_idx].trim()
                      def group = parts[condition_idx].trim()
