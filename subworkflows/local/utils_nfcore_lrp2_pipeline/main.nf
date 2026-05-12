@@ -350,6 +350,34 @@ def sanitizeSamplesheet(input_file) {
 //
 def validateInputParameters() {
     genomeExistsError()
+    validateSpeciesParameter()
+}
+
+//
+// Validate species parameter when using custom references
+//
+def validateSpeciesParameter() {
+    // If using custom gtf/fasta (not from gencode_refs), require manual species setting
+    def using_custom_refs = (params.fasta && !params.genome) || (params.gencode_gtf && !params.genome)
+    def has_rna_samples = params.input ? true : false  // validated later in samplesheet parsing
+
+    if (using_custom_refs && has_rna_samples && !params.species) {
+        def error_string = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" +
+            "  ERROR: --species parameter is required when using custom fasta/gtf files.\n" +
+            "  You are using custom reference files without the --genome parameter.\n" +
+            "  Please specify --species with either 'human' or 'mouse'.\n" +
+            "  Example: --fasta /path/to/genome.fa --gencode_gtf /path/to/annotation.gtf --species mouse\n" +
+            "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        error(error_string)
+    }
+
+    if (params.species && !['human', 'mouse'].contains(params.species)) {
+        def error_string = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" +
+            "  ERROR: Invalid --species parameter: '${params.species}'\n" +
+            "  Allowed values are: 'human', 'mouse'\n" +
+            "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        error(error_string)
+    }
 }
 
 //
