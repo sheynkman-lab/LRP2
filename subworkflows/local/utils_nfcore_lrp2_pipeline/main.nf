@@ -350,6 +350,35 @@ def sanitizeSamplesheet(input_file) {
 //
 def validateInputParameters() {
     genomeExistsError()
+    validateSpeciesParameter()
+}
+
+//
+// Validate species parameter when using custom references
+//
+def validateSpeciesParameter() {
+    // If using custom gtf/fasta (not from gencode_refs), require manual species setting
+    def is_predefined_genome = params.genome && params.gencode_refs?.containsKey(params.genome)
+    def using_custom_refs = (params.gencode_fasta || params.gencode_gtf || params.fasta) && !is_predefined_genome
+    def has_rna_samples = params.input ? true : false  // validated later in samplesheet parsing
+
+    if (using_custom_refs && has_rna_samples && !params.species) {
+        def error_string = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" +
+            "  ERROR: --species parameter is required when using custom fasta/gtf files.\n" +
+            "  You are using custom reference files without specifying a predefined --genome.\n" +
+            "  Please specify --species with either 'human' or 'mouse'.\n" +
+            "  Example: --gencode_fasta /path/to/genome.fa --gencode_gtf /path/to/annotation.gtf --species mouse\n" +
+            "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        error(error_string)
+    }
+
+    if (params.species && !['human', 'mouse'].contains(params.species)) {
+        def error_string = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" +
+            "  ERROR: Invalid --species parameter: '${params.species}'\n" +
+            "  Allowed values are: 'human', 'mouse'\n" +
+            "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        error(error_string)
+    }
 }
 
 //
@@ -394,11 +423,15 @@ def getGenomeAttribute(attribute) {
     return null
 }
 
-//
-// Exit pipeline if incorrect --genome key provided
+// Validation rules: 
+// 1) Exit pipeline if incorrect --genome key provided
+// 2) Skip validation if custom FASTA/GTF files are provided (genome name is auto-detected for naming only)
 //
 def genomeExistsError() {
-    if (params.genomes && params.genome && !params.genomes.containsKey(params.genome)) {
+    // Check if custom references are being used
+    def using_custom_refs = params.gencode_fasta || params.gencode_gtf || params.fasta
+    // Only validate genome name if NOT using custom references
+    if (!using_custom_refs && params.genomes && params.genome && !params.genomes.containsKey(params.genome)) {
         def error_string = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" +
             "  Genome '${params.genome}' not found in any config files provided to the pipeline.\n" +
             "  Currently, the available genome keys are:\n" +

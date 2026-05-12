@@ -181,6 +181,13 @@ workflow LRP2 {
     //
     // SUBWORKFLOW: Run predicted proteome analysis (only if RNA samples present)
     //
+    // Log species information
+    if (params.genome && params.gencode_refs?.containsKey(params.genome)) {
+        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Auto-detected species from genome ${params.genome}: ${params.species}${colors.reset}-"
+    } else if (params.species) {
+        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Species: ${params.species}${colors.reset}-"
+    }
+
     // Determine species-specific CPAT files
     def hexamer_file = params.species == 'human' ?
         file(params.human_hexamer) : file(params.mouse_hexamer)
@@ -436,11 +443,17 @@ workflow LRP2 {
         ch_build_proteome_script = channel.value(file("${projectDir}/bin/build_mass_spec_reference.R"))
 
         // BUILD_PROTEOME_REFERENCE runs once for each sample group to create per-group sample-specific references
-        // Pass params.genome directly for file naming (e.g., GRCh38.p14.v49)
+        // note: currently auto-detects genome name from FASTA filename if not explicitly provided, might need to improve upon this logic
+        def genome_name = params.genome ?: (
+            params.gencode_fasta ? file(params.gencode_fasta).name.tokenize('.')[0] :
+            params.fasta ? file(params.fasta).name.tokenize('.')[0] :
+            'custom'
+        )
+
         BUILD_PROTEOME_REFERENCE(
             ch_build_ref_input,
             ch_build_proteome_script,
-            params.genome,
+            genome_name,
             params.no_gencode ?: false
         )
         ch_versions = ch_versions.mix(BUILD_PROTEOME_REFERENCE.out.versions.ifEmpty([]))
@@ -475,7 +488,7 @@ workflow LRP2 {
             ch_lr_orf_fasta,        // Custom/LRP ORF FASTA (for samples with matched RNA)
             ch_gencode_gtf_for_novel,   // GENCODE annotation GTF (for BED mapping)
             ch_gencode_protein_fasta,   // GENCODE protein FASTA (for BED mapping)
-            params.genome
+            genome_name
         )
         ch_versions = ch_versions.mix(PROTEOMICS.out.versions.ifEmpty([]))
     }
@@ -557,7 +570,7 @@ workflow LRP2 {
          ch_orfs = PREDICTED_PROTEOME.out.hashids_orf
 
          // Create RNA-only metadata file by filtering the original samplesheet
-         def rna_metadata_file = file("${workDir}/rna_samples_metadata.csv")
+         def rna_metadata_file = file("${workDir}/${params.dataset_name}_rna_samples_metadata.csv")
          def sample_path_idx = header_parts.findIndexOf { it.trim() == 'sample_path' }
 
          // Filter to RNA samples and create new CSV with 'name' and 'group' columns
