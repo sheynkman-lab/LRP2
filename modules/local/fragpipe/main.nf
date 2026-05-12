@@ -216,8 +216,46 @@ process FRAGPIPE {
     echo ""
 
     #
+    # CHECK FOR FRAGPIPE FAILURE - EXIT IMMEDIATELY IF FRAGPIPE FAILED
+    #
+    if [ \$FRAGPIPE_EXIT -ne 0 ] && [ \$FRAGPIPE_EXIT -ne 141 ]; then
+        echo ""
+        echo "=========================================================================="
+        echo "ERROR: FragPipe failed with exit code: \$FRAGPIPE_EXIT"
+        echo "=========================================================================="
+        echo ""
+        echo "Diagnostic information:"
+        echo "--------------------------------------------------------------------------"
+        echo "Results directory contents:"
+        ls -lah results/ 2>/dev/null || echo "Results directory not found or empty"
+        echo ""
+        echo "Results subdirectories:"
+        find results -type d -maxdepth 2 2>/dev/null || echo "No subdirectories found"
+        echo ""
+        echo "All TSV files found:"
+        find results -name "*.tsv" -exec ls -lh {} \\; 2>/dev/null || echo "No TSV files found"
+        echo ""
+        echo "--------------------------------------------------------------------------"
+        echo "FragPipe log (last 200 lines):"
+        tail -200 fragpipe_execution.log 2>/dev/null || echo "Execution log not found"
+        echo ""
+        echo "FragPipe internal log:"
+        find results -name "log*.txt" -exec tail -100 {} \\; 2>/dev/null || echo "No internal log file found"
+        echo "=========================================================================="
+        echo ""
+        echo "Common causes of FragPipe failure:"
+        echo "  - Insufficient memory (check SLURM logs for OOM errors)"
+        echo "  - Job timeout (check SLURM walltime limits)"
+        echo "  - Invalid input files or corrupted data"
+        echo "  - Missing or incompatible workflow parameters"
+        echo ""
+        exit 1
+    fi
+
+    #
     # VERIFY SUCCESSFUL COMPLETION BY CHECKING REQUIRED OUTPUT FILES
     #
+    echo "FragPipe exit code check passed (exit code: \$FRAGPIPE_EXIT)"
     echo "Verifying FragPipe output files..."
 
     # FragPipe creates sample-specific subdirectories, so we need to look for files there
@@ -256,11 +294,11 @@ process FRAGPIPE {
     if [ -n "\$MISSING_FILES" ]; then
         echo ""
         echo "=========================================================================="
-        echo "ERROR: FragPipe failed - missing or empty required output files:"
+        echo "ERROR: FragPipe completed but is missing required output files:"
         echo "\$MISSING_FILES"
         echo "=========================================================================="
         echo ""
-        echo "FragPipe exit code was: \$FRAGPIPE_EXIT"
+        echo "This indicates FragPipe did not complete successfully despite exit code 0."
         echo ""
         echo "Diagnostic information:"
         echo "--------------------------------------------------------------------------"
@@ -281,61 +319,20 @@ process FRAGPIPE {
         find results -name "log*.txt" -exec tail -100 {} \\; 2>/dev/null || echo "No internal log file found"
         echo "=========================================================================="
         exit 1
-    elif [ \$FRAGPIPE_EXIT -eq 141 ]; then
-        echo ""
-        echo "=========================================================================="
-        echo "FragPipe exited with SIGPIPE (exit code 141); however, all required output files are present!"
-        echo "=========================================================================="
-        echo ""
-        echo "Output files verified:"
-        for FILENAME in \$REQUIRED_FILE_NAMES; do
-            # Use -quit instead of head to avoid SIGPIPE
-            FOUND_FILE=\$(find results -name "\$(basename \$FILENAME)" -type f 2>/dev/null -quit)
-            if [ -n "\$FOUND_FILE" ]; then
-                echo "  ✓ \$FOUND_FILE (size: \$(du -h \$FOUND_FILE | cut -f1))"
-            fi
-        done
-        echo ""
-    elif [ \$FRAGPIPE_EXIT -ne 0 ]; then
-        echo ""
-        echo "=========================================================================="
-        echo "WARNING: FragPipe exited with code: \$FRAGPIPE_EXIT"
-        echo "=========================================================================="
-        echo ""
-        echo "However, all required output files are present and non-empty."
-        echo "This is a known issue where FragPipe reports non-zero exit codes even on successful completion."
-        echo "Treating this as successful based on output file verification."
-        echo ""
-        echo "Output files verified:"
-        for FILENAME in \$REQUIRED_FILE_NAMES; do
-            # Use -quit instead of head to avoid SIGPIPE
-            FOUND_FILE=\$(find results -name "\$(basename \$FILENAME)" -type f 2>/dev/null -quit)
-            if [ -n "\$FOUND_FILE" ]; then
-                echo "  ✓ \$FOUND_FILE (size: \$(du -h \$FOUND_FILE | cut -f1))"
-            fi
-        done
-        echo ""
-        echo "Diagnostic information (last 50 lines of FragPipe log):"
-        echo "--------------------------------------------------------------------------"
-        tail -50 fragpipe_execution.log 2>/dev/null || echo "Execution log not found"
-        echo "--------------------------------------------------------------------------"
-        echo ""
-        echo "Continuing with successful completion status..."
-        echo ""
-    else
-        echo ""
-        echo "FragPipe completed successfully!"
-        echo ""
-        echo "Output files verified:"
-        for FILENAME in \$REQUIRED_FILE_NAMES; do
-            # Use -quit instead of head to avoid SIGPIPE
-            FOUND_FILE=\$(find results -name "\$(basename \$FILENAME)" -type f 2>/dev/null -quit)
-            if [ -n "\$FOUND_FILE" ]; then
-                echo "  ✓ \$FOUND_FILE (size: \$(du -h \$FOUND_FILE | cut -f1))"
-            fi
-        done
-        echo ""
     fi
+
+    echo ""
+    echo "FragPipe completed successfully!"
+    echo ""
+    echo "Output files verified:"
+    for FILENAME in \$REQUIRED_FILE_NAMES; do
+        # Use -quit instead of head to avoid SIGPIPE
+        FOUND_FILE=\$(find results -name "\$(basename \$FILENAME)" -type f 2>/dev/null -quit)
+        if [ -n "\$FOUND_FILE" ]; then
+            echo "  ✓ \$FOUND_FILE (size: \$(du -h \$FOUND_FILE | cut -f1))"
+        fi
+    done
+    echo ""
 
     #
     # POST-PROCESSING: Extract PSM table
