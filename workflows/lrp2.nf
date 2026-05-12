@@ -181,6 +181,13 @@ workflow LRP2 {
     //
     // SUBWORKFLOW: Run predicted proteome analysis (only if RNA samples present)
     //
+    // Log species information
+    if (params.genome && params.gencode_refs?.containsKey(params.genome)) {
+        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Auto-detected species from genome ${params.genome}: ${params.species}${colors.reset}-"
+    } else if (params.species) {
+        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Species: ${params.species}${colors.reset}-"
+    }
+
     // Determine species-specific CPAT files
     def hexamer_file = params.species == 'human' ?
         file(params.human_hexamer) : file(params.mouse_hexamer)
@@ -557,7 +564,7 @@ workflow LRP2 {
          ch_orfs = PREDICTED_PROTEOME.out.hashids_orf
 
          // Create RNA-only metadata file by filtering the original samplesheet
-         def rna_metadata_file = file("${workDir}/rna_samples_metadata.csv")
+         def rna_metadata_file = file("${workDir}/${params.dataset_name}_rna_samples_metadata.csv")
          def sample_path_idx = header_parts.findIndexOf { it.trim() == 'sample_path' }
 
          // Filter to RNA samples and create new CSV with 'name' and 'group' columns
