@@ -52,12 +52,8 @@ workflow PACBIO_ISOCALL {
     //
     // MODULE: Prepare known isoforms database from GTF (only runs if samples are present)
     //
-    ch_gtf_for_prep = ISOCALL_ALIGN.out.bam
-        .map { _meta, _bam -> reference_gtf_gz }
-        .first()
-
     ISOCALL_PREP (
-        ch_gtf_for_prep
+        reference_gtf_gz
     )
     ch_versions = ch_versions.mix(ISOCALL_PREP.out.versions)
 

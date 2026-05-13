@@ -3,9 +3,7 @@ process GZIP {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'oras://community.wave.seqera.io/library/gzip:latest' :
-        'community.wave.seqera.io/library/gzip:latest' }"
+    container "community.wave.seqera.io/library/gzip:latest"
 
     input:
     tuple val(meta), path(archive)

@@ -3,9 +3,8 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { GUNZIP as GUNZIP_FASTA         } from '../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_GTF           } from '../modules/nf-core/gunzip/main'
-include { GUNZIP as GUNZIP_GENCODE_FASTA } from '../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_FASTA         } from '../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_PROTEIN_FASTA } from '../modules/nf-core/gunzip/main'
 include { GZIP as GZIP_GTF               } from '../modules/local/gzip/main'
 include { BUILD_PROTEOME_REFERENCE       } from '../modules/local/build_proteome_reference/main'
@@ -146,8 +145,8 @@ workflow LRP2 {
         .map { _has_rna -> [[ id: 'fasta' ], fasta_file] }
 
     if (is_fasta_gzipped) {
-        GUNZIP_GENCODE_FASTA(ch_fasta_input_conditional)
-        ch_fasta = GUNZIP_GENCODE_FASTA.out.gunzip.map { _meta, file -> file }
+        GUNZIP_FASTA(ch_fasta_input_conditional)
+        ch_fasta = GUNZIP_FASTA.out.gunzip.map { _meta, file -> file }
     } else {
         ch_fasta = ch_has_rna_samples
             .filter { has_rna -> has_rna && fasta_file != null }
@@ -167,7 +166,7 @@ workflow LRP2 {
         //
         // SUBWORKFLOW: Run PacBio IsoCall analysis
         //
-        // IsoCall requires config TOML and gzipped GTF reference
+        // IsoCall requires config TOML and gzipped GTF reference for ISOCALL_PREP
         ch_isocall_config = channel.value(file("${projectDir}/bin/isocall_config.toml"))
 
         PACBIO_ISOCALL (
