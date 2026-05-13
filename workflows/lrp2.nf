@@ -105,40 +105,21 @@ workflow LRP2 {
         .set { ch_rna_count }
 
     //
-    // Handle genome FASTA, GTF, and gencode_fasta decompression ONLY if RNA samples are present
+    // Handle GTF and FASTA decompression ONLY if RNA samples are present
     //
+    def gtf_file = params.gtf ? file(params.gtf) : null
+    def is_gtf_gzipped = gtf_file && gtf_file.name.endsWith('.gz')
     def fasta_file = params.fasta ? file(params.fasta) : null
     def is_fasta_gzipped = fasta_file && fasta_file.name.endsWith('.gz')
-    def gtf_file = params.gencode_gtf ? file(params.gencode_gtf) : null
-    def is_gtf_gzipped = gtf_file && gtf_file.name.endsWith('.gz')
-    def gencode_fasta_file = params.gencode_fasta ? file(params.gencode_fasta) : null
-    def is_gencode_fasta_gzipped = gencode_fasta_file && gencode_fasta_file.name.endsWith('.gz')
 
-    // Only process genome FASTA, GTF, and gencode FASTA files if RNA samples are present
+    // Only process GTF and FASTA files if RNA samples are present
     ch_rna_count
         .map { count -> count > 0 }
         .set { ch_has_rna_samples }
 
-    // Decompress genome FASTA only if RNA samples are present
-    ch_fasta_input_conditional = ch_has_rna_samples
-        .filter { has_rna -> has_rna && is_fasta_gzipped && fasta_file != null }
-        .map { _has_rna -> [[ id: 'genome_fasta' ], fasta_file] }
-
-    if (is_fasta_gzipped && fasta_file) {
-        GUNZIP_FASTA(ch_fasta_input_conditional)
-        ch_fasta = GUNZIP_FASTA.out.gunzip.map { _meta, file -> file }
-    } else if (fasta_file) {
-        ch_fasta = ch_has_rna_samples
-            .filter { has_rna -> has_rna }
-            .map { _has_rna -> fasta_file }
-            .ifEmpty(channel.value(fasta_file))
-    } else {
-        ch_fasta = channel.empty()
-    }
-
     ch_gtf_input_conditional = ch_has_rna_samples
         .filter { has_rna -> has_rna && gtf_file != null }
-        .map { _has_rna -> [[ id: 'gencode_gtf' ], gtf_file] }
+        .map { _has_rna -> [[ id: 'gtf' ], gtf_file] }
 
     if (is_gtf_gzipped && gtf_file) {
         // GTF is already gzipped - decompress for TRANSCRIPTOME and keep original for PACBIO_ISOCALL
@@ -160,18 +141,18 @@ workflow LRP2 {
         ch_gtf_gz = channel.empty()
     }
 
-    ch_gencode_fasta_input_conditional = ch_has_rna_samples
-        .filter { has_rna -> has_rna && is_gencode_fasta_gzipped && gencode_fasta_file != null }
-        .map { _has_rna -> [[ id: 'gencode_fasta' ], gencode_fasta_file] }
+    ch_fasta_input_conditional = ch_has_rna_samples
+        .filter { has_rna -> has_rna && is_fasta_gzipped && fasta_file != null }
+        .map { _has_rna -> [[ id: 'fasta' ], fasta_file] }
 
-    if (is_gencode_fasta_gzipped) {
-        GUNZIP_GENCODE_FASTA(ch_gencode_fasta_input_conditional)
-        ch_gencode_fasta = GUNZIP_GENCODE_FASTA.out.gunzip.map { _meta, file -> file }
+    if (is_fasta_gzipped) {
+        GUNZIP_GENCODE_FASTA(ch_fasta_input_conditional)
+        ch_fasta = GUNZIP_GENCODE_FASTA.out.gunzip.map { _meta, file -> file }
     } else {
-        ch_gencode_fasta = ch_has_rna_samples
-            .filter { has_rna -> has_rna && gencode_fasta_file != null }
-            .map { _has_rna -> gencode_fasta_file }
-            .ifEmpty(gencode_fasta_file ? channel.value(gencode_fasta_file) : channel.empty())
+        ch_fasta = ch_has_rna_samples
+            .filter { has_rna -> has_rna && fasta_file != null }
+            .map { _has_rna -> fasta_file }
+            .ifEmpty(fasta_file ? channel.value(fasta_file) : channel.empty())
     }
 
     //
@@ -207,7 +188,7 @@ workflow LRP2 {
                 .map { meta, gtf, count ->
                     [meta, gtf, count] },
             ch_gtf,
-            ch_gencode_fasta,
+            ch_fasta,
             file(sample_metadata_file),
             file(params.filter_script),
             file(params.hashlib_script),
@@ -440,9 +421,9 @@ workflow LRP2 {
 
         // Resolve GENCODE annotation GTF for novel peptides BED mapping
         // Use the already-decompressed ch_gtf if available, otherwise resolve from params
-        def gencode_gtf_for_novel = params.gencode_gtf ? file(params.gencode_gtf) : null
-        ch_gencode_gtf_for_novel = gencode_gtf_for_novel
-            ? channel.value(gencode_gtf_for_novel)
+        def gtf_for_novel = params.gtf ? file(params.gtf) : null
+        ch_gtf_for_novel = gtf_for_novel
+            ? channel.value(gtf_for_novel)
             : channel.value(file('NO_FILE'))
             
         // Create a channel that maps each protein sample to its sample_name for grouping
@@ -492,7 +473,6 @@ workflow LRP2 {
         // BUILD_PROTEOME_REFERENCE runs once for each sample group to create per-group sample-specific references
         // note: currently auto-detects genome name from FASTA filename if not explicitly provided, might need to improve upon this logic
         def genome_name = params.genome ?: (
-            params.gencode_fasta ? file(params.gencode_fasta).name.tokenize('.')[0] :
             params.fasta ? file(params.fasta).name.tokenize('.')[0] :
             'custom'
         )
@@ -533,7 +513,7 @@ workflow LRP2 {
             ch_rna_sample_names,    // List of RNA sample names to check for matches
             ch_lr_cds_gtf,          // Custom/LRP CDS GTF (for samples with matched RNA)
             ch_lr_orf_fasta,        // Custom/LRP ORF FASTA (for samples with matched RNA)
-            ch_gencode_gtf_for_novel,   // GENCODE annotation GTF (for BED mapping)
+            ch_gtf_for_novel,   // Reference annotation GTF (for BED mapping)
             ch_gencode_protein_fasta,   // GENCODE protein FASTA (for BED mapping)
             genome_name
         )
