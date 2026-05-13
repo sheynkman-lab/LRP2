@@ -24,8 +24,8 @@ include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_lrp2
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-// NOTE: params.fasta is set in nextflow.config after igenomes config is loaded
-// Users can override with --fasta if needed
+// NOTE: params.fasta and params.gtf are set in nextflow.config after gencode config is loaded
+// Users can override with --fasta and --gtf if needed
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
