@@ -359,7 +359,7 @@ def validateInputParameters() {
 def validateSpeciesParameter() {
     // If using custom gtf/fasta (not from gencode_refs), require manual species setting
     def is_predefined_genome = params.genome && params.gencode_refs?.containsKey(params.genome)
-    def using_custom_refs = (params.gencode_fasta || params.gencode_gtf || params.fasta) && !is_predefined_genome
+    def using_custom_refs = (params.fasta || params.gtf) && !is_predefined_genome
     def has_rna_samples = params.input ? true : false  // validated later in samplesheet parsing
 
     if (using_custom_refs && has_rna_samples && !params.species) {
@@ -367,7 +367,7 @@ def validateSpeciesParameter() {
             "  ERROR: --species parameter is required when using custom fasta/gtf files.\n" +
             "  You are using custom reference files without specifying a predefined --genome.\n" +
             "  Please specify --species with either 'human' or 'mouse'.\n" +
-            "  Example: --gencode_fasta /path/to/genome.fa --gencode_gtf /path/to/annotation.gtf --species mouse\n" +
+            "  Example: --fasta /path/to/genome.fa --gtf /path/to/annotation.gtf --species mouse\n" +
             "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
         error(error_string)
     }
@@ -423,13 +423,13 @@ def getGenomeAttribute(attribute) {
     return null
 }
 
-// Validation rules: 
+// Validation rules:
 // 1) Exit pipeline if incorrect --genome key provided
 // 2) Skip validation if custom FASTA/GTF files are provided (genome name is auto-detected for naming only)
 //
 def genomeExistsError() {
     // Check if custom references are being used
-    def using_custom_refs = params.gencode_fasta || params.gencode_gtf || params.fasta
+    def using_custom_refs = params.fasta || params.gtf
     // Only validate genome name if NOT using custom references
     if (!using_custom_refs && params.genomes && params.genome && !params.genomes.containsKey(params.genome)) {
         def error_string = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" +
