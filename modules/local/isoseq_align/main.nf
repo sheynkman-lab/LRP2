@@ -12,6 +12,7 @@ process ISOSEQ_ALIGN {
     output:
     tuple val(meta), path("*.aligned.bam"), emit: bam
     tuple val(meta), path("*.aligned.bam.bai"), emit: bai
+    tuple val(meta), path("*_S1_PACBIO_ISOCALL_M2_ISOSEQ_ALIGN_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -21,6 +22,8 @@ process ISOSEQ_ALIGN {
     def args = task.ext.args ?: '--preset ISOSEQ --sort'
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
+    exec > >(tee ${prefix}_S1_PACBIO_ISOCALL_M2_ISOSEQ_ALIGN_log.txt) 2>&1
+
     pbmm2 align \\
         $args \\
         $reference_fasta \\
@@ -38,6 +41,7 @@ process ISOSEQ_ALIGN {
     """
     touch ${prefix}.aligned.bam
     touch ${prefix}.aligned.bam.bai
+    touch ${prefix}_S1_PACBIO_ISOCALL_M2_ISOSEQ_ALIGN_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

@@ -20,6 +20,7 @@ process SQANTI_QC {
     tuple val(meta), path("*.transcriptome.junctions.txt"), emit: junctions
 //    tuple val(meta), path("*.transcriptome.params.txt"), emit: params
 //    tuple val(meta), path("refAnnotation.*.genePred"), emit: refannotation_genepred
+    tuple val(meta), path("*_S2_TRANSCRIPTOME_M1_SQANTI_QC_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -30,7 +31,8 @@ process SQANTI_QC {
     def prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    
+    exec > >(tee ${prefix}_S2_TRANSCRIPTOME_M1_SQANTI_QC_log.txt) 2>&1
+
     source /conda/miniconda3/etc/profile.d/conda.sh
     conda activate sqanti3
 
@@ -73,6 +75,7 @@ process SQANTI_QC {
     touch ${prefix}.transcriptome.gtf
     touch ${prefix}.transcriptome.fasta
     touch ${prefix}.transcriptome.junctions.txt
+    touch ${prefix}_S2_TRANSCRIPTOME_M1_SQANTI_QC_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

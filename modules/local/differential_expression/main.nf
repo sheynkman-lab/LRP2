@@ -29,6 +29,7 @@ process DIFFERENTIAL_EXPRESSION {
     tuple val(meta), path("differential_ORF_expression/*_DE_ORF_MD_plot.pdf"), emit: de_orf_plot
     tuple val(meta), path("differential_transcript_usage/*_DTU_transcript_DRIMSeq_summary.txt"), emit: dtu_summary
     tuple val(meta), path("differential_ORF_usage/*_DU_ORF_DRIMSeq_summary.txt"), emit: du_orf_summary
+    tuple val(meta), path("*_S4_MULTISAMPLE_ANALYSIS_M2_DIFFERENTIAL_EXPRESSION_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -41,6 +42,8 @@ process DIFFERENTIAL_EXPRESSION {
     def drimseq_isoform_prop = drimseq_min_isoform_prop ?: 0.05
 
     """
+    exec > >(tee ${prefix}_S4_MULTISAMPLE_ANALYSIS_M2_DIFFERENTIAL_EXPRESSION_log.txt) 2>&1
+
     # Output subdirectories for organizing results
     mkdir -p differential_gene_expression
     mkdir -p differential_transcript_expression
@@ -105,6 +108,7 @@ process DIFFERENTIAL_EXPRESSION {
 
     touch differential_transcript_usage/${prefix}_DTU_transcript_DRIMSeq_summary.txt
     touch differential_ORF_usage/${prefix}_DU_ORF_DRIMSeq_summary.txt
+    touch ${prefix}_S4_MULTISAMPLE_ANALYSIS_M2_DIFFERENTIAL_EXPRESSION_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
