@@ -10,6 +10,7 @@ process ISOCALL_PREP {
 
     output:
     path("*.isoforms.gz"), emit: isoforms
+    path("*_S1_PACBIO_ISOCALL_M1_ISOCALL_PREP_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -19,6 +20,8 @@ process ISOCALL_PREP {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${gtf.baseName}"
     """
+    exec > >(tee ${prefix}_S1_PACBIO_ISOCALL_M1_ISOCALL_PREP_log.txt) 2>&1
+
     isocall prep-isoforms \\
         --gtf $gtf \\
         --output ${prefix}.isoforms.gz \\
@@ -34,6 +37,7 @@ process ISOCALL_PREP {
     def prefix = task.ext.prefix ?: "${gtf.baseName}"
     """
     touch ${prefix}.isoforms.gz
+    touch ${prefix}_S1_PACBIO_ISOCALL_M1_ISOCALL_PREP_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

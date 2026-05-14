@@ -12,6 +12,7 @@ process SQANTI_PROTEIN {
 
     output:
     tuple val(meta), path("*.predicted_proteome.best_ORF_SQANTI_classification.tsv"), emit: protein_classification
+    tuple val(meta), path("*_S3_PREDICTED_PROTEOME_M3_SQANTI_PROTEIN_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -22,6 +23,8 @@ process SQANTI_PROTEIN {
     def prefix = task.ext.prefix ?: "${meta.id}"
 
     """
+    exec > >(tee ${prefix}_S3_PREDICTED_PROTEOME_M3_SQANTI_PROTEIN_log.txt) 2>&1
+
     source /conda/miniconda3/etc/profile.d/conda.sh
     conda activate sqanti3
     export SQANTI_PATH=\$(dirname \$(which sqanti3_qc.py))
@@ -51,6 +54,7 @@ process SQANTI_PROTEIN {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}.predicted_proteome.best_ORF_SQANTI_classification.tsv
+    touch ${prefix}_S3_PREDICTED_PROTEOME_M3_SQANTI_PROTEIN_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

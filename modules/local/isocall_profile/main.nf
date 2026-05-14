@@ -10,6 +10,7 @@ process ISOCALL_PROFILE {
 
     output:
     tuple val(meta), path("*_profile.gz"), emit: profile
+    tuple val(meta), path("*_S1_PACBIO_ISOCALL_M3_ISOCALL_PROFILE_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -20,6 +21,8 @@ process ISOCALL_PROFILE {
     def prefix = task.ext.prefix ?: "${meta.id}"
     def sample_id = meta.sample_name ?: prefix
     """
+    exec > >(tee ${prefix}_S1_PACBIO_ISOCALL_M3_ISOCALL_PROFILE_log.txt) 2>&1
+
     isocall profile \\
         --reads $aligned_bam \\
         --sample ${sample_id} \\
@@ -36,6 +39,7 @@ process ISOCALL_PROFILE {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}_profile.gz
+    touch ${prefix}_S1_PACBIO_ISOCALL_M3_ISOCALL_PROFILE_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

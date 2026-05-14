@@ -28,6 +28,7 @@ process LEAFCUTTER_LONGREAD {
     tuple val(meta), path("lr_leafcutter.Rplots.pdf"), emit: rplots, optional: true
     tuple val(meta), path("*.lr_leafcutter.ds_cluster_significance.txt"), emit: cluster_significance, optional: true
     tuple val(meta), path("*.lr_leafcutter.ds_effect_sizes.txt"), emit: effect_sizes, optional: true
+    tuple val(meta), path("*_S4_MULTISAMPLE_ANALYSIS_M1_LEAFCUTTER_LONGREAD_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -42,7 +43,8 @@ process LEAFCUTTER_LONGREAD {
     def threads = leafcutter_threads ?: task.cpus
 
     """
-    
+    exec > >(tee ${prefix}_S4_MULTISAMPLE_ANALYSIS_M1_LEAFCUTTER_LONGREAD_log.txt) 2>&1
+
     # Ensure R can find packages in the container
     export R_LIBS_USER=""
     export R_LIBS="/usr/local/lib/R/site-library:/usr/lib/R/site-library:/usr/lib/R/library"
@@ -119,6 +121,7 @@ process LEAFCUTTER_LONGREAD {
     touch lr_leafcutter.Rplots.pdf
     touch ${prefix}.lr_leafcutter.ds_cluster_significance.txt
     touch ${prefix}.lr_leafcutter.ds_effect_sizes.txt
+    touch ${prefix}_S4_MULTISAMPLE_ANALYSIS_M1_LEAFCUTTER_LONGREAD_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

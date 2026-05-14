@@ -16,6 +16,7 @@ process PROTEIN_CLASSIFICATION {
     tuple val(meta), path("*.predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt"), emit: hashids_orf
     tuple val(meta), path("*.predicted_proteome.collapsed_high_confidence_ORF.gtf"), emit: protein_gtf
     tuple val(meta), path("*.predicted_proteome.collapsed_high_confidence_ORF.bed"), emit: protein_bed
+    tuple val(meta), path("*_S3_PREDICTED_PROTEOME_M4_PROTEIN_CLASSIFICATION_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -28,6 +29,8 @@ process PROTEIN_CLASSIFICATION {
     def protein_class_keep = task.ext.protein_class_keep ?: params.protein_class_keep
 
     """
+    exec > >(tee ${prefix}_S3_PREDICTED_PROTEOME_M4_PROTEIN_CLASSIFICATION_log.txt) 2>&1
+
     export R_LIBS_USER=""
     export R_LIBS="/usr/local/lib/R/site-library:/usr/lib/R/site-library:/usr/lib/R/library"
 
@@ -58,6 +61,7 @@ process PROTEIN_CLASSIFICATION {
     touch ${prefix}.predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt
     touch ${prefix}.predicted_proteome.collapsed_high_confidence_ORF.gtf
     touch ${prefix}.predicted_proteome.collapsed_high_confidence_ORF.bed
+    touch ${prefix}_S3_PREDICTED_PROTEOME_M4_PROTEIN_CLASSIFICATION_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

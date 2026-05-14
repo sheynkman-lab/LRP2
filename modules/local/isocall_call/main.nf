@@ -14,6 +14,7 @@ process ISOCALL_CALL {
     output:
     tuple val(meta), path("*.isocall.isoforms.gtf.gz"), emit: gtf
     tuple val(meta), path("*.isocall.count_matrix.txt"), emit: count_matrix
+    tuple val(meta), path("*_S1_PACBIO_ISOCALL_M5_ISOCALL_CALL_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -26,6 +27,8 @@ process ISOCALL_CALL {
     def min_read_support = task.ext.min_read_support ?: params.min_read_support
     def max_bundles_per_gene = task.ext.max_bundles_per_gene ?: params.max_bundles_per_gene
     """
+    exec > >(tee ${prefix}_S1_PACBIO_ISOCALL_M5_ISOCALL_CALL_log.txt) 2>&1
+
     isocall call \\
         --threads $threads \\
         --merged-profile $merged_profile \\
@@ -48,6 +51,7 @@ process ISOCALL_CALL {
     """
     touch ${prefix}.isocall.isoforms.gtf.gz
     touch ${prefix}.isocall.count_matrix.txt
+    touch ${prefix}_S1_PACBIO_ISOCALL_M5_ISOCALL_CALL_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

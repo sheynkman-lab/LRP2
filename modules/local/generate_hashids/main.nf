@@ -14,6 +14,7 @@ process GENERATE_HASHIDS {
     output:
     tuple val(meta), path("*.transcriptome.hashids_mapping.txt"), emit: hashids_mapping
     tuple val(meta), path("*.transcriptome.psl"), emit: corrected_psl
+    tuple val(meta), path("*_S2_TRANSCRIPTOME_M2_GENERATE_HASHIDS_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -24,7 +25,8 @@ process GENERATE_HASHIDS {
     def prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    
+    exec > >(tee ${prefix}_S2_TRANSCRIPTOME_M2_GENERATE_HASHIDS_log.txt) 2>&1
+
     # Ensure R can find packages in the container
     export R_LIBS_USER=""
     export R_LIBS="/usr/local/lib/R/site-library:/usr/lib/R/site-library:/usr/lib/R/library"
@@ -50,6 +52,7 @@ process GENERATE_HASHIDS {
     """
     touch ${prefix}.transcriptome.hashids_mapping.txt
     touch ${prefix}.transcriptome.psl
+    touch ${prefix}_S2_TRANSCRIPTOME_M2_GENERATE_HASHIDS_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

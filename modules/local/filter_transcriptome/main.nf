@@ -19,6 +19,7 @@ process FILTER_TRANSCRIPTOME {
     tuple val(meta), path("*.transcriptome.filtered.fasta"), emit: corrected_fasta_filtered
     tuple val(meta), path("*.transcriptome.filtered_hashids_with_cpm.txt"), emit: hashids_filtered
     tuple val(meta), path("*.transcriptome.all_hashids_with_cpm.txt"), emit: hashids_all
+    tuple val(meta), path("*_S2_TRANSCRIPTOME_M3_FILTER_TRANSCRIPTOME_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -34,6 +35,8 @@ process FILTER_TRANSCRIPTOME {
     def transcript_class_keep = task.ext.transcript_class_keep ?: params.transcript_class_keep
 
     """
+    exec > >(tee ${prefix}_S2_TRANSCRIPTOME_M3_FILTER_TRANSCRIPTOME_log.txt) 2>&1
+
     # Ensure R can find packages in the container
     export R_LIBS_USER=""
     export R_LIBS="/usr/local/lib/R/site-library:/usr/lib/R/site-library:/usr/lib/R/library"
@@ -67,6 +70,7 @@ process FILTER_TRANSCRIPTOME {
     touch ${prefix}.transcriptome.filtered.fasta
     touch ${prefix}.transcriptome.filtered_hashids_with_cpm.txt
     touch ${prefix}.transcriptome.all_hashids_with_cpm.txt
+    touch ${prefix}_S2_TRANSCRIPTOME_M3_FILTER_TRANSCRIPTOME_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

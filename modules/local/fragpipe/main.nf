@@ -17,6 +17,7 @@ process FRAGPIPE {
     tuple val(meta), path("results/**"), emit: results
     tuple val(meta), path("results/peptide.tsv"), optional: true, emit: peptide_tsv
     tuple val(meta), path("results/combined_peptide.tsv"), optional: true, emit: combined_peptide_tsv
+    tuple val(meta), path("*_S5_PROTEOMICS_M3_FRAGPIPE_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -34,6 +35,8 @@ process FRAGPIPE {
     def use_custom_workflow = custom_workflow.name != 'NO_FILE'
     def workflow_name = data_type == 'DIA' ? 'DIA_SpecLib_Quant' : 'LFQ-MBR'
     """
+    exec > >(tee ${prefix}_S5_PROTEOMICS_M3_FRAGPIPE_log.txt) 2>&1
+
     echo "=========================================================================="
     echo "                      FRAGPIPE ANALYSIS: ${meta.id}"
     echo "=========================================================================="
@@ -379,6 +382,7 @@ process FRAGPIPE {
     touch ${prefix}.tsv
     touch results/psm.tsv
     touch results/combined_protein.tsv
+    touch ${prefix}_S5_PROTEOMICS_M3_FRAGPIPE_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
