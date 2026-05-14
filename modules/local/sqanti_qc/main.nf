@@ -53,6 +53,7 @@ process SQANTI_QC {
         --output ${prefix}.transcriptome \\
         --dir . \\
         --cpus $task.cpus \\
+        --chunks $task.cpus \\
         --report skip \\
         --fl_count $flnc_count \\
         "\$ISOFORMS_INPUT" \\
