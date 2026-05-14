@@ -51,8 +51,12 @@ process SQANTI_QC {
         --isoforms "\$ISOFORMS_INPUT" \\
         --refGTF $reference_gtf \\
         --refFasta $reference_fasta \\
-        -o ${prefix}.transcriptome \\
-        -d . \\
+        --force_id_ignore \\
+        --skipORF \\
+        --output ${prefix}.transcriptome \\
+        --dir . \\
+        --cpus $task.cpus \\
+        --chunks $task.cpus \\
         --report skip \\
         --fl $flnc_count \\
         $args
