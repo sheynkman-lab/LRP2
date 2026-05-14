@@ -14,6 +14,7 @@ process BUILD_PROTEOME_REFERENCE {
     output:
     tuple val(meta), path("*.proteomics.reference.fasta"), emit: reference_fasta
     tuple val(meta), path("*.proteomics.reference.tsv"), emit: reference_tsv
+    tuple val(meta), path("*_S5_PROTEOMICS_M1_BUILD_PROTEOME_REFERENCE_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -31,6 +32,8 @@ process BUILD_PROTEOME_REFERENCE {
     def custom_fasta_arg = (custom_fasta.name != 'NO_FILE' && !custom_fasta.name.contains('_NO_CUSTOM_FASTA')) ? "--custom_fasta ${custom_fasta}" : ""
 
     """
+    exec > >(tee ${prefix}_S5_PROTEOMICS_M1_BUILD_PROTEOME_REFERENCE_log.txt) 2>&1
+
     Rscript ${build_proteome_reference_script} \\
         ${lrp_fasta_arg} \\
         ${counts_arg} \\
@@ -54,6 +57,7 @@ process BUILD_PROTEOME_REFERENCE {
     """
     touch test.proteomics.reference.fasta
     touch test.proteomics.reference.tsv
+    touch ${prefix}_S5_PROTEOMICS_M1_BUILD_PROTEOME_REFERENCE_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

@@ -16,6 +16,7 @@ process CPAT_ORF {
     tuple val(meta), path("*.predicted_proteome.CPAT.ORF_seqs.fa"), emit: orf_seqs
     tuple val(meta), path("*.predicted_proteome.CPAT.no_ORF.txt"), emit: no_orf
     tuple val(meta), path("*.predicted_proteome.CPAT.error"), emit: error_log
+    tuple val(meta), path("*_S3_PREDICTED_PROTEOME_M1_CPAT_ORF_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -28,6 +29,8 @@ process CPAT_ORF {
     def top_orf = task.ext.top_orf ?: params.top_orf
 
     """
+    exec > >(tee ${prefix}_S3_PREDICTED_PROTEOME_M1_CPAT_ORF_log.txt) 2>&1
+
     cpat.py \\
         -x $hexamer_file \\
         -d $logit_model \\
@@ -55,6 +58,7 @@ process CPAT_ORF {
     touch ${prefix}.predicted_proteome.CPAT.ORF_seqs.fa
     touch ${prefix}.predicted_proteome.CPAT.no_ORF.txt
     touch ${prefix}.predicted_proteome.CPAT.error
+    touch ${prefix}_S3_PREDICTED_PROTEOME_M1_CPAT_ORF_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

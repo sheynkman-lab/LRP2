@@ -11,6 +11,7 @@ process MSCONVERT_MZML {
 
     output:
     tuple val(meta), path("*.mzML"), emit: mzml
+    tuple val(meta), path("*_S5_PROTEOMICS_M2_MSCONVERT_MZML_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -24,6 +25,8 @@ process MSCONVERT_MZML {
     def output_name = "${prefix}.mzML"
 
     """
+    exec > >(tee ${prefix}_S5_PROTEOMICS_M2_MSCONVERT_MZML_log.txt) 2>&1
+
     wine msconvert \\
         $raw_file \\
         --outdir . \\
@@ -47,6 +50,7 @@ process MSCONVERT_MZML {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}.mzML
+    touch ${prefix}_S5_PROTEOMICS_M2_MSCONVERT_MZML_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

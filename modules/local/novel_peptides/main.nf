@@ -13,6 +13,7 @@ process NOVEL_PEPTIDES {
     output:
     tuple val(meta), path("*.proteomics.novel_peptides.tsv"), emit: novel_peptides
     tuple val(meta), path("*.proteomics.all_peptides.bed"), optional: true, emit: peptides_bed
+    tuple val(meta), path("*_S5_PROTEOMICS_M4_NOVEL_PEPTIDES_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -31,6 +32,8 @@ process NOVEL_PEPTIDES {
     def gencode_fasta_arg = has_gencode_data ? "--gencode_fasta ${gencode_fasta}" : ""
 
     """
+    exec > >(tee ${prefix}_S5_PROTEOMICS_M4_NOVEL_PEPTIDES_log.txt) 2>&1
+
     echo "NOVEL PEPTIDES CLASSIFICATION: ${meta.id}"
     echo "Sample: ${prefix}"
     echo "Search software: ${ms_search_software}"
@@ -92,6 +95,7 @@ process NOVEL_PEPTIDES {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}.proteomics.novel_peptides.tsv
+    touch ${prefix}_S5_PROTEOMICS_M4_NOVEL_PEPTIDES_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

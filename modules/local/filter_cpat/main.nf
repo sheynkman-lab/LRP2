@@ -13,6 +13,7 @@ process FILTER_CPAT {
     output:
     tuple val(meta), path("*.predicted_proteome.CPAT_ORFs_mapped.tsv"), emit: all_orfs_mapped
     tuple val(meta), path("*.predicted_proteome.best_ORF.gtf"), emit: cds_gtf
+    tuple val(meta), path("*_S3_PREDICTED_PROTEOME_M2_FILTER_CPAT_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -24,6 +25,8 @@ process FILTER_CPAT {
     def cpat_coding_threshold = task.ext.cpat_coding_threshold ?: params.cpat_coding_threshold
 
     """
+    exec > >(tee ${prefix}_S3_PREDICTED_PROTEOME_M2_FILTER_CPAT_log.txt) 2>&1
+
     # Ensure R can find packages in the container
     export R_LIBS_USER=""
     export R_LIBS="/usr/local/lib/R/site-library:/usr/lib/R/site-library:/usr/lib/R/library"
@@ -52,6 +55,7 @@ process FILTER_CPAT {
     """
     touch ${prefix}.predicted_proteome.CPAT_ORFs_mapped.tsv
     touch ${prefix}.predicted_proteome.best_ORF.gtf
+    touch ${prefix}_S3_PREDICTED_PROTEOME_M2_FILTER_CPAT_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

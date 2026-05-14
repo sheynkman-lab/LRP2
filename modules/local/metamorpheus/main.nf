@@ -62,6 +62,7 @@ process METAMORPHEUS {
     output:
     tuple val(meta), path("*.psmtsv"), emit: psm_table
     tuple val(meta), path("results/**"), emit: results
+    tuple val(meta), path("*_S5_PROTEOMICS_M3_METAMORPHEUS_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -83,6 +84,8 @@ process METAMORPHEUS {
     def mzml_list = renamed_files.join(' ')
 
     """
+    exec > >(tee ${prefix}_S5_PROTEOMICS_M3_METAMORPHEUS_log.txt) 2>&1
+
     # Rename mzML files to simple names for cleaner MetaMorpheus output
     ${symlink_commands.join('\n    ')}
 
@@ -110,6 +113,7 @@ process METAMORPHEUS {
     mkdir -p results
     touch ${prefix}.psmtsv
     touch results/AllPeptides.psmtsv
+    touch ${prefix}_S5_PROTEOMICS_M3_METAMORPHEUS_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
