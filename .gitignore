@@ -1,3 +1,13 @@
+.nextflow*
+work/
+data/
+results/
+.DS_Store
+testing/
+testing*
+*.pyc
+null/
+
 # History files
 .Rhistory
 .Rapp.history
@@ -48,16 +58,11 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-# Nextflow
-.nextflow*
+# Nextflow (additional)
 .nextflow.log*
 .nextflow/
-work/
-null/
 
-# Data and results
-data/
-results/
+# Data and results (additional)
 results/*
 test_results/
 test_results_dda/
@@ -74,18 +79,8 @@ bin/leafcutter/differential_splicing/__pycache__/
 # Environments
 environments/leafcutter_env/*
 
-# System files
-.DS_Store
-
-# Python
-*.pyc
-
 # Archived scripts
 scripts/archive/*
-
-# Testing files
-testing/
-testing*
 
 # Log files
 log_files/*
