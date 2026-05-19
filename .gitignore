@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 .nextflow*
 work/
 data/
@@ -8,7 +7,7 @@ testing/
 testing*
 *.pyc
 null/
-=======
+
 # History files
 .Rhistory
 .Rapp.history
@@ -59,31 +58,125 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-log_files/*
+# Nextflow (additional)
+.nextflow.log*
+.nextflow/
 
+# Data and results (additional)
 results/*
+test_results/
+test_results_dda/
 fragpipe_tools/*
 
 # Test data
 test_data/run_rna_only/test_results/
 test_data/run_fragpipe_rna/test_results/
-test_results/
-test_results_dda/
 
 # leafcutter
 bin/leafcutter/__pycache__/
 bin/leafcutter/differential_splicing/__pycache__/
 
-<<<<<<< HEAD
-
+# Environments
 environments/leafcutter_env/*
 
-.nextflow.log*
-.nextflow/
-sample_data/*
-work/*
-null/*
+# Archived scripts
 scripts/archive/*
-=======
->>>>>>> main
->>>>>>> dev
+
+# Log files
+log_files/*
+
+# Sample data
+sample_data/*
+
+# Analysis and plotting scripts (user-specific)
+01_align_encode4_samples.sh
+02_subset_to_chr22.sh
+03_identify_top_20_genes.sh
+04_subset_chr22_BAMs_top20_genes.sh
+05_extract_fastq_from_top20_bams.sh
+06_extract_fastq_from_chr22.sh
+calculate_gencode_stats.R
+calculate_wall_clock_time.R
+extract_orf_stats.R
+lrp2_additional_figures.R
+lrp2_biological_story_figures.R
+lrp2_encode4_publication_figures.R
+lrp2_generate_subworkflow_focal_plots.R
+lrp2_orf_distribution_analysis.R
+lrp2_pipeline_performance.R
+lrp2_predicted_proteome_orf_plots.R
+lrp2_proteomics_insights.R
+lrp2_s4_bc_shapes_fixed.R
+lrp2_s4_combined_volcano_plot.R
+lrp2_s4_four_panel_summary.R
+lrp2_s4_individual_subplots.R
+lrp2_s4a_dge_fixed.R
+lrp2_s5_peptide_overlap_plots.R
+lrp2_s5_upset_counts_only.R
+lrp2_s5_upset_final.R
+lrp2_s5_upset_plot.R
+lrp2_s5_upset_plot_hardcoded.R
+lrp2_s5_upset_plot_updated.R
+replot_fig12_fixed.R
+run_all_lrp2_plots.sh
+validate_bam_subsetting.sh
+
+# Plot outputs
+ACSL3_direct_plot.png
+NIPA2_direct_plot.png
+Rplots.pdf
+SSBP2_cluster_87258.png
+SSBP2_transcripts.png
+SSBP2_usage.png
+encode4_read_counts.pdf
+encode4_read_counts.png
+proteome_coverage_k562_hepg2.pdf
+proteome_coverage_k562_hepg2.png
+proteome_coverage_k562_hepg2.tiff
+
+# Documentation and summaries
+ADDITIONAL_FIGURES_SUMMARY.md
+MY_LAB_MEETING.md
+PIPELINE_PERFORMANCE_SUMMARY.md
+README_ORF_FIGURES.md
+README_plotting.md
+UPDATES_SUMMARY.md
+VISUALIZATION_NARRATIVE.md
+
+# Results directories
+ENCODE4_rerun_plots_051326/
+publication_figures/
+publication_figures_041016/
+results_ENCODE4_K562_HepG2_full_results_051126/
+demo_data/
+papers/
+
+# Docker and container files
+assets/Dockerfile.fragpipe
+assets/Dockerfile.leafcutter-longread
+assets/Dockerfile.lrp2-lite
+assets/build_and_push_docker.sh
+assets/build_and_push_fragpipe_sylabs.sh
+assets/build_and_push_leafcutter.sh
+assets/build_and_push_lrp2_lite.sh
+assets/fragpipe.def
+assets/push_existing_sif_to_sylabs.sh
+
+# Downloaded tools and resources
+assets/IonQuant-1.11.20.zip
+assets/MSFragger-4.4.1.zip
+assets/diatracer-2.2.1.zip
+assets/philosopher_v5.1.0_linux_amd64.zip
+assets/philosopher_v5.1.0_linux_amd64/
+
+# Test and temporary files
+assets/samplesheet_example copy.csv
+diff_sqanti_qc.txt
+execution_trace_*.txt
+test_filtering_plot.log
+test_samplesheet_windows.csv
+test_samplesheet_windows.csv.sanitized
+test_sanitization.groovy
+top_20_differential_genes.txt
+top_20_differential_genes_ids.txt
+top_20_differential_genes_names.txt

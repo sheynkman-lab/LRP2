@@ -3,11 +3,11 @@
     IMPORT MODULES / SUBWORKFLOWS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { MSCONVERT_MZML         } from '../../modules/local/msconvert_mzml/main'
-include { METAMORPHEUS           } from '../../modules/local/metamorpheus/main'
-include { FRAGPIPE               } from '../../modules/local/fragpipe/main'
-include { FRAGPIPE_AUTHENTICATE  } from '../../modules/local/fragpipe_authenticate/main'
-include { NOVEL_PEPTIDES         } from '../../modules/local/novel_peptides/main'
+include { MSCONVERT_MZML         } from '../../../modules/local/msconvert_mzml/main'
+include { METAMORPHEUS           } from '../../../modules/local/metamorpheus/main'
+include { FRAGPIPE               } from '../../../modules/local/fragpipe/main'
+include { FRAGPIPE_AUTHENTICATE  } from '../../../modules/local/fragpipe_authenticate/main'
+include { NOVEL_PEPTIDES         } from '../../../modules/local/novel_peptides/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

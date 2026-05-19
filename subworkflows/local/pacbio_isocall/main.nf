@@ -3,11 +3,11 @@
     IMPORT MODULES / SUBWORKFLOWS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { ISOSEQ_ALIGN as ISOCALL_ALIGN } from '../../modules/local/isoseq_align/main'
-include { ISOCALL_PROFILE                } from '../../modules/local/isocall_profile/main'
-include { ISOCALL_MERGE                  } from '../../modules/local/isocall_merge/main'
-include { ISOCALL_PREP                   } from '../../modules/local/isocall_prep/main'
-include { ISOCALL_CALL                   } from '../../modules/local/isocall_call/main'
+include { ISOSEQ_ALIGN as ISOCALL_ALIGN } from '../../../modules/local/isoseq_align/main'
+include { ISOCALL_PROFILE                } from '../../../modules/local/isocall_profile/main'
+include { ISOCALL_MERGE                  } from '../../../modules/local/isocall_merge/main'
+include { ISOCALL_PREP                   } from '../../../modules/local/isocall_prep/main'
+include { ISOCALL_CALL                   } from '../../../modules/local/isocall_call/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
