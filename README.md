@@ -22,6 +22,7 @@ The LRP2 Nextflow pipeline consists of five subworkflows:
 | 5. Proteomics *(optional)* | Build custom reference database, convert raw MS files, search with FragPipe or MetaMorpheus, map peptides to isoforms |
 
 > **Note**: Differential usage analyses (DTU/DPU with DRIMSeq) require biological replicates. Datasets without replicates may lead to unexpected results with the pipeline currently.
+
 > **Note**: The PROTEOMICS subworkflow can only run when protein samples (sample_type='protein') are provided in the samplesheet. When both RNA and protein samples are present, it searches against a concatenated database of the predicted proteome from Stage 3 plus the reference protein FASTA. For protein-only samples, it uses only the reference protein database via `--protein_fasta` (or auto-detected from the GENCODE genome if specified). Select the search engine with `--protein_search` (options: `fragpipe` or `metamorpheus`, default: `fragpipe`). 
 
 ## Quick Start
@@ -30,6 +31,24 @@ The LRP2 Nextflow pipeline consists of five subworkflows:
 
 - **Nextflow** ≥ 24.04.2 ([install guide](https://www.nextflow.io/docs/latest/install.html))
 - **Singularity/Apptainer** or **Docker** for containerized dependencies
+
+### System Requirements and HPC Recommendations
+
+**LRP2 is primarily designed for High-Performance Computing (HPC) environments.** Although the test dataset can run on a local machine (minimum of 4 CPUs and 32GB RAM recommended), real-world datasets require substantial computational resources to be processed efficiently.
+
+#### A Primer on Containers
+
+LRP2 uses containers to manage software dependencies. Containers allow for the packaging of libraries, code, and configurations such that each tool in the pipeline can be reliably run in any computing environment without compatibility issues. 
+
+To run LRP2, you **must have one** of the following installed:
+
+**Singularity/Apptainer** (required for HPC): Most HPC systems have Singularity or Apptainer pre-installed as a module. You can check this by running `module avail singularity` or `module avail apptainer`. If not available, contact your HPC administrator or see [Apptainer installation guide](https://apptainer.org/docs/admin/main/installation.html), 
+
+**Docker** (may be used for local systems):
+- Installation guides: [Docker Desktop](https://docs.docker.com/get-docker/) (Mac/Windows) or [Docker Engine](https://docs.docker.com/engine/install/) (Linux)
+> **Note**: Docker typically requires root/admin privileges, and may not be available on shared HPC systems. We therefore strongly recommend the use of Singularity/Apptainer. 
+
+The pipeline will automatically pull and cache container images on first run. Singularity images are cached in `work/singularity/` by default.
 
 ### Clone the repository
 ```bash
@@ -111,20 +130,29 @@ nextflow run . -profile test_dda,singularity,slurm --outdir test_results_dda \
 
 ## Preparing Input Data
 
+### Input File Requirements
+
+**RNA samples** must be provided as **PacBio full-length non-chimeric (FLNC) reads** as outputted by PacBio Isoseq refine, in either BAM or FASTQ format. It is assumed that input files are **post-processed** and have already undergone deconcatenation, demultiplexing, and primer removal. **Do NOT** provide raw subreads or CCS reads directly from the sequencer
+
+**Protein samples** may be either **DDA** or **DIA**, and can be provided in `.mzML` format or any other non-mzML format (e.g. `.raw`).
+
+### Samplesheet Structure
+
 Prepare a samplesheet CSV describing your input data:
 
 ![Samplesheet structure](assets/samplesheet_structure.png)
 
-> **Note**: Each RNA sample must have a unique `sample_name`, these are used by Isocall to label count matrix columns. For protein samples, all raw files originating from the same biological sample (e.g., multiple fractions or injection replicates) should share the same `sample_name` so they are combined and searched together in FragPipe. This `sample_name` should match the corresponding RNA sample to link the RNA and protein data. The predicted proteome from that sample will be included in the proteomics search database.
-> **Note**: If a protein sample has no matched RNA sample, give it a unique `sample_name` that does not match any RNA sample; in this case, only the GENCODE reference proteome will be used as the proteomics search database. 
+> **Note**: Each RNA sample must have a unique `sample_name`, as these are used by Isocall to label count matrix columns. For protein samples, all raw files originating from the same biological sample (e.g., multiple fractions or injection replicates) should share the same `sample_name` so they are combined and searched together in FragPipe. This `sample_name` should match the corresponding RNA sample to link the RNA and protein data. The predicted proteome from that sample will be included in the proteomics search database. If a protein sample has no matched RNA sample, you can assign it a unique `sample_name` that does not match any RNA sample. In this case, only the GENCODE reference proteome will be used as the proteomics search database.
 
 **Required columns:**
 
 - `sample_name`: Each RNA sample must have a distinct value. Do not include any spaces in this value.
-- `sample_path`: Absolute or relative path to the file. RNA samples should be PacBio FLNC `.bam` or `.fastq` files. Protein samples should be `.raw` or `.mzML` files.
+- `sample_path`: Absolute path to the input file. 
+  - RNA samples should be PacBio FLNC `.bam` or `.fastq` files
+  - Protein samples should be `.raw` or `.mzML` files
 - `condition`: Sample group (e.g., "control", "treatment"). Used for differential analysis, which performs pairwise comparisons between groups. Two or more groups are supported. If you do not want differential analysis, assign the same condition to all samples. Do not include any spaces in this value.
-- `sample_type`: Either `RNA` or `protein`.
-- `mass_spec_type`: `DDA` or `DIA`. Required for protein samples. For RNA samples, specify `none`.
+- `sample_type`: Must be either `RNA` or `protein`.
+- `mass_spec_type`: Must be either `DDA` or `DIA`. Required for protein samples. For RNA samples, specify `none` for this column. 
 
 
 ## Running the Pipeline
@@ -166,6 +194,56 @@ nextflow run /path/to/LRP2 \
     -profile singularity,slurm
 ```
 > **Note**: When both RNA and protein samples are provided, the pipeline searches against the predicted proteome combined with a reference protein FASTA (auto-detected from the genome or provided via `--protein_fasta`). For protein-only samples, only the reference database is used.
+
+## Profile Options
+
+Nextflow profiles control how the pipeline executes. Multiple profiles can be combined using commas (e.g., `-profile test_rna,singularity,slurm`).
+
+### Container Profiles (choose ONE)
+
+| Profile | Description | Best For |
+|---------|-------------|----------|
+| `singularity` | Use Singularity/Apptainer containers | **HPC systems** (most common) |
+| `docker` | Use Docker containers | Local machines with Docker installed |
+| `conda` | Use Conda environments | Systems without container support (slower) |
+
+> **Note**: We have extensively tested the pipeline with `singularity` locally and on HPC systems, and recommend its usage. You may use `docker` on local machines. We do not recommend the use of `conda` except as a last resort due to it lacking the same reproducibility as containers. 
+
+### Executor Profiles (optional)
+
+| Profile | Description | When to Use |
+|---------|-------------|-------------|
+| `slurm` | Submit jobs to SLURM scheduler on an HPC | HPC environment |
+| `lsf` | Submit jobs to LSF scheduler on an HPC | HPC environment |
+
+If you do not specify an executor, LRP2 will run locally on the current node, which is suitable for an interactive session in an HPC environment or on a local machine.
+
+> **Important**: When using `slurm` or `lsf`, Nextflow submits individual pipeline tasks as separate jobs. Without a scheduler profile, all tasks run on the node where you launch Nextflow (requires sufficient resources). If you intend to run locally, you may need to lower resource requirements in `conf/base.config`. 
+
+### Test Profiles
+
+| Profile | Description | Dataset |
+|---------|-------------|---------|
+| `test_rna` | RNA-only test dataset | Runs RNA subworkflows (S1 - S4) |
+| `test_dda` | RNA + DDA proteomics test | Runs all subworkflows (S1 - S5) with FragPipe DDA search |
+| `test_dia` | RNA + DIA proteomics test | Runs all subworkflows (S1 - S5) with FragPipe DIA search |
+
+### Example Profile Combinations
+
+**HPC with SLURM (recommended for production):**
+```bash
+-profile singularity,slurm
+```
+
+**Quick RNA test on HPC:**
+```bash
+-profile test_rna,singularity,slurm
+```
+
+**Local machine with Docker:**
+```bash
+-profile docker
+```
 
 ## Reference Genome Support
 
