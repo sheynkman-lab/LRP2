@@ -42,10 +42,10 @@ LRP2 uses containers to manage software dependencies. Containers allow for the p
 
 To run LRP2, you **must have one** of the following installed:
 
-**Singularity/Apptainer** (required for HPC): Most HPC systems have Singularity or Apptainer pre-installed as a module. You can check this by running `module avail singularity` or `module avail apptainer`. If not available, contact your HPC administrator or see [Apptainer installation guide](https://apptainer.org/docs/admin/main/installation.html), 
+1. **Singularity/Apptainer** (required for HPC): Most HPC systems have Singularity or Apptainer pre-installed as a module. You can check this by running `module avail singularity` or `module avail apptainer`. If not available, contact your HPC administrator or see [Apptainer installation guide](https://apptainer.org/docs/admin/main/installation.html), 
 
-**Docker** (may be used for local systems):
-- Installation guides: [Docker Desktop](https://docs.docker.com/get-docker/) (Mac/Windows) or [Docker Engine](https://docs.docker.com/engine/install/) (Linux)
+2. **Docker** (may be used for local systems):
+    - Installation guides: [Docker Desktop](https://docs.docker.com/get-docker/) (Mac/Windows) or [Docker Engine](https://docs.docker.com/engine/install/) (Linux)
 > **Note**: Docker typically requires root/admin privileges, and may not be available on shared HPC systems. We therefore strongly recommend the use of Singularity/Apptainer. 
 
 The pipeline will automatically pull and cache container images on first run. Singularity images are cached in `work/singularity/` by default.
@@ -63,13 +63,14 @@ Start a persistent terminal session so the pipeline keeps running if you lose yo
 screen -S lrp2
 ```
 > **Tip**: To detach from screen, press `Ctrl+A` then `D`. To reattach later: `screen -r lrp2`
-> **Tip**: UVA Rivanna only supports `screen`, but you can use `tmux new -s lrp2` on other systems if preferred.
+
+> **Tip**: Certain HPC systems (e.g. UVA Rivanna) only support `screen`, but you can use terminal multiplexer by running `tmux new -s lrp2` on other systems if supported/preferred.
 
 Request an interactive job with enough resources for the test dataset:
 ```bash
 ijob -c 4 --mem=64G -p your_slurm_partition -A your_allocation --time=4:00:00
 ```
-> **Note**: Adjust for your HPC system. Replace `your_slurm_partition` with your SLURM partition and `your_allocation` with your SLURM allocation group. The `-c` (CPUs) and `--mem` values above are sufficient for the test dataset.
+> **Note**: Adjust for your HPC system. Replace `your_slurm_partition` with your SLURM partition and `your_allocation` with your SLURM allocation group. The `-c` (CPUs), `--mem` (memory), and `--time` values above are sufficient for the test dataset, but should be increased for larger datasets.
 
 Load the required modules:
 ```bash
