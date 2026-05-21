@@ -179,7 +179,7 @@ nextflow run /path/to/LRP2 \
     --genome GRCh38.p14.v49 \
     -profile singularity,slurm
 ```
-> **Note**: Running on a non-SLURM scheduler (e.g., LSF, PBS)? Contact us for support: cwp5au@virginia.edu
+> **Note**: Running on a non-SLURM scheduler (e.g., PBS)? Contact us for support: cwp5au@virginia.edu
 > **Note**: Differential analysis will run automatically when two or more conditions are specified in the samplesheet.
 
 ### With proteomics (FragPipe)
