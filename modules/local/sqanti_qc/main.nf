@@ -3,7 +3,7 @@ process SQANTI_QC {
     label 'process_long'
 
     conda "${moduleDir}/environment.yml"
-    container 'docker://docker.io/anaconesalab/sqanti3:5.2.2'
+    container 'docker://docker.io/anaconesalab/sqanti3:v6.0.1'
 
     input:
     tuple val(meta), path(isoforms_gtf), path(flnc_count)
@@ -48,9 +48,6 @@ process SQANTI_QC {
     fi
 
     sqanti3_qc.py \\
-        --isoforms "\$ISOFORMS_INPUT" \\
-        --refGTF $reference_gtf \\
-        --refFasta $reference_fasta \\
         --force_id_ignore \\
         --skipORF \\
         --output ${prefix}.transcriptome \\
@@ -58,7 +55,10 @@ process SQANTI_QC {
         --cpus $task.cpus \\
         --chunks $task.cpus \\
         --report skip \\
-        --fl $flnc_count \\
+        --fl_count $flnc_count \\
+        "\$ISOFORMS_INPUT" \\
+        $reference_gtf \\
+        $reference_fasta \\
         $args
 
     # Fix single-sample column naming to use "FL.{sample_id}", which is consist with formatting used for multi-sample runs
@@ -91,7 +91,7 @@ process SQANTI_QC {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        sqanti3: 6.0.1
+        sqanti3: 5.2.2
     END_VERSIONS
     """
 }
