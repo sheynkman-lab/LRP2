@@ -13,7 +13,7 @@ process ISOCALL_CALL {
 
     output:
     tuple val(meta), path("*.isocall.isoforms.gtf.gz"), emit: gtf
-    tuple val(meta), path("*.isocall.count_matrix.csv"), emit: count_matrix
+    tuple val(meta), path("*.isocall.count_matrix.txt"), emit: count_matrix
     tuple val(meta), path("*_S1_PACBIO_ISOCALL_M5_ISOCALL_CALL_log.txt"), emit: log
     path "versions.yml", emit: versions
 
@@ -52,7 +52,7 @@ process ISOCALL_CALL {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}.isocall.isoforms.gtf.gz
-    touch ${prefix}.isocall.count_matrix.csv
+    touch ${prefix}.isocall.count_matrix.txt
     touch ${prefix}_S1_PACBIO_ISOCALL_M5_ISOCALL_CALL_log.txt
 
     cat <<-END_VERSIONS > versions.yml

@@ -364,10 +364,12 @@ process FRAGPIPE {
     echo "FragPipe analysis completed for: ${meta.id}"
     echo "=========================================================================="
 
-    echo "\"${task.process}\":" > versions.yml
-    echo "    fragpipe: \$(\$FRAGPIPE_CMD --version 2>&1 | grep -oP 'FragPipe \\K[0-9.]+' || echo \"${params.fragpipe_version}\")" >> versions.yml
-    echo "    msfragger: \$(basename ${msfragger_jar} | grep -oP 'MSFragger-\\K[0-9.]+' || echo \"unknown\")" >> versions.yml
-    echo "    ionquant: \$(basename ${ionquant_jar} | grep -oP 'IonQuant-\\K[0-9.]+' || echo \"unknown\")" >> versions.yml
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        fragpipe: \$(\$FRAGPIPE_CMD --version 2>&1 | grep -oP 'FragPipe \\K[0-9.]+' || echo "24.0")
+        msfragger: \$(basename ${msfragger_jar} | grep -oP 'MSFragger-\\K[0-9.]+' || echo "unknown")
+        ionquant: \$(basename ${ionquant_jar} | grep -oP 'IonQuant-\\K[0-9.]+' || echo "unknown")
+    END_VERSIONS
     """
 
     stub:
@@ -379,9 +381,11 @@ process FRAGPIPE {
     touch results/combined_protein.tsv
     touch ${prefix}_S5_PROTEOMICS_M3_FRAGPIPE_log.txt
 
-    echo "\"${task.process}\":" > versions.yml
-    echo "    fragpipe: ${params.fragpipe_version}" >> versions.yml
-    echo "    msfragger: 4.1" >> versions.yml
-    echo "    ionquant: 1.10.12" >> versions.yml
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        fragpipe: 24.0
+        msfragger: 4.1
+        ionquant: 1.10.12
+    END_VERSIONS
     """
 }
