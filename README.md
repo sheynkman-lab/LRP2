@@ -7,7 +7,7 @@
 
 ## Introduction
 
-**LRP2** a scalable, end-to-end long-read proteogenomics pipeline built in Nextflow. It identifies and validates protein isoforms by integrating PacBio long-read RNA-seq with mass spectrometry. Starting from full-length non-chimeric (FLNC) reads and/or raw MS files, LRP2 performs transcript discovery, ORF prediction, differential analysis, and proteomics database search. 
+**LRP2** is a scalable, end-to-end long-read proteogenomics pipeline built in Nextflow. It identifies and validates protein isoforms by integrating PacBio long-read RNA-seq with mass spectrometry. Starting from full-length non-chimeric (FLNC) reads and/or raw MS files, LRP2 performs transcript discovery, ORF prediction, differential analysis, and mass spectrometry-based protein identification. 
 
 ## Pipeline Overview
 
@@ -18,11 +18,12 @@ The LRP2 Nextflow pipeline consists of five subworkflows:
 | 1. PacBio Isocall | Align FLNC reads and collapse to isoforms with PacBio Isocall |
 | 2. Transcriptome | Classify transcripts with SQANTI3, filter artifacts, assign deterministic hash-based isoform IDs |
 | 3. Predicted proteome | Predict ORFs with CPAT, classify proteins with SQANTI protein |
-| 4. Multi-sample analysis | Differential expression and usage (edgeR, DRIMSeq), differential splicing (LR LeafCutter, included as a preliminary implementation) |
+| 4. Multi-sample analysis | Differential expression and usage (edgeR, DRIMSeq), differential splicing (LR LeafCutter, preliminary implementation) |
 | 5. Proteomics | Build custom reference database, convert raw MS files, search with FragPipe or MetaMorpheus, map peptides to isoforms |
  
 ## Quick Start
-> **Note**: The Quick Start uses SLURM on a UVA Rivanna-style HPC setup, which is what the pipeline has been most extensively tested with. LSF is also supported via the `lsf` profile. For other schedulers, contact us at cwp5au@virginia.edu.
+
+> **Note**: The Quick Start uses SLURM on a UVA Rivanna-style HPC setup, which is what the pipeline has been most extensively tested with. LSF is also supported via the `lsf` profile. For other schedulers, see [Support and customization](#support-and-customization).
 >
 > Specifics vary by cluster — account flags (`-A`), partition names (`-p`), and module names (`nextflow`, `apptainer`) may differ on your system. Check with your HPC documentation or admin.
 
@@ -45,7 +46,8 @@ To run LRP2, you **must have one** of the following installed:
 
 2. **Docker** (may be used for local systems):
     - Installation guides: [Docker Desktop](https://docs.docker.com/get-docker/) (Mac/Windows) or [Docker Engine](https://docs.docker.com/engine/install/) (Linux)
-> **Note**: Docker typically requires root/admin privileges, and is typically not permitted on shared HPC systems. We therefore strongly recommend the use of Singularity/Apptainer. 
+      
+> **Note**: Docker requires root/admin privileges, and is typically not permitted on shared HPC systems. We therefore strongly recommend the use of Singularity/Apptainer.
 
 The pipeline will automatically pull and cache container images on first run. Singularity images are cached in `work/singularity/` by default.
 
@@ -55,19 +57,22 @@ git clone https://github.com/sheynkman-lab/LRP2.git
 cd LRP2
 ```
 
-### On an HPC (SLURM example with UVA Rivanna-style HPC setup)
+### On an HPC (SLURM example)
 
 Start a persistent terminal session so the pipeline keeps running if you lose your connection:
 ```bash
 screen -S lrp2
 ```
-> **Tip**: To detach from screen, press `Ctrl+A` then `D`. To reattach later: `screen -r lrp2`. Certain HPC systems (e.g. UVA Rivanna) only support `screen`, but you can use the tmux terminal multiplexer by running `tmux new -s lrp2` on other systems if supported/preferred.
+> **Tip**: To detach from screen, press `Ctrl+A` then `D`. To reattach later: `screen -r lrp2`.
+>
+> Certain HPC systems (e.g. UVA Rivanna) only support `screen`. On systems that support it, you can use the tmux terminal multiplexer instead by running `tmux new -s lrp2`.
 
 Request an interactive job with enough resources for the test dataset:
 ```bash
-ijob -c 4 --mem=64G -p your_slurm_partition -A your_allocation --time=4:00:00
+salloc -c 4 --mem=64G -p your_slurm_partition -A your_allocation --time=4:00:00
 ```
-> **Note**: Adjust for your HPC system. Replace `your_slurm_partition` with your SLURM partition and `your_allocation` with your SLURM allocation group. The `-c` (CPUs), `--mem` (memory), and `--time` values above are sufficient for the test dataset, but should be increased for larger datasets.
+
+> **Note**: Adjust for your HPC system. Replace `your_slurm_partition` with your SLURM partition and `your_allocation` with your SLURM allocation group. UVA Rivanna users can substitute `ijob` for `salloc`. The `-c` (CPUs), `--mem` (memory), and `--time` values above are sufficient for the test dataset, but should be increased for larger datasets.
 
 Load the required modules:
 ```bash
@@ -86,11 +91,14 @@ nextflow run . \
     --hpc_cluster_options "--account=your_allocation"
 ```
 > **Note**: Replace `your_partition` with your cluster's partition name, and adjust `--hpc_cluster_options` for your cluster (e.g., `--account=` for SLURM, `-P` for LSF). LSF users: also swap `slurm` for `lsf` in the profile. See [HPC Scheduler Options](#hpc-scheduler-options).
+
 > **Note**: To run locally on your current node instead of submitting to SLURM, drop the `slurm` profile: `-profile test_rna,singularity`.
 
 ### Run the RNA + DDA proteomics test dataset
 
-1. FragPipe requires an academic license for MSFragger, IonQuant, and diaTracer. Before using FragPipe in LRP2 for the first time, review the [academic license agreement](https://msfragger.arsci.com/upgrader/LICENSE-ACADEMIC.pdf). To accept the license and request a one-time token, run the following curl command in your terminal, substituting your information for `YOUR_FIRST_NAME`, `YOUR_LAST_NAME`, `YOUR_EMAIL`, and `YOUR_INSTITUTION`:
+**Step 1: Get a FragPipe academic license token.**
+
+FragPipe requires an academic license for MSFragger, IonQuant, and diaTracer. Before using FragPipe in LRP2 for the first time, review the [academic license agreement](https://msfragger.arsci.com/upgrader/LICENSE-ACADEMIC.pdf). To accept the license and request a one-time token, run the following curl command in your terminal, substituting your information for `YOUR_FIRST_NAME`, `YOUR_LAST_NAME`, `YOUR_EMAIL`, and `YOUR_INSTITUTION`:
 
 ```bash
 curl --location --request POST \
@@ -106,23 +114,26 @@ curl --location --request POST \
     --form 'is_fragpipe="true"' \
     > /dev/null 2>&1
 ```
-> **Note**: Non-academic users should contact us at cwp5au@virginia.edu for guidance on running the proteomics subworkflow.
 > **Note**: Tokens expire quickly. You will need a new token for each run.
 
-2. Check your email for a 6-digit token.
+> **Note**: Non-academic users: see [Support and customization](#support-and-customization).
 
-3. From the `LRP2` directory, run the RNA + DDA proteomics test with your token:
+**Step 2: Check your email for a 6-digit token.**
+
+**Step 3: Run the test.**
+
+From the `LRP2` directory:
 
 ```bash
 nextflow run . \
-        -profile test_dda,singularity,slurm \
-        --outdir test_results_dda \
-        --fragpipe_token "YOUR_TOKEN" \
-        --hpc_partition your_partition \
-        --hpc_cluster_options "--account=your_allocation"
-
+    -profile test_dda,singularity,slurm \
+    --outdir test_results_dda \
+    --fragpipe_token "YOUR_TOKEN" \
+    --hpc_partition your_partition \
+    --hpc_cluster_options "--account=your_allocation"
 ```
 > **Note**: The `test_dda` profile automatically sets `--protein_search fragpipe` and `--fragpipe_license_accept true`.
+
 > **Note**: To run locally instead of submitting to SLURM, drop the `slurm` profile: `-profile test_dda,singularity`.
 
 ## Preparing Input Data
@@ -193,9 +204,13 @@ Submit with:
 ```bash
 sbatch run_lrp2.sh
 ```
-> **Note**: The above template is written for SLURM on the UVA Rivanna HPC. Customize the `#SBATCH` directives, partition (`--partition`), account (`--account`), and module names for your cluster. For LSF, replace `#SBATCH` directives with `#BSUB` equivalents and use `-profile singularity,lsf`. For other schedulers, contact us at cwp5au@virginia.edu.
+> **Note**: Customize the above template for your HPC. This includes `#SBATCH` directives (partition, account) and module names (nextflow, apptainer), and the `--hpc_partition` and `--hpc_cluster_options` pipeline parameters. For LSF, replace `#SBATCH` directives with `#BSUB` equivalents and use `-profile singularity,lsf`. For other schedulers, see [Support and customization](#support-and-customization).
 >
-> The driver job itself only needs modest resources because Nextflow submits each pipeline task as a separate job via the `slurm` (or `lsf`) profile. Include `--fragpipe_token` only if running the proteomics subworkflow (see [Run the RNA + DDA proteomics test dataset](#run-the-rna--dda-proteomics-test-dataset) for obtaining a token). Differential analysis runs automatically when two or more conditions are present in the samplesheet.
+> **Resource allocation** works on two levels:
+> - **The driver job** (`#SBATCH` directives in the shell script): modest resources are sufficient — Nextflow itself only orchestrates submissions and doesn't run the heavy work.
+> - **Individual pipeline tasks** (CPUs, memory, time per process): handled automatically by LRP2's internal configuration. You do **not** need to specify these on the command line. To customize, edit `conf/base.config`.
+>
+> Include `--fragpipe_token` only if running the proteomics subworkflow (see [Run the RNA + DDA proteomics test dataset](#run-the-rna--dda-proteomics-test-dataset) for obtaining a token). Differential analysis runs automatically when two or more conditions are present in the samplesheet.
 
 ## Profile Options
 
@@ -248,20 +263,12 @@ Nextflow profiles control how the pipeline executes. Multiple profiles can be co
 
 The pipeline supports human and mouse data using GENCODE reference genomes across multiple versions:
 
-   - Human: `GRCh38.p14.v49`, `GRCh38.p14.v48`, ..., `GRCh38.p14.v44`, `GRCh38.p13.v43`, ..., `GRCh37.p13.v19`
-   - Mouse: `GRCm39.vM38`, `GRCm39.vM37`, `GRCm39.vM36`, `GRCm39.vM35`, `GRCm39.vM34`
+- **Human**: `GRCh38.p14.v49`, `GRCh38.p14.v48`, ..., `GRCh38.p14.v44`, `GRCh38.p13.v43`, ..., `GRCh37.p13.v19`
+- **Mouse**: `GRCm39.vM38`, `GRCm39.vM37`, `GRCm39.vM36`, `GRCm39.vM35`, `GRCm39.vM34`
 
-The pipeline automatically downloads the appropriate FASTA and GTF files based on your `--genome` selection. Species is auto-detected from `--genome` and determines which CPAT model (human or mouse) is used for ORF prediction.
+The pipeline automatically downloads the appropriate FASTA and GTF files based on your `--genome` selection. Species is auto-detected from `--genome` and determines which CPAT model (human or mouse) is used for ORF prediction. See `conf/gencode_references.config` for the full list of supported versions.
 
 Support for RefSeq / igenomes and custom references is under active development.
-
-### Viewing Available Genomes
-
-To see all available preconfigured `--genome` options, run this command from the LRP2 directory:
-
-```bash
-grep -oE "^        '[^']+'" conf/gencode_references.config | tr -d "'" | tr -d ' ' | sort
-```
 
 ## Parameters
 
@@ -269,6 +276,8 @@ For a complete list of parameters:
 ```bash
 nextflow run /path/to/LRP2 --help
 ```
+> [!WARNING]
+> Please provide pipeline parameters via the CLI as shown or using the Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration other than parameters.
 
 ### Input/Output
 
@@ -276,10 +285,12 @@ nextflow run /path/to/LRP2 --help
 |-----------|-------------|---------|
 | `--input` | Path to samplesheet CSV (required) | — |
 | `--outdir` | Path to output directory (required) | — |
-| `--dataset_name` | Run identifier used for output prefixes | merged |
+| `--dataset_name` | Run identifier used for output prefixes | `merged` |
 | `--genome` | Reference genome version | `GRCh38.p14.v49` |
 
 ### HPC Scheduler Options
+
+Use `--hpc_partition` for SLURM clusters and `--hpc_queue` for LSF clusters. SLURM defaults to Rivanna conventions — customize for your cluster.
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
@@ -287,14 +298,14 @@ nextflow run /path/to/LRP2 --help
 | `--hpc_queue` | LSF queue name | — |
 | `--hpc_cluster_options` | Additional scheduler-specific options (e.g., `--account=my_alloc` for SLURM, `-P my_project` for LSF) | — |
 
-### PacBio Isocall Subworkflow #1
+### S1 PacBio Isocall
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `--min_read_support` | Minimum read support for transcripts | `3` |
 | `--isocall_config` | Path to custom Isocall configuration TOML file | `bin/isocall_config.toml` |
   
-### Transcriptome Subworkflow #2
+### S2 Transcriptome
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
@@ -303,7 +314,7 @@ nextflow run /path/to/LRP2 --help
 | `--template_switching_filter` | Remove template switching artifacts | `true` |
 | `--transcript_class_keep` | Structural categories to retain (FSM, ISM, NIC, NNC, ALL) | `FSM,ISM,NIC,NNC` |
 
-### Predicted Proteome Subworkflow #3
+### S3 Predicted Proteome
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
@@ -311,7 +322,7 @@ nextflow run /path/to/LRP2 --help
 | `--cpat_coding_threshold` | Coding probability threshold | `0.364` (human), `0.44` (mouse) |
 | `--protein_class_keep` | Protein categories to retain | `FPM,NPC,NPE` |
 
-### Multisample Analysis Subworkflow #4 
+### S4 Multisample Analysis
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
@@ -319,16 +330,13 @@ nextflow run /path/to/LRP2 --help
 | `--min_samples_per_group` | Minimum samples per group for leafcutter | `1` |
 | `--min_usage_ratio` | Minimum junction usage ratio for filtering | `0.01` |
   
-### Proteomics Subworkflow #5
+### S5 Proteomics
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `--protein_search` | Search engine (required) | `fragpipe` |
+| `--protein_search` | Search engine: `fragpipe` (required) | - |
 | `--fragpipe_token` | Single-use academic license token for FragPipe (required if `--protein_search fragpipe`). See [Run the RNA + DDA proteomics test dataset](#run-the-rna--dda-proteomics-test-dataset) for how to obtain one. | — |
-| `--fragpipe_workflow` | User can provide a customized FragPipe workflow file specifying search parameters (modifications, enzymes, etc.) | default is selected by `mass_spec_type` column in samplesheet |
-
-> [!WARNING]
-> Please provide pipeline parameters via the CLI as shown or using the Nextflow `-params-file` option. Custom config files including those provided by the `-c` Nextflow option can be used to provide any configuration except for parameters.
+| `--fragpipe_workflow` | Path to a custom FragPipe workflow file specifying search parameters (modifications, enzymes, etc.) | default is selected by `mass_spec_type` |
 
 ## Pipeline Output
 
@@ -371,8 +379,8 @@ Each subworkflow outputs to numbered module directories. The final module in eac
 │           └── *_DU_ORF_DRIMSeq_summary.txt
 ├── S5_PROTEOMICS/                       # (optional)
 │   ├── M1_BUILD_PROTEOME_REFERENCE/
-│   ├── M2_MSCONVERT_MZML/         
-│   ├── M3_FRAGPIPE/                     
+│   ├── M2_MSCONVERT_MZML/
+│   ├── M3_FRAGPIPE/
 │   └── M4_NOVEL_PEPTIDES/               # BED12 of peptides mapped to genome, summary table of novel and annotated peptides mapped to isoforms
 └── pipeline_info/                       # Execution reports and logs
     ├── execution_report.html
@@ -400,24 +408,23 @@ We thank the following people for their extensive assistance in the development 
 - **Elizabeth Tseng**, Pacific Biosciences - Development of Isocall. 
 - **Egor Dolzhenko**, Pacific Biosciences - Lead Developer of Isocall. 
 
-We especially thank the PIs associated with this project: 
-- **David A. Knowles**, LR Leafcutter and project support / funding 
+We especially thank the PIs that contributed to this project: 
+- **David A. Knowles**, Development of LR LeafCutter and project support / funding 
 - **Gloria Sheynkman**, Development/conceptualization of LRP and project support / funding
 
-## Support and customization
+## Support and Customization
 
-LRP2 supports a wide range of customization:
+LRP2 supports a range of customization:
 
 - **HPC environment**: SLURM and LSF schedulers with configurable partition/queue and cluster options; Singularity, Docker, or Conda containers
 - **Input flexibility**: RNA-only, protein-only, or paired RNA + protein samples; DDA or DIA mass spec data
 - **Reference genomes**: GENCODE human and mouse across multiple versions
 - **Proteomics**: alternative search engines (FragPipe or MetaMorpheus) and customizable FragPipe workflows
-- **Modular design**: some individual subworkflows can be run independently
 
 We welcome input from the community — please reach out if you have a use case not covered by the defaults.
 
-**Issues and bug reports**: [GitHub Issues](https://github.com/sheynkman-lab/LRP2/issues)
-**Direct contact**: Megan Schertzer, cwp5au@virginia.edu
+- **Issues and bug reports**: [GitHub Issues](https://github.com/sheynkman-lab/LRP2/issues)
+- **Direct contact**: Megan Schertzer, cwp5au@virginia.edu
 
 ## License
 
@@ -456,7 +463,7 @@ Please also cite the tools used by the pipeline:
 - **DRIMSeq**
   > Nowicka, M., and Robinson, M. D. 2016. "DRIMSeq: a Dirichlet-multinomial framework for multivariate count outcomes in genomics." *F1000Research* 5: 1356. doi: [10.12688/f1000research.8900.2](https://doi.org/10.12688/f1000research.8900.2)
 
-- **LeafCutter** (Long-read LeafCutter is under active development and is included in LRP2 as a preliminary implementation.)
+- **LeafCutter** (adapted as Long-read LeafCutter in LRP2; under active development)
   > Li, Y. I., Knowles, D. A., Humphrey, J., et al. 2017. "Annotation-free quantification of RNA splicing using LeafCutter." *Nature Genetics* 50(1): 151–158. doi: [10.1038/s41588-017-0004-9](https://doi.org/10.1038/s41588-017-0004-9)
 
 - **FragPipe / MSFragger**
@@ -467,7 +474,6 @@ Please also cite the tools used by the pipeline:
 
 - **MSFragger-DIA** (DIA proteomics in FragPipe)
   > Yu, F., Teo, G. C., Kong, A. T., et al. 2023. "Analysis of DIA proteomics data using MSFragger-DIA and FragPipe computational platform." *Nature Communications* 14(1): 4154. doi: [10.1038/s41467-023-39869-5](https://doi.org/10.1038/s41467-023-39869-5)
-This pipeline uses code and infrastructure developed and maintained by the [nf-core](https://nf-co.re) community, reused here under the [MIT license](https://github.com/nf-core/tools/blob/main/LICENSE).
 
 ### Reference data
 
