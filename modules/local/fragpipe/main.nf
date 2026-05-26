@@ -114,33 +114,29 @@ process FRAGPIPE {
         echo "Using custom workflow: ${custom_workflow}"
         cp ${custom_workflow} workflow.workflow
     else
-        echo "Downloading default ${data_type} workflow (${workflow_name})..."
+        echo "Using default ${data_type} workflow from assets (${workflow_name})..."
 
-        # Determine workflow URL
+        # Determine workflow file path from assets directory
         if [ "${data_type}" = "DIA" ]; then
-            WORKFLOW_URL="https://raw.githubusercontent.com/Nesvilab/FragPipe/develop/workflows/DIA_SpecLib_Quant.workflow"
+            WORKFLOW_FILE="${projectDir}/assets/DIA_SpecLib_Quant.workflow"
         else
-            WORKFLOW_URL="https://raw.githubusercontent.com/Nesvilab/FragPipe/develop/workflows/LFQ-MBR.workflow"
+            WORKFLOW_FILE="${projectDir}/assets/LFQ-MBR.workflow"
         fi
 
-        # Download workflow (try multiple methods)I
-        if command -v wget &> /dev/null; then
-            wget -q -O workflow.workflow "\$WORKFLOW_URL"
-        elif command -v curl &> /dev/null; then
-            curl -sL -o workflow.workflow "\$WORKFLOW_URL"
-        elif command -v python3 &> /dev/null; then
-            python3 -c "import urllib.request; urllib.request.urlretrieve('\$WORKFLOW_URL', 'workflow.workflow')"
-        else
-            echo "ERROR: No download tool found (wget, curl, or python)"
+        # Copy workflow from assets directory
+        if [ ! -f "\$WORKFLOW_FILE" ]; then
+            echo "ERROR: Workflow file not found: \$WORKFLOW_FILE"
             exit 1
         fi
+
+        cp "\$WORKFLOW_FILE" workflow.workflow
 
         if [ ! -f workflow.workflow ] || [ ! -s workflow.workflow ]; then
-            echo "ERROR: Failed to download workflow file"
+            echo "ERROR: Failed to copy workflow file from assets"
             exit 1
         fi
 
-        echo "Workflow downloaded: ${workflow_name}.workflow"
+        echo "Workflow loaded from assets: ${workflow_name}.workflow"
     fi
 
     # Update workflow with database path and decoy tag
