@@ -11,6 +11,8 @@ process FRAGPIPE {
     path ionquant_jar
     path diatracer_jar
     path custom_workflow
+    path dia_workflow
+    path lfq_workflow
 
     output:
     tuple val(meta), path("*.tsv"), emit: psm_table, optional: true
@@ -114,16 +116,13 @@ process FRAGPIPE {
         echo "Using custom workflow: ${custom_workflow}"
         cp ${custom_workflow} workflow.workflow
     else
-        echo "Using default ${data_type} workflow from assets (${workflow_name})..."
-
-        # Determine workflow file path from assets directory
+        echo "Using default ${data_type} workflow (${workflow_name})..."
         if [ "${data_type}" = "DIA" ]; then
-            WORKFLOW_FILE="${projectDir}/assets/DIA_SpecLib_Quant.workflow"
+            WORKFLOW_FILE="${dia_workflow}"
         else
-            WORKFLOW_FILE="${projectDir}/assets/LFQ-MBR.workflow"
+            WORKFLOW_FILE="${lfq_workflow}"
         fi
 
-        # Copy workflow from assets directory
         if [ ! -f "\$WORKFLOW_FILE" ]; then
             echo "ERROR: Workflow file not found: \$WORKFLOW_FILE"
             exit 1
@@ -132,11 +131,11 @@ process FRAGPIPE {
         cp "\$WORKFLOW_FILE" workflow.workflow
 
         if [ ! -f workflow.workflow ] || [ ! -s workflow.workflow ]; then
-            echo "ERROR: Failed to copy workflow file from assets"
+            echo "ERROR: Failed to copy workflow file"
             exit 1
         fi
 
-        echo "Workflow loaded from assets: ${workflow_name}.workflow"
+        echo "Workflow loaded: ${workflow_name}.workflow"
     fi
 
     # Update workflow with database path and decoy tag
