@@ -55,10 +55,11 @@ process SQANTI_QC {
         --fl $flnc_count \\
         $args
     
-    # Fix single-sample column naming to use "FL.{sample_id}", which is consist with formatting used for multi-sample runs
-    if head -1 ${prefix}.transcriptome_classification.txt | grep -qE '\\tFL\\t|\\tFL\\.\\t'; then
-        echo "Single sample detected - renaming FL column to FL.${meta.id}"
-        awk -v sample="${meta.id}" 'NR==1 {gsub(/\\tFL\\t|\\tFL\\.\\t/, "\\tFL."sample"\\t")} {print}' \\
+    # Fix single-sample column naming to use "FL.{sample_id}", which is consistent with formatting used for multi-sample runs
+    TAB=\$'\\t'
+    if head -1 ${prefix}.transcriptome_classification.txt | grep -qE "\${TAB}FL\${TAB}|\${TAB}FL\\.\${TAB}"; then
+        SAMPLE_NAME=\$(head -1 $flnc_count | awk -F',' '{print \$2}')
+        awk -v sample="\${SAMPLE_NAME}" 'NR==1 {gsub(/\\tFL\\t|\\tFL\\.\\t/, "\\tFL."sample"\\t")} {print}' \\
             ${prefix}.transcriptome_classification.txt > ${prefix}.transcriptome_classification.tmp.txt
         mv ${prefix}.transcriptome_classification.tmp.txt ${prefix}.transcriptome_classification.txt
     fi
