@@ -20,7 +20,6 @@ process SQANTI_QC {
     tuple val(meta), path("*.transcriptome.junctions.txt"), emit: junctions
 //    tuple val(meta), path("*.transcriptome.params.txt"), emit: params
 //    tuple val(meta), path("refAnnotation.*.genePred"), emit: refannotation_genepred
-    tuple val(meta), path("*_S2_TRANSCRIPTOME_M1_SQANTI_QC_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -31,8 +30,7 @@ process SQANTI_QC {
     def prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    exec > >(tee ${prefix}_S2_TRANSCRIPTOME_M1_SQANTI_QC_log.txt) 2>&1
-
+    
     source /conda/miniconda3/etc/profile.d/conda.sh
     conda activate sqanti3
 
@@ -48,19 +46,15 @@ process SQANTI_QC {
     fi
 
     sqanti3_qc.py \\
-        --force_id_ignore \\
-        --skipORF \\
-        --output ${prefix}.transcriptome \\
-        --dir . \\
-        --cpus $task.cpus \\
-        --chunks $task.cpus \\
+        --isoforms "\$ISOFORMS_INPUT" \\
+        --refGTF $reference_gtf \\
+        --refFasta $reference_fasta \\
+        -o ${prefix}.transcriptome \\
+        -d . \\
         --report skip \\
-        --fl_count $flnc_count \\
-        "\$ISOFORMS_INPUT" \\
-        $reference_gtf \\
-        $reference_fasta \\
+        --fl $flnc_count \\
         $args
-
+    
     # Fix single-sample column naming to use "FL.{sample_id}", which is consist with formatting used for multi-sample runs
     if head -1 ${prefix}.transcriptome_classification.txt | grep -qE '\\tFL\\t|\\tFL\\.\\t'; then
         echo "Single sample detected - renaming FL column to FL.${meta.id}"
@@ -68,7 +62,7 @@ process SQANTI_QC {
             ${prefix}.transcriptome_classification.txt > ${prefix}.transcriptome_classification.tmp.txt
         mv ${prefix}.transcriptome_classification.tmp.txt ${prefix}.transcriptome_classification.txt
     fi
-
+    
     mv ${prefix}.transcriptome_classification.txt ${prefix}.transcriptome.SQANTI_classification.txt
     mv ${prefix}.transcriptome_corrected.gtf ${prefix}.transcriptome.gtf
     mv ${prefix}.transcriptome_corrected.fasta ${prefix}.transcriptome.fasta
@@ -87,11 +81,10 @@ process SQANTI_QC {
     touch ${prefix}.transcriptome.gtf
     touch ${prefix}.transcriptome.fasta
     touch ${prefix}.transcriptome.junctions.txt
-    touch ${prefix}_S2_TRANSCRIPTOME_M1_SQANTI_QC_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        sqanti3: 5.2.2
+        sqanti3: 6.0.1
     END_VERSIONS
     """
 }
