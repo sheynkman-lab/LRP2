@@ -158,13 +158,17 @@ workflow PROTEOMICS {
         // Step 3: Run FragPipe
         // Prepare custom workflow file path or use null for auto-download
         def custom_workflow_file = fragpipe_workflow ? file(fragpipe_workflow) : file('NO_FILE')
+        def dia_workflow_file = file("${projectDir}/assets/DIA_SpecLib_Quant.workflow")
+        def lfq_workflow_file = file("${projectDir}/assets/LFQ-MBR.workflow")
 
         FRAGPIPE(
             ch_fragpipe_grouped,
             FRAGPIPE_AUTHENTICATE.out.msfragger_jar,
             FRAGPIPE_AUTHENTICATE.out.ionquant_jar,
             FRAGPIPE_AUTHENTICATE.out.diatracer_jar,
-            custom_workflow_file
+            custom_workflow_file,
+            dia_workflow_file,
+            lfq_workflow_file
         )
         ch_versions = ch_versions.mix(FRAGPIPE.out.versions)
         ch_psm_table = FRAGPIPE.out.psm_table
