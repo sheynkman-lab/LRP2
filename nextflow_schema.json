@@ -6,7 +6,7 @@
     "type": "object",
     "$defs": {
         "input_output_options": {
-            "title": "Input/output options",
+            "title": "Input/Output Options",
             "type": "object",
             "fa_icon": "fas fa-terminal",
             "description": "Define where the pipeline should find input data and save output data.",
@@ -25,7 +25,7 @@
                 },
                 "dataset_name": {
                     "type": "string",
-                    "default": "merged_dataset",
+                    "default": "merged",
                     "description": "Name for the merged dataset.",
                     "help_text": "This name will be used as a prefix for all output files. It should be a descriptive name for your project or experiment.",
                     "fa_icon": "fas fa-tag"
@@ -42,25 +42,36 @@
                     "fa_icon": "fas fa-envelope",
                     "help_text": "Set this parameter to your e-mail address to get a summary e-mail with details of the run sent to you when the workflow exits. If set in your user config file (`~/.nextflow/config`) then you don't need to specify this on the command line for every run.",
                     "pattern": "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$"
-                },
-                "multiqc_title": {
-                    "type": "string",
-                    "description": "MultiQC report title. Printed as page header, used for filename if not otherwise specified.",
-                    "fa_icon": "fas fa-file-signature"
                 }
             }
         },
         "reference_genome_options": {
-            "title": "Reference genome options",
+            "title": "Genome Reference Options",
             "type": "object",
             "fa_icon": "fas fa-dna",
             "description": "Reference genome related files and options required for the workflow.",
             "properties": {
                 "genome": {
                     "type": "string",
-                    "description": "Name of iGenomes reference.",
+                    "description": "Name of genome reference. This automatically populates the paths for the reference FASTA and GTF files if using GENCODE references.",
                     "fa_icon": "fas fa-book",
-                    "help_text": "If using a reference genome configured in the pipeline using iGenomes, use this parameter to give the ID for the reference. This is then used to build the full paths for all required reference genome files e.g. `--genome GRCh38`. \n\nSee the [nf-core website docs](https://nf-co.re/usage/reference_genomes) for more details."
+                    "help_text": "If using a reference genome configured in the pipeline using GENCODE, use this parameter to give the ID for the reference. This is then used to build the full paths for all required reference genome files e.g. `--genome GRCh38`. \n\nSee the [nf-core website docs](https://nf-co.re/usage/reference_genomes) for more details."
+                },
+                "gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to custom reference GTF file (optional).",
+                    "help_text": "Path to the GTF file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to reference genome FASTA file (optional).",
+                    "help_text": "Path to the genome FASTA file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
+                    "fa_icon": "far fa-file-code"
                 },
                 "igenomes_ignore": {
                     "type": "boolean",
@@ -128,7 +139,7 @@
             }
         },
         "isoseq_collapse_options": {
-            "title": "PacBio IsoCall options",
+            "title": "S1 PacBio IsoCall Options",
             "type": "object",
             "fa_icon": "fas fa-dna",
             "description": "Options for the PacBio IsoCall transcript calling module.",
@@ -158,42 +169,19 @@
             }
         },
         "sqanti_transcript_options": {
-            "title": "SQANTI3 transcript QC and filtering options",
+            "title": "S2 Transcriptome Options",
             "type": "object",
             "fa_icon": "fas fa-filter",
             "description": "Options for the SQANTI3 QC and filtering modules.",
             "properties": {
-                "gtf": {
-                    "type": "string",
-                    "format": "file-path",
-                    "exists": true,
-                    "description": "Path to reference GTF file.",
-                    "help_text": "Path to the GTF file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
-                    "fa_icon": "far fa-file-code"
-                },
-                "fasta": {
-                    "type": "string",
-                    "format": "file-path",
-                    "exists": true,
-                    "description": "Path to reference genome FASTA file.",
-                    "help_text": "Path to the genome FASTA file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
-                    "fa_icon": "far fa-file-code"
-                },
-                "sample_metadata": {
-                    "type": "string",
-                    "format": "file-path",
-                    "exists": true,
-                    "description": "Path to sample metadata CSV file.",
-                    "help_text": "Sample metadata file used for SQANTI3 filtering.",
-                    "fa_icon": "fas fa-file-csv"
-                },
                 "generate_hashids_script": {
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
                     "description": "Path to hash ID generation R script.",
                     "help_text": "R script used to generate hash IDs for transcripts.",
-                    "fa_icon": "far fa-file-code"
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
                 },
                 "filter_script": {
                     "type": "string",
@@ -201,7 +189,8 @@
                     "exists": true,
                     "description": "Path to SQANTI filtering R script.",
                     "help_text": "R script used to filter SQANTI3 QC output.",
-                    "fa_icon": "far fa-file-code"
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
                 },
                 "hashlib_script": {
                     "type": "string",
@@ -209,7 +198,8 @@
                     "exists": true,
                     "description": "Path to hashlib ID generator Python script.",
                     "help_text": "Python script used to generate hash IDs for transcripts.",
-                    "fa_icon": "far fa-file-code"
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
                 },
                 "sqanti_path": {
                     "type": "string",
@@ -217,7 +207,8 @@
                     "default": "/project/sheynkman/programs/SQANTI3-5.5/src/utilities/cupcake/",
                     "description": "Path to SQANTI3 installation directory.",
                     "help_text": "Path to the SQANTI3 cupcake utilities directory.",
-                    "fa_icon": "fas fa-folder"
+                    "fa_icon": "fas fa-folder",
+                    "hidden": true
                 },
                 "protein_coding_filter": {
                     "type": "boolean",
@@ -251,86 +242,8 @@
                 }
             }
         },
-        "differential_analysis_options": {
-            "title": "Differential analysis options",
-            "type": "object",
-            "fa_icon": "fas fa-chart-line",
-            "description": "Options for multi-sample differential expression and splicing analysis.",
-            "properties": {
-                "run_differential_analysis": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable multi-sample differential analysis subworkflow.",
-                    "help_text": "When enabled, runs differential splicing (leafcutter) and differential expression/usage analyses (edgeR/DRIMSeq) for all pairwise comparisons between unique conditions in the samplesheet.",
-                    "fa_icon": "fas fa-play"
-                },
-                "min_samples_per_intron": {
-                    "type": "integer",
-                    "default": 2,
-                    "description": "Minimum number of samples per intron for leafcutter differential splicing.",
-                    "fa_icon": "fas fa-filter"
-                },
-                "min_samples_per_group": {
-                    "type": "integer",
-                    "default": 1,
-                    "description": "Minimum number of samples per group for leafcutter differential splicing.",
-                    "fa_icon": "fas fa-users"
-                },
-                "min_usage_ratio": {
-                    "type": "number",
-                    "default": 0.01,
-                    "description": "Minimum junction usage ratio for minicutter filtering.",
-                    "fa_icon": "fas fa-percent"
-                },
-                "lr_leafcutter_script": {
-                    "type": "string",
-                    "format": "file-path",
-                    "exists": true,
-                    "description": "Path to long-read leafcutter R script.",
-                    "help_text": "R script used for long-read leafcutter clustering analysis.",
-                    "fa_icon": "far fa-file-code"
-                },
-                "leafcutter_ds_script": {
-                    "type": "string",
-                    "format": "file-path",
-                    "exists": true,
-                    "description": "Path to leafcutter differential splicing Python script.",
-                    "help_text": "Python script used for leafcutter differential splicing analysis (leafcutter_ds.py).",
-                    "fa_icon": "far fa-file-code"
-                },
-                "multisample_script": {
-                    "type": "string",
-                    "format": "file-path",
-                    "exists": true,
-                    "description": "Path to multi-sample analysis R script.",
-                    "help_text": "R script used for differential expression and usage analysis with edgeR and DRIMSeq.",
-                    "fa_icon": "far fa-file-code"
-                },
-                "leafcutter_threads": {
-                    "type": "integer",
-                    "default": 12,
-                    "description": "Number of threads for leafcutter differential splicing.",
-                    "help_text": "Specify the number of threads to use for leafcutter differential splicing analysis. If not specified, defaults to using the number of CPUs allocated to the process (12 for process_high).",
-                    "fa_icon": "fas fa-microchip"
-                },
-                "drimseq_min_gene_expr": {
-                    "type": "integer",
-                    "default": 10,
-                    "description": "Minimum gene-level expression for DRIMSeq filtering.",
-                    "help_text": "Genes with total counts below this threshold will be filtered out before differential usage analysis.",
-                    "fa_icon": "fas fa-filter"
-                },
-                "drimseq_min_isoform_prop": {
-                    "type": "number",
-                    "default": 0.05,
-                    "description": "Minimum isoform/feature proportion for DRIMSeq filtering.",
-                    "help_text": "Isoforms/features with proportion below this threshold will be filtered out before differential usage analysis.",
-                    "fa_icon": "fas fa-percentage"
-                }
-            }
-        },
         "predicted_proteome_options": {
-            "title": "Predicted proteome options",
+            "title": "S3 Predicted Proteome Options",
             "type": "object",
             "fa_icon": "fas fa-dna",
             "description": "Options for CPAT ORF calling and protein classification.",
@@ -374,6 +287,12 @@
                     "help_text": "Logit model used by CPAT for ORF prediction in mouse samples.",
                     "fa_icon": "far fa-file-code"
                 },
+                "cpat_coding_threshold": {
+                    "type": "number",
+                    "description": "CPAT coding probability threshold.",
+                    "help_text": "Coding probability threshold for CPAT. Auto-set based on species if not specified (human=0.364, mouse=0.44).",
+                    "fa_icon": "fas fa-balance-scale"
+                },
                 "min_orf": {
                     "type": "integer",
                     "default": 75,
@@ -392,7 +311,8 @@
                     "exists": true,
                     "description": "Path to CPAT filtering R script.",
                     "help_text": "R script used to filter CPAT output and call best ORFs.",
-                    "fa_icon": "far fa-file-code"
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
                 },
                 "sqanti_protein_script": {
                     "type": "string",
@@ -400,7 +320,8 @@
                     "exists": true,
                     "description": "Path to SQANTI protein classification Python script.",
                     "help_text": "Python script used for SQANTI3 protein classification.",
-                    "fa_icon": "far fa-file-code"
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
                 },
                 "protein_class_script": {
                     "type": "string",
@@ -408,7 +329,8 @@
                     "exists": true,
                     "description": "Path to protein classification R script.",
                     "help_text": "R script used for 5'UTR and protein classification.",
-                    "fa_icon": "far fa-file-code"
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
                 },
                 "protein_class_keep": {
                     "type": "string",
@@ -425,8 +347,82 @@
                 }
             }
         },
+        "differential_analysis_options": {
+            "title": "S4 Multisample Analysis Options",
+            "type": "object",
+            "fa_icon": "fas fa-chart-line",
+            "description": "Options for multi-sample differential expression and splicing analysis.",
+            "properties": {
+                "min_samples_per_intron": {
+                    "type": "integer",
+                    "default": 2,
+                    "description": "Minimum number of samples per intron for leafcutter differential splicing.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "min_samples_per_group": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "Minimum number of samples per group for leafcutter differential splicing.",
+                    "fa_icon": "fas fa-users"
+                },
+                "min_usage_ratio": {
+                    "type": "number",
+                    "default": 0.01,
+                    "description": "Minimum junction usage ratio for minicutter filtering.",
+                    "fa_icon": "fas fa-percent"
+                },
+                "lr_leafcutter_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to long-read leafcutter R script.",
+                    "help_text": "R script used for long-read leafcutter clustering analysis.",
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
+                },
+                "leafcutter_ds_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to leafcutter differential splicing Python script.",
+                    "help_text": "Python script used for leafcutter differential splicing analysis (leafcutter_ds.py).",
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
+                },
+                "multisample_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to multi-sample analysis R script.",
+                    "help_text": "R script used for differential expression and usage analysis with edgeR and DRIMSeq.",
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
+                },
+                "leafcutter_threads": {
+                    "type": "integer",
+                    "default": 12,
+                    "description": "Number of threads for leafcutter differential splicing.",
+                    "help_text": "Specify the number of threads to use for leafcutter differential splicing analysis. If not specified, defaults to using the number of CPUs allocated to the process (12 for process_high).",
+                    "fa_icon": "fas fa-microchip"
+                },
+                "drimseq_min_gene_expr": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Minimum gene-level expression for DRIMSeq filtering.",
+                    "help_text": "Genes with total counts below this threshold will be filtered out before differential usage analysis.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "drimseq_min_isoform_prop": {
+                    "type": "number",
+                    "default": 0.05,
+                    "description": "Minimum isoform/feature proportion for DRIMSeq filtering.",
+                    "help_text": "Isoforms/features with proportion below this threshold will be filtered out before differential usage analysis.",
+                    "fa_icon": "fas fa-percentage"
+                }
+            }
+        },
         "proteomics_options": {
-            "title": "Proteomics options",
+            "title": "S5 Proteomics Options",
             "type": "object",
             "fa_icon": "fas fa-microscope",
             "description": "Options for mass spectrometry proteomics analysis.",
@@ -458,6 +454,34 @@
                     "help_text": "When enabled, only LRP-predicted or custom protein sequences will be used for proteomics searches, excluding GENCODE reference proteins.",
                     "fa_icon": "fas fa-ban"
                 },
+                "lrp_protein_fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to pre-computed LRP protein FASTA for proteomics-only runs.",
+                    "help_text": "Pre-computed LRP protein FASTA file (headers: transcript_id|gene_id|gene_name|pclass|status). Use this for proteomics-only runs with previously generated LRP protein sequences.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "lrp_gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to LRP CDS GTF from a previous run.",
+                    "help_text": "LRP CDS GTF file from a previous run, paired with lrp_protein_fasta for proteomics-only runs.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "custom_protein_fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to user-provided custom protein FASTA.",
+                    "help_text": "User-provided custom protein FASTA file (headers: transcript_id|gene_id at minimum) for proteomics analysis.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "custom_gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to user-provided custom GTF with CDS entries.",
+                    "help_text": "User-provided custom GTF file with CDS entries, paired with custom_protein_fasta.",
+                    "fa_icon": "far fa-file-code"
+                },
                 "protein_search": {
                     "type": "string",
                     "default": "fragpipe",
@@ -477,26 +501,30 @@
                     "type": "string",
                     "description": "User's first name for FragPipe registration (optional for interactive mode).",
                     "help_text": "Required for non-interactive FragPipe setup. Leave empty for interactive mode.",
-                    "fa_icon": "fas fa-user"
+                    "fa_icon": "fas fa-user",
+                    "hidden": true
                 },
                 "fragpipe_last_name": {
                     "type": "string",
                     "description": "User's last name for FragPipe registration (optional for interactive mode).",
                     "help_text": "Required for non-interactive FragPipe setup. Leave empty for interactive mode.",
-                    "fa_icon": "fas fa-user"
+                    "fa_icon": "fas fa-user",
+                    "hidden": true
                 },
                 "fragpipe_email": {
                     "type": "string",
                     "description": "Email address for FragPipe registration (optional for interactive mode).",
                     "help_text": "Required for non-interactive FragPipe setup. Leave empty for interactive mode.",
                     "fa_icon": "fas fa-envelope",
-                    "pattern": "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$"
+                    "pattern": "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$",
+                    "hidden": true
                 },
                 "fragpipe_institution": {
                     "type": "string",
                     "description": "Institution/organization for FragPipe registration (optional for interactive mode).",
                     "help_text": "Required for non-interactive FragPipe setup. Leave empty for interactive mode.",
-                    "fa_icon": "fas fa-university"
+                    "fa_icon": "fas fa-university",
+                    "hidden": true
                 },
                 "fragpipe_token": {
                     "type": "string",
@@ -510,7 +538,8 @@
                     "default": false,
                     "description": "Accept FragPipe license terms (required for non-interactive mode).",
                     "help_text": "Set to true to accept FragPipe license terms for non-interactive setup.",
-                    "fa_icon": "fas fa-file-contract"
+                    "fa_icon": "fas fa-file-contract",
+                    "hidden": true
                 },
                 "fragpipe_workflow": {
                     "type": "string",
@@ -518,6 +547,12 @@
                     "description": "Path to custom FragPipe workflow file (optional).",
                     "help_text": "Custom .workflow file for FragPipe. If not provided, default workflows will be auto-downloaded (LFQ-MBR for DDA, DIA_SpecLib_Quant for DIA).",
                     "fa_icon": "fas fa-file"
+                },
+                "fragpipe_threads": {
+                    "type": "integer",
+                    "description": "Number of threads for FragPipe.",
+                    "help_text": "Number of threads for FragPipe analysis. If not specified, defaults to using task.cpus from process label.",
+                    "fa_icon": "fas fa-microchip"
                 },
                 "fragpipe_decoy_tag": {
                     "type": "string",
