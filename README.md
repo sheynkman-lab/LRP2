@@ -87,10 +87,9 @@ From the `LRP2` directory:
 nextflow run . \
     -profile test_rna,singularity,slurm \
     --outdir test_rna_results \
-    --hpc_partition your_partition \
-    --hpc_cluster_options "--account=your_allocation"
+    --hpc_partition your_partition
 ```
-> **Note**: Replace `your_partition` with your cluster's partition name, and adjust `--hpc_cluster_options` for your cluster (e.g., `--account=` for SLURM, `-P` for LSF). LSF users: also swap `slurm` for `lsf` in the profile. See [HPC Scheduler Options](#hpc-scheduler-options).
+> **Note**: Replace `your_partition` with your cluster's partition (SLURM) or queue (LSF) name. If your cluster requires additional scheduler options such as account strings or QOS flags, pass them via --hpc_cluster_options (e.g., --hpc_cluster_options '-A your_allocation' for SLURM, --hpc_cluster_options '-P your_project' for LSF). LSF users: also swap `slurm` for `lsf` in the profile. See [HPC Scheduler Options](#hpc-scheduler-options).
 
 > **Note**: To run locally on your current node instead of submitting to SLURM, drop the `slurm` profile: `-profile test_rna,singularity`.
 
@@ -129,8 +128,7 @@ nextflow run . \
     -profile test_dda,singularity,slurm \
     --outdir test_results_dda \
     --fragpipe_token "YOUR_TOKEN" \
-    --hpc_partition your_partition \
-    --hpc_cluster_options "--account=your_allocation"
+    --hpc_partition your_partition
 ```
 > **Note**: The `test_dda` profile automatically sets `--protein_search fragpipe` and `--fragpipe_license_accept true`.
 
@@ -194,8 +192,7 @@ nextflow run /path/to/LRP2 \
     --genome GRCh38.p14.v49 \
     --protein_search fragpipe \
     --fragpipe_token "YOUR_TOKEN" \
-    --hpc_partition standard \
-    --hpc_cluster_options "--account=my_allocation" \
+    --hpc_partition your_partition \
     -profile singularity,slurm
 ```
 
@@ -296,7 +293,7 @@ Use `--hpc_partition` for SLURM clusters and `--hpc_queue` for LSF clusters. SLU
 |-----------|-------------|---------|
 | `--hpc_partition` | SLURM partition | `standard` |
 | `--hpc_queue` | LSF queue name | — |
-| `--hpc_cluster_options` | Additional scheduler-specific options (e.g., `--account=my_alloc` for SLURM, `-P my_project` for LSF) | — |
+| `--hpc_cluster_options` | Additional scheduler-specific options (e.g., '-A my_alloc' for SLURM, '-P my_project' for LSF) | — |
 
 ### S1 PacBio Isocall
 
