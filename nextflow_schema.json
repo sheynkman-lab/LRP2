@@ -528,6 +528,33 @@
                 }
             }
         },
+        "hpc_cluster_options": {
+            "title": "HPC cluster options",
+            "type": "object",
+            "fa_icon": "fas fa-server",
+            "description": "Options for HPC cluster execution.",
+            "help_text": "These parameters can override default executor settings in slurm.config or lsf.config.",
+            "properties": {
+                "hpc_executor": {
+                    "type": "string",
+                    "description": "Override executor type (e.g., 'slurm', 'lsf', 'local').",
+                    "help_text": "Specify the executor to use for job submission on HPC clusters.",
+                    "fa_icon": "fas fa-cogs"
+                },
+                "hpc_queue": {
+                    "type": "string",
+                    "description": "Override queue/partition name for job submission.",
+                    "help_text": "Specify the queue or partition to use for job submission on HPC clusters.",
+                    "fa_icon": "fas fa-list"
+                },
+                "hpc_cluster_options": {
+                    "type": "string",
+                    "description": "Override cluster-specific options (e.g., '--account=myaccount').",
+                    "help_text": "Additional cluster-specific options to pass to the job scheduler.",
+                    "fa_icon": "fas fa-sliders-h"
+                }
+            }
+        },
         "generic_options": {
             "title": "Generic options",
             "type": "object",
@@ -659,6 +686,9 @@
         },
         {
             "$ref": "#/$defs/differential_analysis_options"
+        },
+        {
+            "$ref": "#/$defs/hpc_cluster_options"
         },
         {
             "$ref": "#/$defs/institutional_config_options"
