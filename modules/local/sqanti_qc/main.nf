@@ -51,17 +51,24 @@ process SQANTI_QC {
         --refFasta $reference_fasta \\
         -o ${prefix}.transcriptome \\
         -d . \\
+        -t $task.cpus \\
+        -n $task.cpus \\
         --report skip \\
         --fl $flnc_count \\
         $args
     
     # Fix single-sample column naming to use "FL.{sample_id}", which is consistent with formatting used for multi-sample runs
     TAB=\$'\\t'
-    if head -1 ${prefix}.transcriptome_classification.txt | grep -qE "\${TAB}FL\${TAB}|\${TAB}FL\\.\${TAB}"; then
-        SAMPLE_NAME=\$(head -1 $flnc_count | awk -F',' '{print \$2}')
-        awk -v sample="\${SAMPLE_NAME}" 'NR==1 {gsub(/\\tFL\\t|\\tFL\\.\\t/, "\\tFL."sample"\\t")} {print}' \\
-            ${prefix}.transcriptome_classification.txt > ${prefix}.transcriptome_classification.tmp.txt
-        mv ${prefix}.transcriptome_classification.tmp.txt ${prefix}.transcriptome_classification.txt
+    NUM_COLS=\$(head -1 $flnc_count | awk -F',' '{print NF}')
+    echo "DEBUG flnc_count header: \$(head -1 $flnc_count)"
+    echo "DEBUG flnc_count NUM_COLS: \${NUM_COLS}"
+    if [ "\$NUM_COLS" -eq 2 ]; then
+        if head -1 ${prefix}.transcriptome_classification.txt | grep -qE "\${TAB}FL\${TAB}|\${TAB}FL\\.\${TAB}"; then
+            SAMPLE_NAME=\$(head -1 $flnc_count | awk -F',' '{print \$2}')
+            awk -v sample="\${SAMPLE_NAME}" 'NR==1 {gsub(/\\tFL\\t|\\tFL\\.\\t/, "\\tFL."sample"\\t")} {print}' \\
+                ${prefix}.transcriptome_classification.txt > ${prefix}.transcriptome_classification.tmp.txt
+            mv ${prefix}.transcriptome_classification.tmp.txt ${prefix}.transcriptome_classification.txt
+        fi
     fi
     
     mv ${prefix}.transcriptome_classification.txt ${prefix}.transcriptome.SQANTI_classification.txt
