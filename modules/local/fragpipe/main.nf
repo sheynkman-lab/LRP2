@@ -188,7 +188,7 @@ process FRAGPIPE {
     fi
 
     echo "FragPipe executable: \$FRAGPIPE_CMD"
-    echo "RAM: ${task.memory.toGiga()} GB"
+    echo "RAM: ${(task.memory.toGiga() * 0.7) as Integer} GB (70% of ${task.memory.toGiga()} GB allocated)"
     echo "Threads: ${threads}"
     echo ""
     echo "Starting FragPipe headless execution..."
@@ -202,7 +202,7 @@ process FRAGPIPE {
         --manifest \$WORK_DIR/manifest.fp-manifest \\
         --workdir \$WORK_DIR/results \\
         --config-tools-folder \$WORK_DIR/fragpipe_tools \\
-        --ram ${task.memory.toGiga()} \\
+        --ram ${(task.memory.toGiga() * 0.7) as Integer} \\
         --threads ${threads} \\
         $args \\
         2>&1 | tee fragpipe_execution.log
