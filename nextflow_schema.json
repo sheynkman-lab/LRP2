@@ -4,6 +4,7 @@
     "title": "sheynkmanlab/lrp2 pipeline parameters",
     "description": "Long-read proteogenomics pipeline for PacBio Iso-Seq data",
     "type": "object",
+    "additionalProperties": true,
     "$defs": {
         "input_output_options": {
             "title": "Input/Output Options",
@@ -527,7 +528,7 @@
                     "hidden": true
                 },
                 "fragpipe_token": {
-                    "type": "string",
+                    "type": ["string", "integer"],
                     "description": "6-digit verification token for FragPipe (optional for interactive mode).",
                     "help_text": "Required for non-interactive FragPipe setup. You'll receive this via email after registration. Leave empty for interactive mode.",
                     "fa_icon": "fas fa-key",
