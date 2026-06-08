@@ -568,7 +568,7 @@ workflow LRP2 {
                 conditions_list_for_log.eachWithIndex { cond1, i ->
                     conditions_list_for_log.eachWithIndex { cond2, j ->
                         if (j > i) {
-                            comparison_count++
+                            comparison_count += 1
                             comparisons_to_log << [cond1, cond2]
                         }
                     }
