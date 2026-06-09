@@ -216,9 +216,9 @@ If you have already completed a full LRP2 run and  want to re-run just the diffe
 ```bash
 nextflow run /path/to/LRP2 \
     --multisample_metadata samplesheet.csv \
-    --transcripts_gtf results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged_corrected_filtered.gtf \
-    --transcript_counts results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged_hashids_with_cpm_filtered.txt \
-    --orf_counts results/S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/merged.predicted.proteome.high_confidence_ORF_cpm.txt \
+    --transcripts_gtf results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged.transcriptome.filtered.gtf \
+    --transcript_counts results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged.transcriptome.filtered_hashids_with_cpm.txt \
+    --orf_counts results/S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/merged.predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt \
     --outdir results_reanalysis \
     --min_samples_per_intron 1 \
     --min_usage_ratio 0.05 \
