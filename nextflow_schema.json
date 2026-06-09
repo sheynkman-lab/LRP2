@@ -11,7 +11,7 @@
             "type": "object",
             "fa_icon": "fas fa-terminal",
             "description": "Define where the pipeline should find input data and save output data.",
-            "required": ["input", "outdir"],
+            "required": ["outdir"],
             "properties": {
                 "input": {
                     "type": "string",
@@ -422,6 +422,43 @@
                 }
             }
         },
+        "multisample_only_inputs": {
+            "title": "Multisample Analysis Only Mode",
+            "type": "object",
+            "fa_icon": "fas fa-play-circle",
+            "description": "Parameters for running only multisample analysis with pre-computed inputs from a previous LRP2 run.",
+            "help_text": "Use these parameters to re-run only the multisample analysis subworkflow using outputs from a previous full pipeline run. All four file parameters must be provided together to enable this mode. The --input samplesheet parameter is not required in this mode.",
+            "properties": {
+                "transcripts_gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Pre-computed filtered GTF file from TRANSCRIPTOME subworkflow.",
+                    "help_text": "Path to the filtered GTF file (typically named *_corrected_filtered.gtf) from a previous LRP2 run. This file is output by the FILTER_TRANSCRIPTOME module in the TRANSCRIPTOME subworkflow.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "transcript_counts": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Pre-computed transcript count matrix from TRANSCRIPTOME subworkflow.",
+                    "help_text": "Path to the transcript count matrix file (typically named *_hashids_with_cpm_filtered.txt) from a previous LRP2 run. This file contains CPM-normalized transcript counts.",
+                    "fa_icon": "far fa-file-alt"
+                },
+                "orf_counts": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Pre-computed ORF count matrix from PREDICTED_PROTEOME subworkflow.",
+                    "help_text": "Path to the ORF count matrix file (typically named *.predicted.proteome.high_confidence_ORF_cpm.txt) from a previous LRP2 run. This file contains CPM-normalized ORF counts.",
+                    "fa_icon": "far fa-file-alt"
+                },
+                "multisample_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "RNA sample metadata CSV file for multisample analysis.",
+                    "help_text": "Path to a CSV file with RNA sample metadata. Accepts two formats: (1) Simplified format with columns 'name', 'sample_path', 'group', 'sample_type', or (2) Standard samplesheet format with columns 'sample_name', 'sample_path', 'condition', 'sample_type', 'mass_spec_type'. The pipeline auto-detects which format you're using. You can use the auto-generated *_rna_samples_metadata.csv file from a previous LRP2 run, your original samplesheet (if RNA-only), or a custom metadata file in either format.",
+                    "fa_icon": "fas fa-file-csv"
+                }
+            }
+        },
         "proteomics_options": {
             "title": "S5 Proteomics Options",
             "type": "object",
@@ -722,6 +759,9 @@
         },
         {
             "$ref": "#/$defs/differential_analysis_options"
+        },
+        {
+            "$ref": "#/$defs/multisample_only_inputs"
         },
         {
             "$ref": "#/$defs/hpc_cluster_options"

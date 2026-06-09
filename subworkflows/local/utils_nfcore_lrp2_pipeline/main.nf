@@ -81,19 +81,25 @@ workflow PIPELINE_INITIALISATION {
     validateInputParameters()
 
     //
-    // Sanitize samplesheet to handle Excel-created files
+    // Handle multisample-only mode (when no samplesheet is provided)
     //
-    def sanitized_input = sanitizeSamplesheet(params.input)
-
-    //
-    // Create channel from input file provided through params.input
-    //
-
-    // Determine input type based on file content
-    def input_type = detectInputType(sanitized_input)
+    def sanitized_input = null
+    def input_type = null
     def rna_channel_data = []
     def protein_channel_data = []
     def combined_channel_data = []
+
+    if (params.input) {
+        //
+        // Sanitize samplesheet to handle Excel-created files
+        //
+        sanitized_input = sanitizeSamplesheet(params.input)
+
+        //
+        // Create channel from input file provided through params.input, determine input type based on file content
+        //
+        input_type = detectInputType(sanitized_input)
+    }
 
     if (input_type == "sample_path") {
         def samplesheet_list = samplesheetToList(sanitized_input, "${projectDir}/assets/schema_input_bam.json")
@@ -232,7 +238,7 @@ workflow PIPELINE_INITIALISATION {
             combined_channel_data.addAll(protein_channel_data)
         }
 
-    } else {
+    } else if (sanitized_input) {
         // For FASTQ input, process as before but store in combined array
         combined_channel_data = samplesheetToList(sanitized_input, "${projectDir}/assets/schema_input.json")
             .collect { meta, fastq_1, fastq_2 ->

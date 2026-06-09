@@ -38,43 +38,54 @@ workflow LRP2 {
     def colors = logColours(params.monochrome_logs)
 
     //
-    // Separate RNA and protein samples based on sample_type metadata
-    // Note: Genome FASTA decompression is deferred until after we determine if RNA samples are present
+    // Detect multisample-only mode
     //
-    // Parse samplesheet synchronously to determine if RNA samples exist (for conditional subworkflow execution)
-    def samplesheet_file = file(params.input)
-    def samplesheet_content = samplesheet_file.text
-    def samplesheet_lines = samplesheet_content.split('\n')
-    def samplesheet_header_parts = samplesheet_lines[0].split(',')
-    def sample_type_idx = samplesheet_header_parts.findIndexOf { it.trim() == 'sample_type' }
+    def is_multisample_only = params.transcripts_gtf &&
+                               params.transcript_counts &&
+                               params.orf_counts &&
+                               params.multisample_metadata
 
+    //
+    // Separate RNA and protein samples based on sample_type metadata
+    // Note: Genome FASTA decompression is deferred until after we determine if RNA samples are present, and skip samplesheet parsing if in multisample-only mode
+    //
+    def samplesheet_file = !is_multisample_only ? file(params.input) : null
     def has_rna_samples_sync = false
     def has_protein_samples_sync = false
 
-    samplesheet_lines.drop(1).each { line ->
-        if (line.trim()) {
-            def parts = line.split(',')
-            if (parts.size() > sample_type_idx) {
-                def sample_type = parts[sample_type_idx].trim().toLowerCase()
-                if (sample_type == 'rna') {
-                    has_rna_samples_sync = true
-                } else if (sample_type == 'protein') {
-                    has_protein_samples_sync = true
+    if (!is_multisample_only) {
+        // Parse samplesheet synchronously to determine if RNA samples exist (for conditional subworkflow execution)
+        def samplesheet_content = samplesheet_file.text
+        def samplesheet_lines = samplesheet_content.split('\n')
+        def samplesheet_header_parts = samplesheet_lines[0].split(',')
+        def sample_type_idx = samplesheet_header_parts.findIndexOf { it.trim() == 'sample_type' }
+
+        samplesheet_lines.drop(1).each { line ->
+            if (line.trim()) {
+                def parts = line.split(',')
+                if (parts.size() > sample_type_idx) {
+                    def sample_type = parts[sample_type_idx].trim().toLowerCase()
+                    if (sample_type == 'rna') {
+                        has_rna_samples_sync = true
+                    } else if (sample_type == 'protein') {
+                        has_protein_samples_sync = true
+                    }
                 }
             }
         }
     }
 
     // Create separate RNA and protein channels using filter
-    ch_rna_samples = ch_samplesheet
-        .filter { meta, _data ->
+    // Skip channel creation if in multisample-only mode (no samplesheet to parse)
+    ch_rna_samples = !is_multisample_only ?
+        ch_samplesheet.filter { meta, _data ->
             meta.containsKey('sample_type') && meta.sample_type.toLowerCase() == 'rna'
-        }
+        } : channel.empty()
 
-    ch_protein_samples = ch_samplesheet
-        .filter { meta, _data ->
+    ch_protein_samples = !is_multisample_only ?
+        ch_samplesheet.filter { meta, _data ->
             meta.containsKey('sample_type') && meta.sample_type.toLowerCase() == 'protein'
-        }
+        } : channel.empty()
 
     //
     // Count RNA samples to determine if RNA subworkflows should run
@@ -160,9 +171,9 @@ workflow LRP2 {
     sample_metadata_file = params.sample_metadata ?: params.input
 
     //
-    // RNA-specific subworkflows (only execute if RNA samples are present)
+    // RNA-specific subworkflows (only execute if RNA samples are present AND not in multisample-only mode)
     //
-    if (has_rna_samples_sync) {
+    if (has_rna_samples_sync && !is_multisample_only) {
         //
         // SUBWORKFLOW: Run PacBio IsoCall analysis
         //
@@ -527,68 +538,103 @@ workflow LRP2 {
     // 2. At least 2 unique conditions exist
     // 3. Each condition that runs has at least 2 samples (warn re. statistical robustness but still run if <3 per condition)
     //
-    // Parse metadata synchronously to count samples per condition
-    def metadata_content = file(sample_metadata_file).text
-    def lines = metadata_content.split('\n')
-    def header_parts = lines[0].split(',')
-    def sample_name_idx = header_parts.findIndexOf { it.trim() == 'sample_name' }
-    def condition_idx = header_parts.findIndexOf { it.trim() == 'condition' }
-    def multisample_sample_type_idx = header_parts.findIndexOf { it.trim() == 'sample_type' }
-    def samples_per_condition = [:].withDefault { [] }
-    lines.drop(1).each { line ->
-        if (line.trim()) {
-            def parts = line.split(',')
-            if (parts.size() > multisample_sample_type_idx && parts[multisample_sample_type_idx].trim().toLowerCase() == 'rna') {
-                def condition = parts[condition_idx].trim()
-                def sample_name = parts[sample_name_idx].trim()
-                samples_per_condition[condition] << sample_name
+    // Initialize should_run_multisample
+    def should_run_multisample = false
+    def lines
+    def header_parts
+    def sample_name_idx
+    def condition_idx
+    def multisample_sample_type_idx
+    def samples_per_condition
+
+    // Only parse metadata for validation if not in multisample-only mode
+    if (!is_multisample_only) {
+        // Parse metadata synchronously to count samples per condition
+        def metadata_content = file(sample_metadata_file).text
+        lines = metadata_content.split('\n')
+        header_parts = lines[0].split(',')
+        sample_name_idx = header_parts.findIndexOf { it.trim() == 'sample_name' }
+        condition_idx = header_parts.findIndexOf { it.trim() == 'condition' }
+        multisample_sample_type_idx = header_parts.findIndexOf { it.trim() == 'sample_type' }
+        samples_per_condition = [:].withDefault { [] }
+        lines.drop(1).each { line ->
+            if (line.trim()) {
+                def parts = line.split(',')
+                if (parts.size() > multisample_sample_type_idx && parts[multisample_sample_type_idx].trim().toLowerCase() == 'rna') {
+                    def condition = parts[condition_idx].trim()
+                    def sample_name = parts[sample_name_idx].trim()
+                    samples_per_condition[condition] << sample_name
+                }
             }
         }
-    }
-    def unique_conditions = samples_per_condition.keySet().size()
-    def conditions_with_min_samples = samples_per_condition.findAll { k, v -> v.size() >= 2 }
-    def conditions_with_robust_samples = samples_per_condition.findAll { k, v -> v.size() >= 3 }
+        def unique_conditions = samples_per_condition.keySet().size()
+        def conditions_with_min_samples = samples_per_condition.findAll { k, v -> v.size() >= 2 }
+        def conditions_with_robust_samples = samples_per_condition.findAll { k, v -> v.size() >= 3 }
 
-    // Determine if we should run multisample analysis based on samples present and log final call 
-    def should_run_multisample = unique_conditions >= 2 && conditions_with_min_samples.size() >= 2
-    ch_rna_count.subscribe { count ->
-        if (count == 0) {
-            log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No RNA samples detected - skipping MULTISAMPLE_ANALYSIS${colors.reset}-"
-        } else if (samples_per_condition.size() > 0) {
-            if (unique_conditions < 2) {
-                log.warn "-${colors.purple}[sheynkmanlab/lrp2]${colors.yellow} Only ${unique_conditions} condition detected - need at least 2 conditions for MULTISAMPLE_ANALYSIS${colors.reset}-"
-            } else if (conditions_with_min_samples.size() < 2) {
-                log.warn "-${colors.purple}[sheynkmanlab/lrp2]${colors.yellow} Only ${conditions_with_min_samples.size()} condition(s) with ≥2 samples - need at least 2 conditions with ≥2 samples each for MULTISAMPLE_ANALYSIS${colors.reset}-"
-            } else {
-                // log pairwise comparisons
-                def valid_conditions_for_log = samples_per_condition.findAll { condition, samples -> samples.size() >= 2 }.keySet()
-                def conditions_list_for_log = valid_conditions_for_log.toList().sort()
-                def comparison_count = 0
-                def comparisons_to_log = []
-                conditions_list_for_log.eachWithIndex { cond1, i ->
-                    conditions_list_for_log.eachWithIndex { cond2, j ->
-                        if (j > i) {
-                            comparison_count += 1
-                            comparisons_to_log << [cond1, cond2]
+        // Determine if we should run multisample analysis based on samples present and log final call
+        should_run_multisample = unique_conditions >= 2 && conditions_with_min_samples.size() >= 2
+
+        ch_rna_count.subscribe { count ->
+            if (count == 0) {
+                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No RNA samples detected - skipping MULTISAMPLE_ANALYSIS${colors.reset}-"
+            } else if (samples_per_condition.size() > 0) {
+                if (unique_conditions < 2) {
+                    log.warn "-${colors.purple}[sheynkmanlab/lrp2]${colors.yellow} Only ${unique_conditions} condition detected - need at least 2 conditions for MULTISAMPLE_ANALYSIS${colors.reset}-"
+                } else if (conditions_with_min_samples.size() < 2) {
+                    log.warn "-${colors.purple}[sheynkmanlab/lrp2]${colors.yellow} Only ${conditions_with_min_samples.size()} condition(s) with ≥2 samples - need at least 2 conditions with ≥2 samples each for MULTISAMPLE_ANALYSIS${colors.reset}-"
+                } else {
+                    // log pairwise comparisons
+                    def valid_conditions_for_log = samples_per_condition.findAll { condition, samples -> samples.size() >= 2 }.keySet()
+                    def conditions_list_for_log = valid_conditions_for_log.toList().sort()
+                    def comparison_count = 0
+                    def comparisons_to_log = []
+                    conditions_list_for_log.eachWithIndex { cond1, i ->
+                        conditions_list_for_log.eachWithIndex { cond2, j ->
+                            if (j > i) {
+                                comparison_count += 1
+                                comparisons_to_log << [cond1, cond2]
+                            }
                         }
                     }
-                }
 
-                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Running MULTISAMPLE_ANALYSIS for ${comparison_count} pairwise comparison(s):${colors.reset}-"
-                comparisons_to_log.each { pair ->
-                    log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan}   ${pair[0]} (${samples_per_condition[pair[0]].size()} samples) vs ${pair[1]} (${samples_per_condition[pair[1]].size()} samples)${colors.reset}-"
-                }
+                    log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Running MULTISAMPLE_ANALYSIS for ${comparison_count} pairwise comparison(s):${colors.reset}-"
+                    comparisons_to_log.each { pair ->
+                        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan}   ${pair[0]} (${samples_per_condition[pair[0]].size()} samples) vs ${pair[1]} (${samples_per_condition[pair[1]].size()} samples)${colors.reset}-"
+                    }
 
-                // Show warning if some conditions have < 3 samples
-                if (conditions_with_robust_samples.size() < conditions_with_min_samples.size()) {
-                    log.warn "-${colors.purple}[sheynkmanlab/lrp2]${colors.yellow} WARNING: Some conditions have <3 samples per condition. Please interpret results with caution as they may not be statistically robust, and consider adding more replicates if possible."
+                    // Show warning if some conditions have < 3 samples
+                    if (conditions_with_robust_samples.size() < conditions_with_min_samples.size()) {
+                        log.warn "-${colors.purple}[sheynkmanlab/lrp2]${colors.yellow} WARNING: Some conditions have <3 samples per condition. Please interpret results with caution as they may not be statistically robust, and consider adding more replicates if possible."
+                    }
                 }
             }
         }
     }
 
-    if (should_run_multisample) {
-         // Prepare transcript channel with GTF and counts
+    // Prepare channels for MULTISAMPLE_ANALYSIS
+    def ch_transcripts
+    def ch_orfs
+    def rna_metadata_file
+
+    if (is_multisample_only) {
+        // Multisample-only mode: create channels from provided files
+        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Creating channels from pre-computed files for multisample-only analysis${colors.reset}-"
+
+        ch_transcripts = channel.of([
+            [id: params.dataset_name],
+            file(params.transcripts_gtf),
+            file(params.transcript_counts)
+        ])
+
+        ch_orfs = channel.of([
+            [id: params.dataset_name],
+            file(params.orf_counts)
+        ])
+
+        rna_metadata_file = file(params.multisample_metadata)
+
+    } else if (should_run_multisample) {
+         // Normal mode: prepare channels from RNA subworkflow outputs
          ch_transcripts = TRANSCRIPTOME.out.corrected_gtf_filtered
              .join(TRANSCRIPTOME.out.hashids_filtered, by: 0)
 
@@ -596,7 +642,7 @@ workflow LRP2 {
          ch_orfs = PREDICTED_PROTEOME.out.hashids_orf
 
          // Create RNA-only metadata file by filtering the original samplesheet
-         def rna_metadata_file = file("${workDir}/${params.dataset_name}_rna_samples_metadata.csv")
+         rna_metadata_file = file("${workDir}/${params.dataset_name}_rna_samples_metadata.csv")
          def sample_path_idx = header_parts.findIndexOf { it.trim() == 'sample_path' }
 
          // Filter to RNA samples and create new CSV with 'name' and 'group' columns
@@ -613,6 +659,9 @@ workflow LRP2 {
              }
          }
          rna_metadata_file.text = rna_metadata_lines.join('\n') + '\n'
+    }
+
+    if (is_multisample_only || should_run_multisample) {
 
          MULTISAMPLE_ANALYSIS (
              ch_transcripts,
