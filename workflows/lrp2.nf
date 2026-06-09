@@ -105,64 +105,74 @@ workflow LRP2 {
         .toList()
         .map { samples ->
             def count = samples.size()
-            if (count > 0) {
-                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.green} Detected ${count} RNA sample(s) - RNA analysis subworkflows will run${colors.reset}-"
-            } else {
-                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No RNA samples detected - skipping RNA analysis subworkflows (PACBIO_ISOCALL, TRANSCRIPTOME, PREDICTED_PROTEOME)${colors.reset}-"
+            // Only log RNA sample detection in normal mode (not multisample-only mode)
+            if (!is_multisample_only) {
+                if (count > 0) {
+                    log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.green} Detected ${count} RNA sample(s) - RNA analysis subworkflows will run${colors.reset}-"
+                } else {
+                    log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No RNA samples detected - skipping RNA analysis subworkflows (PACBIO_ISOCALL, TRANSCRIPTOME, PREDICTED_PROTEOME)${colors.reset}-"
+                }
             }
             return count
         }
         .set { ch_rna_count }
 
     //
-    // Handle GTF and FASTA decompression ONLY if RNA samples are present
+    // Handle GTF and FASTA decompression ONLY if RNA samples are present AND not in multisample-only mode
     //
-    def gtf_file = params.gtf ? file(params.gtf) : null
+    def gtf_file = !is_multisample_only && params.gtf ? file(params.gtf) : null
     def is_gtf_gzipped = gtf_file && gtf_file.name.endsWith('.gz')
-    def fasta_file = params.fasta ? file(params.fasta) : null
+    def fasta_file = !is_multisample_only && params.fasta ? file(params.fasta) : null
     def is_fasta_gzipped = fasta_file && fasta_file.name.endsWith('.gz')
 
-    // Only process GTF and FASTA files if RNA samples are present
-    ch_rna_count
-        .map { count -> count > 0 }
-        .set { ch_has_rna_samples }
+    // Only process GTF and FASTA files if not in multisample-only mode and RNA samples are present
+    if (!is_multisample_only) {
+        ch_rna_count
+            .map { count -> count > 0 }
+            .set { ch_has_rna_samples }
 
-    ch_gtf_input_conditional = ch_has_rna_samples
-        .filter { has_rna -> has_rna && gtf_file != null }
-        .map { _has_rna -> [[ id: 'gtf' ], gtf_file] }
+        ch_gtf_input_conditional = ch_has_rna_samples
+            .filter { has_rna -> has_rna && gtf_file != null }
+            .map { _has_rna -> [[ id: 'gtf' ], gtf_file] }
 
-    if (is_gtf_gzipped && gtf_file) {
-        // GTF is already gzipped - decompress for TRANSCRIPTOME and keep original for PACBIO_ISOCALL
-        GUNZIP_GTF(ch_gtf_input_conditional)
-        ch_gtf = GUNZIP_GTF.out.gunzip.map { _meta, file -> file }
-        // For gzipped GTF, create channel from filtered input (will be empty if no RNA samples)
-        ch_gtf_gz = ch_gtf_input_conditional.map { _meta, file -> file }
-    } else if (gtf_file) {
-        // GTF is not gzipped - use as-is for TRANSCRIPTOME and compress for PACBIO_ISOCALL
-        ch_gtf = ch_has_rna_samples
-            .filter { has_rna -> has_rna }
-            .map { _has_rna -> gtf_file }
-            .ifEmpty(channel.value(gtf_file))
-        GZIP_GTF(ch_gtf_input_conditional)
-        ch_gtf_gz = GZIP_GTF.out.gzip.map { _meta, file -> file }
+        if (is_gtf_gzipped && gtf_file) {
+            // GTF is already gzipped - decompress for TRANSCRIPTOME and keep original for PACBIO_ISOCALL
+            GUNZIP_GTF(ch_gtf_input_conditional)
+            ch_gtf = GUNZIP_GTF.out.gunzip.map { _meta, file -> file }
+            // For gzipped GTF, create channel from filtered input (will be empty if no RNA samples)
+            ch_gtf_gz = ch_gtf_input_conditional.map { _meta, file -> file }
+        } else if (gtf_file) {
+            // GTF is not gzipped - use as-is for TRANSCRIPTOME and compress for PACBIO_ISOCALL
+            ch_gtf = ch_has_rna_samples
+                .filter { has_rna -> has_rna }
+                .map { _has_rna -> gtf_file }
+                .ifEmpty(channel.value(gtf_file))
+            GZIP_GTF(ch_gtf_input_conditional)
+            ch_gtf_gz = GZIP_GTF.out.gzip.map { _meta, file -> file }
+        } else {
+            // No GTF file provided
+            ch_gtf = channel.empty()
+            ch_gtf_gz = channel.empty()
+        }
+
+        ch_fasta_input_conditional = ch_has_rna_samples
+            .filter { has_rna -> has_rna && is_fasta_gzipped && fasta_file != null }
+            .map { _has_rna -> [[ id: 'fasta' ], fasta_file] }
+
+        if (is_fasta_gzipped) {
+            GUNZIP_FASTA(ch_fasta_input_conditional)
+            ch_fasta = GUNZIP_FASTA.out.gunzip.map { _meta, file -> file }
+        } else {
+            ch_fasta = ch_has_rna_samples
+                .filter { has_rna -> has_rna && fasta_file != null }
+                .map { _has_rna -> fasta_file }
+                .ifEmpty(fasta_file ? channel.value(fasta_file) : channel.empty())
+        }
     } else {
-        // No GTF file provided
+        // In multisample-only mode, skip all GTF/FASTA processing
         ch_gtf = channel.empty()
         ch_gtf_gz = channel.empty()
-    }
-
-    ch_fasta_input_conditional = ch_has_rna_samples
-        .filter { has_rna -> has_rna && is_fasta_gzipped && fasta_file != null }
-        .map { _has_rna -> [[ id: 'fasta' ], fasta_file] }
-
-    if (is_fasta_gzipped) {
-        GUNZIP_FASTA(ch_fasta_input_conditional)
-        ch_fasta = GUNZIP_FASTA.out.gunzip.map { _meta, file -> file }
-    } else {
-        ch_fasta = ch_has_rna_samples
-            .filter { has_rna -> has_rna && fasta_file != null }
-            .map { _has_rna -> fasta_file }
-            .ifEmpty(fasta_file ? channel.value(fasta_file) : channel.empty())
+        ch_fasta = channel.empty()
     }
 
     //
@@ -321,14 +331,6 @@ workflow LRP2 {
     //} else {
     //    ch_protein_fasta = protein_fasta_file ? channel.value(protein_fasta_file) : channel.empty()
     //}
-    
-    // Log skip if no protein samples
-    ch_protein_count
-        .subscribe { count ->
-            if (count == 0) {
-                log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No protein samples detected - skipping PROTEOMICS subworkflow${colors.reset}-"
-            }
-        }
 
     ch_has_protein_samples = ch_protein_count.map { count -> count > 0 }
 
