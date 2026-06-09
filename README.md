@@ -209,6 +209,25 @@ sbatch run_lrp2.sh
 >
 > Include `--fragpipe_token` only if running the proteomics subworkflow (see [Run the RNA + DDA proteomics test dataset](#run-the-rna--dda-proteomics-test-dataset) for obtaining a token). Differential analysis runs automatically when two or more conditions are present in the samplesheet.
 
+### Re-running S4 Multisample Analysis Only
+
+If you have already completed a full LRP2 run and  want to re-run just the differential analysis modules (S4 MULTISAMPLE ANALYSIS) with different parameters, you can use **multisample-only mode** by passing a samplesheet through ``--multisample_metadata``, as well as paths to three required input transcript and ORF-level output files from a previous run, as shown:
+
+```bash
+nextflow run /path/to/LRP2 \
+    --multisample_metadata samplesheet.csv \
+    --transcripts_gtf results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged_corrected_filtered.gtf \
+    --transcript_counts results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged_hashids_with_cpm_filtered.txt \
+    --orf_counts results/S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/merged.predicted.proteome.high_confidence_ORF_cpm.txt \
+    --outdir results_reanalysis \
+    --min_samples_per_intron 1 \
+    --min_usage_ratio 0.05 \
+    -profile singularity,slurm
+```
+This mode skips S1-S3 (PacBio Isocall, Transcriptome, Predicted Proteome) and runs only S4 (Multisample Analysis), which is useful for saving time and compute if you are interested in testing different statistical thresholds, filtering parameters, or subgroupings of your samples with multisample analysis.
+
+Your metadata CSV passed to ``--multisample_metadata`` **must** have columns named ``sample_name``, ``sample_path``, ``condition`` or ``group``, and ``sample_type``.  Note that the standard samplesheet format will work for ``--multisample_metadata``. However, if you are rerunning this for the same data with only different condition group labels for samples or minor parameter value changes, we recommend creating a unique samplesheet for each one and choosing a corresponding name for your output results directory to help keep your results organized and straightforward to differentiate between. 
+
 ## Profile Options
 
 Nextflow profiles control how the pipeline executes. Multiple profiles can be combined using commas (e.g., `-profile test_rna,singularity,slurm`).
