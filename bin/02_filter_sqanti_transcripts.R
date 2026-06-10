@@ -301,7 +301,7 @@ if (filter_RTS) {
     filter(
       structural_category == "full-splice_match" |
       RTS_stage == FALSE | 
-      (RTS_stage == TRUE & all_canonical == TRUE & avg_counts > 3)
+      (RTS_stage == TRUE & all_canonical == "canonical" & avg_counts > 3)
     )
 
   kept_ids    = sqanti_df$isoform

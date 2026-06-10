@@ -60,8 +60,6 @@ process SQANTI_QC {
     # Fix single-sample column naming to use "FL.{sample_id}", which is consistent with formatting used for multi-sample runs
     TAB=\$'\\t'
     NUM_COLS=\$(head -1 $flnc_count | awk -F',' '{print NF}')
-    echo "DEBUG flnc_count header: \$(head -1 $flnc_count)"
-    echo "DEBUG flnc_count NUM_COLS: \${NUM_COLS}"
     if [ "\$NUM_COLS" -eq 2 ]; then
         if head -1 ${prefix}.transcriptome_classification.txt | grep -qE "\${TAB}FL\${TAB}|\${TAB}FL\\.\${TAB}"; then
             SAMPLE_NAME=\$(head -1 $flnc_count | awk -F',' '{print \$2}')
