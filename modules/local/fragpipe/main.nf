@@ -140,11 +140,8 @@ process FRAGPIPE {
 
     # Update workflow with database path and decoy tag
     WORK_DIR="\$(pwd)"
-    
-    # Ensure workflow file ends with a newline (some upstream versions omit it)
-    sed -i -e '\$a\\' workflow.workflow
-    echo "database.db-path=\$WORK_DIR/database_with_decoys.fasta" >> workflow.workflow
-    echo "database.decoy-tag=${decoy_tag}" >> workflow.workflow
+    printf "\ndatabase.db-path=%s\n" "\$WORK_DIR/database_with_decoys.fasta" >> workflow.workflow
+    printf "database.decoy-tag=%s\n" "${decoy_tag}" >> workflow.workflow
 
     echo ""
 

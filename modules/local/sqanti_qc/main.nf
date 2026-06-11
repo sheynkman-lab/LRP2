@@ -3,7 +3,7 @@ process SQANTI_QC {
     label 'process_long'
 
     conda "${moduleDir}/environment.yml"
-    container 'docker://docker.io/anaconesalab/sqanti3:5.2.2'
+    container 'docker://docker.io/anaconesalab/sqanti3:v6.0.1'
 
     input:
     tuple val(meta), path(isoforms_gtf), path(flnc_count)
@@ -20,7 +20,6 @@ process SQANTI_QC {
     tuple val(meta), path("*.transcriptome.junctions.txt"), emit: junctions
 //    tuple val(meta), path("*.transcriptome.params.txt"), emit: params
 //    tuple val(meta), path("refAnnotation.*.genePred"), emit: refannotation_genepred
-    tuple val(meta), path("*_S2_TRANSCRIPTOME_M1_SQANTI_QC_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -31,10 +30,9 @@ process SQANTI_QC {
     def prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    exec > >(tee ${prefix}_S2_TRANSCRIPTOME_M1_SQANTI_QC_log.txt) 2>&1
-
+    
     source /conda/miniconda3/etc/profile.d/conda.sh
-    conda activate SQANTI3.env
+    conda activate sqanti3
 
     # Decompress GTF if it's gzipped
     ISOFORMS_INPUT="$isoforms_gtf"
@@ -48,18 +46,28 @@ process SQANTI_QC {
     fi
 
     sqanti3_qc.py \\
-        --force_id_ignore \\
-        --skipORF \\
-        --output ${prefix}.transcriptome \\
-        --dir . \\
-        --cpus $task.cpus \\
-        --chunks $task.cpus \\
+        --isoforms "\$ISOFORMS_INPUT" \\
+        --refGTF $reference_gtf \\
+        --refFasta $reference_fasta \\
+        -o ${prefix}.transcriptome \\
+        -d . \\
+        -t $task.cpus \\
+        -n $task.cpus \\
         --report skip \\
-        --fl_count $flnc_count \\
-        "\$ISOFORMS_INPUT" \\
-        $reference_gtf \\
-        $reference_fasta \\
+        --fl $flnc_count \\
         $args
+    
+    # Fix single-sample column naming to use "FL.{sample_id}", which is consistent with formatting used for multi-sample runs
+    TAB=\$'\\t'
+    NUM_COLS=\$(head -1 $flnc_count | awk -F',' '{print NF}')
+    if [ "\$NUM_COLS" -eq 2 ]; then
+        if head -1 ${prefix}.transcriptome_classification.txt | grep -qE "\${TAB}FL\${TAB}|\${TAB}FL\\.\${TAB}"; then
+            SAMPLE_NAME=\$(head -1 $flnc_count | awk -F',' '{print \$2}')
+            awk -v sample="\${SAMPLE_NAME}" 'NR==1 {gsub(/\\tFL\\t|\\tFL\\.\\t/, "\\tFL."sample"\\t")} {print}' \\
+                ${prefix}.transcriptome_classification.txt > ${prefix}.transcriptome_classification.tmp.txt
+            mv ${prefix}.transcriptome_classification.tmp.txt ${prefix}.transcriptome_classification.txt
+        fi
+    fi
     
     mv ${prefix}.transcriptome_classification.txt ${prefix}.transcriptome.SQANTI_classification.txt
     mv ${prefix}.transcriptome_corrected.gtf ${prefix}.transcriptome.gtf
@@ -68,7 +76,7 @@ process SQANTI_QC {
     
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        sqanti3: 5.2.2
+        sqanti3: 6.0.1
     END_VERSIONS
     """
 
@@ -79,11 +87,10 @@ process SQANTI_QC {
     touch ${prefix}.transcriptome.gtf
     touch ${prefix}.transcriptome.fasta
     touch ${prefix}.transcriptome.junctions.txt
-    touch ${prefix}_S2_TRANSCRIPTOME_M1_SQANTI_QC_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        sqanti3: 5.2.2
+        sqanti3: 6.0.1
     END_VERSIONS
     """
 }

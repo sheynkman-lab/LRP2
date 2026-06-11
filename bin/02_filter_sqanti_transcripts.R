@@ -201,13 +201,6 @@ mapping = read_tsv(mapping_file, show_col_types = FALSE)
 # SQANTI classification file- add sample names, calculate cpm on all transcripts before filtering
 sqanti_df = read_tsv(classification_file, show_col_types = FALSE)
 
-# # Remove "FL." prefix and rename count columns with "_counts" suffix
-# fl_cols = grep("^FL\\.", colnames(sqanti_df), value = TRUE)
-# sample_names_from_fl = sub("^FL\\.", "", fl_cols)
-# colnames(sqanti_df) = ifelse(colnames(sqanti_df) %in% fl_cols,
-#                              paste0(sample_names_from_fl, "_counts"),
-#                              colnames(sqanti_df))
-
 colnames(sqanti_df) = ifelse(grepl("^FL\\.", colnames(sqanti_df)),
                              paste0(sub("^FL\\.", "", colnames(sqanti_df)), "_counts"),
                              colnames(sqanti_df))
@@ -242,7 +235,7 @@ write_tsv(all_ids, file.path(output_dir, paste0(basename, ".transcriptome.all_ha
 # Apply filters sequentially
 # =============================================================================
 
-cat("\nStarting filtering of SQANTI output")
+cat("\nStarting filtering of SQANTI output:\n")
 
 # Initialize dropout tracking
 # Note: sqanti_df_full$isoform now contains the NEW pipeline IDs
@@ -261,7 +254,7 @@ if (filter_protein_coding) {
   sqanti_df_full$dropout_reason[sqanti_df_full$isoform %in% dropped_ids] = "not_protein_coding"
   #dropout_tracker[["not_protein_coding"]] = dropped_ids
   
-  cat("\nProtein coding filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
+  cat("  Protein coding filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts\n")
 }
 
 # Filter based on downstream polyA sequence to remove internal priming
@@ -289,23 +282,18 @@ if (filter_internal_priming) {
   sqanti_df_full$dropout_reason[sqanti_df_full$isoform %in% dropped_ids] = "internal_priming"
   #dropout_tracker[["internal_priming"]] = dropped_ids
   
-  cat("\nInternal priming filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
+  cat("  Internal priming filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts\n")
 }
 
 # Filter out template switching, keep RTS_stage = FALSE (no RTS)
 if (filter_RTS) {
   ids = sqanti_df$isoform
   
-  # Find column positions
-  ratio_tss_pos = which(colnames(sqanti_df) == "ratio_TSS")
-  gene_type_pos = which(colnames(sqanti_df) == "gene_type")
-  
-  # Get columns between them (if any exist) and sum
-  if (gene_type_pos - ratio_tss_pos > 1) {
-    count_cols           = (ratio_tss_pos + 1):(gene_type_pos - 1)
+  count_cols = grep("_counts$", colnames(sqanti_df), value = TRUE)
+  if (length(count_cols) > 0) {
     sqanti_df$avg_counts = rowMeans(sqanti_df[, count_cols], na.rm = TRUE)
   } else {
-    sqanti_df$avg_counts = NA  # No columns in between
+    sqanti_df$avg_counts = NA
   }
   
   # filtering considerations
@@ -313,15 +301,14 @@ if (filter_RTS) {
     filter(
       structural_category == "full-splice_match" |
       RTS_stage == FALSE | 
-      (RTS_stage == TRUE & all_canonical == TRUE & avg_counts > 3)
+      (RTS_stage == TRUE & all_canonical == "canonical" & avg_counts > 3)
     )
 
   kept_ids    = sqanti_df$isoform
   dropped_ids = setdiff(ids, kept_ids)
   sqanti_df_full$dropout_reason[sqanti_df_full$isoform %in% dropped_ids] = "template_switching"
-  #dropout_tracker[["Template_switching_artifact"]] = dropped_ids
-  
-  cat("\nTemplate switching filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
+
+  cat("  Template switching filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts\n")
 }
 
 # Apply structural category filter
@@ -329,7 +316,7 @@ if (toupper(tclass_to_keep) == "ALL") {
   # Keep everything - no filtering
   ids      = sqanti_df$isoform
   kept_ids = sqanti_df$isoform
-  cat("\nNo structural category filtering applied")
+  cat("No structural category filtering applied\n")
   
 } else {
   # track ids before filtering
@@ -349,7 +336,7 @@ if (toupper(tclass_to_keep) == "ALL") {
   allowed_categories = tclass_list %>%
     map_chr(~category_map[.x] %||% .x)
   
-  cat("\nFiltering to categories: ", paste(allowed_categories, collapse = ", "))
+  cat("\nFiltering to categories: ", paste(allowed_categories, collapse = ", "), "\n")
   
   sqanti_df %<>% 
     filter(structural_category %in% allowed_categories)
@@ -357,24 +344,18 @@ if (toupper(tclass_to_keep) == "ALL") {
   kept_ids = sqanti_df$isoform
 }
   
-#allowed_categories = STRUCTURAL_CATEGORIES[[structural_level]]
 dropped_ids = setdiff(ids, kept_ids)
 sqanti_df_full$dropout_reason[sqanti_df_full$isoform %in% dropped_ids] = "structural_category"
-#dropout_tracker[["structural_category_filtered"]] = dropped_ids
-cat("\nStructural category filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts")
+cat("  Structural category filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts\n")
 
 # Calculate final results
 all_dropout_ids = sqanti_df_full$isoform[sqanti_df_full$dropout_reason != "kept"]
-
-#all_dropout_ids = setdiff(original_ids, kept_ids)
-
-#message(paste0("Final: ", length(kept_ids), " kept, ", length(all_dropout_ids), " dropped"))
 
 # =============================================================================
 # Write output files and generate summary
 # =============================================================================
 
-cat("\nWriting output files")
+cat("\nWriting output files:\n")
 
 # Build lookup from new isoform_id to original transcript_id
 id_lookup = mapping %>% select(isoform_id, original_transcript_id)
@@ -411,7 +392,7 @@ if (any(is.na(names(filtered_sequences)))) {
 }
 
 writeXStringSet(filtered_sequences, file.path(output_dir, paste0(basename, ".transcriptome.filtered.fasta")))
-cat("\nSaved ", length(filtered_sequences), " sequences to ", basename, ".transcriptome.filtered.fasta")
+cat("  Saved ", length(filtered_sequences), " sequences to ", basename, ".transcriptome.filtered.fasta\n")
 
 
 # sample gtf
