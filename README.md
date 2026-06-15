@@ -87,9 +87,9 @@ From the `LRP2` directory:
 nextflow run . \
     -profile test_rna,singularity,slurm \
     --outdir test_rna_results \
-    --hpc_partition your_partition
+    --hpc_queue your_queue
 ```
-> **Note**: Replace `your_partition` with your cluster's partition (SLURM) or queue (LSF) name. If your cluster requires additional scheduler options such as account strings or QOS flags, pass them via --hpc_cluster_options (e.g., --hpc_cluster_options '-A your_allocation' for SLURM, --hpc_cluster_options '-P your_project' for LSF). LSF users: also swap `slurm` for `lsf` in the profile. See [HPC Scheduler Options](#hpc-scheduler-options).
+> **Note**: Replace `your_queue` with your cluster's partition (SLURM) or queue (LSF) name. If your cluster requires additional scheduler options such as account strings or QOS flags, pass them via --hpc_cluster_options (e.g., --hpc_cluster_options '-A your_allocation' for SLURM, --hpc_cluster_options '-P your_project' for LSF). LSF users: also swap `slurm` for `lsf` in the profile. See [HPC Scheduler Options](#hpc-scheduler-options).
 
 > **Note**: To run locally on your current node instead of submitting to SLURM, drop the `slurm` profile: `-profile test_rna,singularity`.
 
@@ -128,7 +128,7 @@ nextflow run . \
     -profile test_dda,singularity,slurm \
     --outdir test_results_dda \
     --fragpipe_token "YOUR_TOKEN" \
-    --hpc_partition your_partition
+    --hpc_queue your_queue
 ```
 > **Note**: The `test_dda` profile automatically sets `--protein_search fragpipe` and `--fragpipe_license_accept true`.
 
@@ -192,7 +192,7 @@ nextflow run /path/to/LRP2 \
     --genome GRCh38.p14.v49 \
     --protein_search fragpipe \
     --fragpipe_token "YOUR_TOKEN" \
-    --hpc_partition your_partition \
+    --hpc_queue your_queue \
     -profile singularity,slurm
 ```
 
@@ -201,7 +201,7 @@ Submit with:
 ```bash
 sbatch run_lrp2.sh
 ```
-> **Note**: Customize the above template for your HPC. This includes `#SBATCH` directives (partition, account) and module names (nextflow, apptainer), and the `--hpc_partition` and `--hpc_cluster_options` pipeline parameters. For LSF, replace `#SBATCH` directives with `#BSUB` equivalents and use `-profile singularity,lsf`. For other schedulers, see [Support and customization](#support-and-customization).
+> **Note**: Customize the above template for your HPC. This includes `#SBATCH` directives (partition, account) and module names (nextflow, apptainer), and the `--hpc_queue` and `--hpc_cluster_options` pipeline parameters. For LSF, replace `#SBATCH` directives with `#BSUB` equivalents and use `-profile singularity,lsf`. For other schedulers, see [Support and customization](#support-and-customization).
 >
 > **Resource allocation** works on two levels:
 > - **The driver job** (`#SBATCH` directives in the shell script): modest resources are sufficient — Nextflow itself only orchestrates submissions and doesn't run the heavy work.
@@ -306,12 +306,9 @@ nextflow run /path/to/LRP2 --help
 
 ### HPC Scheduler Options
 
-Use `--hpc_partition` for SLURM clusters and `--hpc_queue` for LSF clusters. SLURM defaults to Rivanna conventions — customize for your cluster.
-
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `--hpc_partition` | SLURM partition | `standard` |
-| `--hpc_queue` | LSF queue name | — |
+| `--hpc_queue` | SLURM/LSF partition/queue name | — |
 | `--hpc_cluster_options` | Additional scheduler-specific options (e.g., '-A my_alloc' for SLURM, '-P my_project' for LSF) | — |
 
 ### S1 PacBio Isocall
