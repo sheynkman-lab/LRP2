@@ -46,6 +46,11 @@ workflow LRP2 {
                                params.multisample_metadata
 
     //
+    // Detect skip-isocall mode (for non-PacBio data like ONT)
+    //
+    def skip_isocall_mode = params.external_gtf && params.external_counts
+
+    //
     // Separate RNA and protein samples based on sample_type metadata
     // Note: Genome FASTA decompression is deferred until after we determine if RNA samples are present, and skip samplesheet parsing if in multisample-only mode
     //
@@ -108,9 +113,13 @@ workflow LRP2 {
             // Only log RNA sample detection in normal mode (not multisample-only mode)
             if (!is_multisample_only) {
                 if (count > 0) {
-                    log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.green} Detected ${count} RNA sample(s) - RNA analysis subworkflows will run${colors.reset}-"
+                    if (skip_isocall_mode) {
+                        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.green} Detected ${count} RNA sample(s) - RNA analysis will start from S2 TRANSCRIPTOME (skipping S1 PACBIO ISOCALL)${colors.reset}-"
+                    } else {
+                        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.green} Detected ${count} RNA sample(s) - RNA analysis subworkflows will run${colors.reset}-"
+                    }
                 } else {
-                    log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No RNA samples detected - skipping RNA analysis subworkflows (PACBIO_ISOCALL, TRANSCRIPTOME, PREDICTED_PROTEOME)${colors.reset}-"
+                    log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No RNA samples detected - skipping RNA analysis subworkflows (S1 PACBIO ISOCALL, S2 TRANSCRIPTOME, S3 PREDICTED PROTEOME)${colors.reset}-"
                 }
             }
             return count
@@ -184,27 +193,53 @@ workflow LRP2 {
     // RNA-specific subworkflows (only execute if RNA samples are present AND not in multisample-only mode)
     //
     if (has_rna_samples_sync && !is_multisample_only) {
-        //
-        // SUBWORKFLOW: Run PacBio IsoCall analysis
-        //
-        // IsoCall requires config TOML and gzipped GTF reference for ISOCALL_PREP
-        ch_isocall_config = channel.value(file("${projectDir}/bin/isocall_config.toml"))
 
-        PACBIO_ISOCALL (
-            ch_rna_samples_filtered,
-            ch_fasta,
-            ch_gtf_gz,
-            ch_isocall_config
-        )
-        ch_versions = ch_versions.mix(PACBIO_ISOCALL.out.versions.ifEmpty([]))
+        // Declare channels for GTF and counts that will be used by TRANSCRIPTOME
+        // These will be populated either from PACBIO_ISOCALL or from external files
+        def ch_called_gtf
+        def ch_count_matrix
+
+        if (!skip_isocall_mode) {
+            //
+            // SUBWORKFLOW: Run PacBio IsoCall analysis (normal mode)
+            //
+            // IsoCall requires config TOML and gzipped GTF reference for ISOCALL_PREP
+            ch_isocall_config = channel.value(file("${projectDir}/bin/isocall_config.toml"))
+
+            PACBIO_ISOCALL (
+                ch_rna_samples_filtered,
+                ch_fasta,
+                ch_gtf_gz,
+                ch_isocall_config
+            )
+            ch_versions = ch_versions.mix(PACBIO_ISOCALL.out.versions.ifEmpty([]))
+            ch_called_gtf = PACBIO_ISOCALL.out.called_gtf
+            ch_count_matrix = PACBIO_ISOCALL.out.count_matrix
+
+        } else {
+            //
+            // Skip-IsoCall mode: Use external GTF and counts from user
+            //
+            log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Using external GTF and counts - skipping PACBIO_ISOCALL subworkflow${colors.reset}-"
+
+            // Create channels from external files
+            ch_called_gtf = channel.of([
+                [id: params.dataset_name],
+                file(params.external_gtf)
+            ])
+
+            ch_count_matrix = channel.of([
+                [id: params.dataset_name],
+                file(params.external_counts)
+            ])
+        }
 
         //
         // SUBWORKFLOW: Run SQANTI3 QC and filtering
         //
-
         TRANSCRIPTOME (
-            PACBIO_ISOCALL.out.called_gtf
-                .join(PACBIO_ISOCALL.out.count_matrix, by: 0)
+            ch_called_gtf
+                .join(ch_count_matrix, by: 0)
                 .map { meta, gtf, count ->
                     [meta, gtf, count] },
             ch_gtf,

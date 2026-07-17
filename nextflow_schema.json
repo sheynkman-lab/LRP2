@@ -422,6 +422,29 @@
                 }
             }
         },
+        "skip_isocall_inputs": {
+            "title": "Skip IsoCall Mode (Non-PacBio Data)",
+            "type": "object",
+            "fa_icon": "fas fa-forward",
+            "description": "Parameters for providing external isoform calls (e.g., from ONT data) to skip the PACBIO_ISOCALL subworkflow.",
+            "help_text": "Use these parameters to provide pre-computed isoform GTF and count matrix from external sources (e.g., ONT with StringTie, Bambu, FLAMES, etc.). When both external_gtf and external_counts are provided, the pipeline will skip PACBIO_ISOCALL and start from the TRANSCRIPTOME subworkflow. The --input samplesheet parameter is still required as it contains metadata needed for downstream analysis.",
+            "properties": {
+                "external_gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Pre-computed GTF file with called isoforms (from any isoform caller).",
+                    "help_text": "Path to a GTF file containing called transcript isoforms from any long-read isoform caller (e.g., PacBio IsoCall, ONT Bambu, ONT FLAMES, StringTie, etc.). Can be gzipped (.gtf.gz) or uncompressed (.gtf). Transcript IDs should follow the format: ENSEMBL_ID for annotated transcripts, or ENSEMBL_ID.{suffix} for novel transcripts.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "external_counts": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Pre-computed count matrix (transcript counts per sample).",
+                    "help_text": "Path to a count matrix file with transcript IDs in the first column and sample counts in subsequent columns. Sample column names must match the 'sample_name' values in your samplesheet. Supports CSV or TSV format.",
+                    "fa_icon": "far fa-file-alt"
+                }
+            }
+        },
         "multisample_only_inputs": {
             "title": "Multisample Analysis Only Mode",
             "type": "object",
@@ -759,6 +782,9 @@
         },
         {
             "$ref": "#/$defs/differential_analysis_options"
+        },
+        {
+            "$ref": "#/$defs/skip_isocall_inputs"
         },
         {
             "$ref": "#/$defs/multisample_only_inputs"
