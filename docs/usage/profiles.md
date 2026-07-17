@@ -38,11 +38,6 @@ Nextflow profiles control how the pipeline executes. Multiple profiles can be co
 -profile singularity,slurm
 ```
 
-### HPC with LSF
-
-```bash
--profile singularity,lsf
-```
 
 ### Quick RNA test on HPC
 
@@ -54,10 +49,4 @@ Nextflow profiles control how the pipeline executes. Multiple profiles can be co
 
 ```bash
 -profile docker
-```
-
-### Local machine with Singularity (no scheduler)
-
-```bash
--profile singularity
 ```

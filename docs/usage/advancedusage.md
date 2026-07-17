@@ -72,7 +72,7 @@ nextflow run /path/to/LRP2 \
 | `--outdir` | Output directory for the proteomics reanalysis |
 
 !!! warning "Protein Samples Only"
-    For proteomics-only mode to work correctly, your samplesheet must contain **only** `sample_type=protein` entries. Do not include any RNA samples. The pipeline will automatically detect the absence of RNA samples and skip S1-S3.
+    For proteomics-only mode to work correctly, your samplesheet must contain **only** `sample_type=protein` entries. Do not include any RNA samples. The pipeline will automatically detect the absence of RNA samples and skip S1-S4.
 
 ### Important Considerations
 

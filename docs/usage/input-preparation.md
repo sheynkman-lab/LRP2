@@ -47,6 +47,7 @@ HepG2_rep1,/path/to/HepG2_rep1.raw,HepG2,protein,DDA
 ```
 
 In this example:
+
 - Two RNA samples per condition (K562 and HepG2)
 - K562 protein sample has 2 fractions that will be searched together
 - HepG2 protein sample has 1 file
