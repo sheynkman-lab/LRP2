@@ -1,0 +1,108 @@
+site_name: LRP2
+site_url: https://sheynkman-lab.github.io/LRP2/
+site_description: Long-Read Proteogenomics Pipeline - A scalable, end-to-end pipeline for identifying and validating protein isoforms
+repo_name: sheynkman-lab/LRP2
+repo_url: https://github.com/sheynkman-lab/LRP2
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo        # Blue tones for RNA/transcriptomics
+      accent: deep purple    # Purple for proteomics
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo        # Blue tones for RNA/transcriptomics
+      accent: deep purple    # Purple for proteomics
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.instant     # Faster page loads
+    - navigation.tracking    # Update URL with active anchor
+    - search.suggest
+    - search.highlight
+    - search.share           # Share search results
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link      # Link content tabs
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - System Requirements: getting-started/requirements.md
+  - Usage:
+    - Overview: usage/index.md
+    - Preparing Input Data: usage/input-preparation.md
+    - Running the Pipeline: usage/running-pipeline.md
+    - Profile Options: usage/profiles.md
+    - Parameters: usage/parameters.md
+    - Advanced Usage: usage/advancedusage.md
+  - Output:
+    - Output Structure: output/structure.md
+    - Output Files: output/files.md
+  - Reference:
+    - Genomes: reference/genomes.md
+    - Citations: reference/citations.md
+    - Changelog: reference/changelog.md
+  - Support: support.md
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: true
+
+markdown_extensions:
+  # Code highlighting
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+
+  # Admonitions
+  - admonition
+  - pymdownx.details
+
+  # Other extensions
+  - abbr
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+  # Emoji
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+  # Task lists
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/sheynkman-lab/LRP2
+  version:
+    provider: mike
