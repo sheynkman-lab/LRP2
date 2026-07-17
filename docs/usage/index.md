@@ -26,7 +26,6 @@ See [Running the Pipeline](running-pipeline.md) for detailed instructions.
 - **[Running the Pipeline](running-pipeline.md)**: Execute LRP2 with production data
 - **[Profile Options](profiles.md)**: Choose container and executor profiles
 - **[Parameters](parameters.md)**: Complete reference for all pipeline parameters
-- **[Multisample Re-runs](multisample-rerun.md)**: Re-run differential analysis with different settings
 
 ## Getting Help
 
