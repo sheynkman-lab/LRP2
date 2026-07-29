@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "sanitize_par_ids"
+description: Sanitizes GENCODE GTF files by replacing _PAR_Y suffixes with -PAR-Y
+keywords:
+  - gtf
+  - gencode
+  - sanitize
+  - par
+
+tools:
+  - sed:
+      description: Stream editor for filtering and transforming text
+      homepage: https://www.gnu.org/software/sed/
+      documentation: https://www.gnu.org/software/sed/manual/sed.html
+      licence: ["GPL-3.0-or-later"]
+
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [id: 'sample1']
+  - gtf:
+      type: file
+      description: GENCODE GTF annotation file
+      pattern: "*.{gtf}"
+
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [id: 'sample1']
+  - sanitized_gtf:
+      type: file
+      description: Sanitized GTF file with -PAR-Y instead of _PAR_Y
+      pattern: "*_sanitized.gtf"
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+
+authors:
+  - "@sheynkman-lab"
+
+maintainers:
+  - "@sheynkman-lab"

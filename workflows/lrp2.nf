@@ -7,6 +7,7 @@ include { GUNZIP as GUNZIP_GTF           } from '../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_FASTA         } from '../modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_PROTEIN_FASTA } from '../modules/nf-core/gunzip/main'
 include { GZIP as GZIP_GTF               } from '../modules/local/gzip/main'
+include { SANITIZE_PAR_IDS               } from '../modules/local/sanitize_par_ids/main'
 include { BUILD_PROTEOME_REFERENCE       } from '../modules/local/build_proteome_reference/main'
 include { PACBIO_ISOCALL                 } from '../subworkflows/local/pacbio_isocall'
 include { TRANSCRIPTOME                  } from '../subworkflows/local/transcriptome'
@@ -138,15 +139,44 @@ workflow LRP2 {
         if (is_gtf_gzipped && gtf_file) {
             // GTF is already gzipped - decompress for TRANSCRIPTOME and keep original for PACBIO_ISOCALL
             GUNZIP_GTF(ch_gtf_input_conditional)
-            ch_gtf = GUNZIP_GTF.out.gunzip.map { _meta, file -> file }
+
+            // Conditionally sanitize PAR gene IDs: known _PAR_Y pattern exists for transcripts in GENCODE v25-43, but user could also provide their own GTF with this
+            GUNZIP_GTF.out.gunzip
+                .branch { meta, gtf ->
+                    needs_sanitization: gtf.text.contains('_PAR_Y')
+                    no_sanitization: true
+                }
+                .set { ch_gtf_branched }
+
+            // Run sanitization only on files that need it
+            SANITIZE_PAR_IDS(ch_gtf_branched.needs_sanitization)
+            ch_gtf = ch_gtf_branched.no_sanitization
+                .mix(SANITIZE_PAR_IDS.out.sanitized_gtf)
+                .map { _meta, file -> file }
+
             // For gzipped GTF, create channel from filtered input (will be empty if no RNA samples)
             ch_gtf_gz = ch_gtf_input_conditional.map { _meta, file -> file }
         } else if (gtf_file) {
             // GTF is not gzipped - use as-is for TRANSCRIPTOME and compress for PACBIO_ISOCALL
-            ch_gtf = ch_has_rna_samples
+            ch_gtf_for_check = ch_has_rna_samples
                 .filter { has_rna -> has_rna }
-                .map { _has_rna -> gtf_file }
-                .ifEmpty(channel.value(gtf_file))
+                .map { _has_rna -> [[ id: 'gtf' ], gtf_file] }
+                .ifEmpty([[ id: 'gtf' ], gtf_file])
+
+            // Conditionally sanitize PAR gene IDs: known _PAR_Y pattern exists for transcripts in GENCODE v25-43, but user could also provide their own GTF with this
+            ch_gtf_for_check
+                .branch { meta, gtf ->
+                    needs_sanitization: gtf.text.contains('_PAR_Y')
+                    no_sanitization: true
+                }
+                .set { ch_gtf_branched }
+
+            // Run sanitization only on files that need it
+            SANITIZE_PAR_IDS(ch_gtf_branched.needs_sanitization)
+            ch_gtf = ch_gtf_branched.no_sanitization
+                .mix(SANITIZE_PAR_IDS.out.sanitized_gtf)
+                .map { _meta, file -> file }
+
             GZIP_GTF(ch_gtf_input_conditional)
             ch_gtf_gz = GZIP_GTF.out.gzip.map { _meta, file -> file }
         } else {
