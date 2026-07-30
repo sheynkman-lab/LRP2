@@ -143,7 +143,23 @@ workflow LRP2 {
             // Conditionally sanitize PAR gene IDs: known _PAR_Y pattern exists for transcripts in GENCODE v25-43, but user could also provide their own GTF with this
             GUNZIP_GTF.out.gunzip
                 .branch { meta, gtf ->
-                    needs_sanitization: gtf.text.contains('_PAR_Y')
+                    needs_sanitization: {
+                        // Use exception-based early exit to avoid loading entire GTF into memory (versions after 43 get big)
+                        try {
+                            gtf.eachLine { line ->
+                                if (line.contains('_PAR_Y')) {
+                                    throw new RuntimeException('PAR_Y_FOUND')
+                                }
+                            }
+                            false
+                        } catch (RuntimeException e) {
+                            if (e.message == 'PAR_Y_FOUND') {
+                                true  
+                            } else {
+                                throw e  
+                            }
+                        }
+                    }()
                     no_sanitization: true
                 }
                 .set { ch_gtf_branched }
