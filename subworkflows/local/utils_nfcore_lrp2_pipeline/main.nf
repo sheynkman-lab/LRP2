@@ -200,7 +200,7 @@ workflow PIPELINE_INITIALISATION {
             rna_channel_data = rna_samples.collect { row ->
                 def sample_name = row[0].sample_name
                 def condition = row[0].containsKey('condition') ? row[0].condition : 'unknown'
-                def sample_path = row[1]
+                def sample_path = file(row[1])  // Convert string to file path
 
                 def meta = [
                     id: sample_name,
@@ -221,13 +221,37 @@ workflow PIPELINE_INITIALISATION {
             def condition = meta.condition
             def group_key = "${sample_name}_${condition}"
 
-            // Add group_key to metadata for later (need for matching with RNA groups)
+            // Check if this is a remote file (URL) or local file
+            def sample_path_str = row[1].toString()
+            def is_remote = sample_path_str.startsWith('http://') ||
+                           sample_path_str.startsWith('https://') ||
+                           sample_path_str.startsWith('ftp://')
+
+            // Extract filename for ID generation
+            def filename_for_id
+            if (is_remote) {
+                // Extract actual filename from URL (same logic as before)
+                if (sample_path_str.contains('?file=')) {
+                    def query_file_param = sample_path_str.split('\\?file=')[1]
+                    filename_for_id = query_file_param.tokenize('/')[-1]
+                } else {
+                    def url_path = sample_path_str.replaceAll(/\?.*$/, '')
+                    filename_for_id = url_path.tokenize('/')[-1]
+                }
+            } else {
+                filename_for_id = new File(sample_path_str).name
+            }
+
+            // Add group_key and is_remote flag to metadata
             meta = meta + [
                 sample_type: 'protein',
                 group_key: group_key,
-                id: "${meta.sample_name}_${new File(row[1].toString()).name.replaceAll(/\.(raw|mzML|mzml)$/, '')}"
+                id: "${meta.sample_name}_${filename_for_id.replaceAll(/\.(raw|mzML|mzml)$/, '')}",
+                is_remote: is_remote
             ]
-            return [meta, row[1]]
+
+            // Return URL as string (not converted to path) if remote, otherwise as file path
+            return [meta, is_remote ? sample_path_str : file(row[1])]
         }
 
         // Combine RNA and protein channel data into a single list
