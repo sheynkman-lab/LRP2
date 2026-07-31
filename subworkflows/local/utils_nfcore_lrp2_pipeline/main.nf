@@ -102,7 +102,7 @@ workflow PIPELINE_INITIALISATION {
     }
 
     if (input_type == "sample_path") {
-        def samplesheet_list = samplesheetToList(sanitized_input, "${projectDir}/assets/schema_input_bam.json")
+        def samplesheet_list = samplesheetToList(sanitized_input, "${projectDir}/assets/schema_input.json")
         // Expected structure: [meta, sample_path] where meta contains: sample_name, condition, sample_type, mass_spec_type
 
         def rna_samples = samplesheet_list.findAll { row ->

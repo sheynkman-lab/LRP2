@@ -1,33 +1,42 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://raw.githubusercontent.com/sheynkmanlab/lrp2/master/assets/schema_input.json",
-    "title": "sheynkmanlab/lrp2 pipeline - params.input schema",
-    "description": "Schema for the file provided with params.input",
+    "title": "sheynkmanlab/lrp2 pipeline - params.input schema (BAM input)",
+    "description": "Schema for the file provided with params.input (PacBio BAM files)",
     "type": "array",
     "items": {
         "type": "object",
         "properties": {
-            "sample": {
+            "sample_name": {
                 "type": "string",
                 "pattern": "^\\S+$",
-                "errorMessage": "Sample name must be provided and cannot contain spaces",
-                "meta": ["id"]
+                "errorMessage": "Sample name must be provided and cannot contain spaces. RNA and protein samples with matching sample_name and condition will be grouped together.",
+                "meta": ["sample_name"]
             },
-            "fastq_1": {
+            "sample_path": {
                 "type": "string",
-                "format": "file-path",
-                "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 1 must be provided, cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "pattern": "^(https?://|ftp://|([\\S\\s]*\\/)?)[^\\s\\/]+\\.(bam|fastq|fastq\\.gz|fq|fq\\.gz|raw|mzML|mzml|fasta)$",
+                "errorMessage": "Sample file path or URL must be provided, cannot contain spaces and must have extension '.bam', '.fastq', '.fastq.gz', '.fq', '.fq.gz', '.raw', '.mzML', '.mzml', or '.fasta' (for testing). URLs must start with http://, https://, or ftp://"
             },
-            "fastq_2": {
+            "condition": {
                 "type": "string",
-                "format": "file-path",
-                "exists": true,
-                "pattern": "^([\\S\\s]*\\/)?[^\\s\\/]+\\.f(ast)?q\\.gz$",
-                "errorMessage": "FastQ file for reads 2 cannot contain spaces and must have extension '.fq.gz' or '.fastq.gz'"
+                "pattern": "^\\S+$",
+                "errorMessage": "Condition must be provided and cannot contain spaces. RNA and protein samples with matching sample_name and condition will be grouped together.",
+                "meta": ["condition"]
+            },
+            "sample_type": {
+                "type": "string",
+                "pattern": "^(?i)(RNA|protein)$",
+                "errorMessage": "Sample type must be either 'RNA' or 'protein'",
+                "meta": ["sample_type"]
+            },
+            "mass_spec_type": {
+                "type": "string",
+                "pattern": "^(?i)(DDA|DIA|none)?$",
+                "errorMessage": "Mass spec type must be 'DDA', 'DIA', 'none', or left empty. Required for protein samples (must be 'DDA' or 'DIA'). For RNA samples, use 'none'.",
+                "meta": ["mass_spec_type"]
             }
         },
-        "required": ["sample", "fastq_1"]
+        "required": ["sample_name", "sample_path", "condition", "sample_type"]
     }
 }
