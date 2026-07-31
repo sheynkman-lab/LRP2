@@ -166,6 +166,18 @@
                     "description": "Path to IsoCall configuration TOML file.",
                     "help_text": "Configuration file for IsoCall parameters. Uses default config if not specified.",
                     "fa_icon": "fas fa-file-code"
+                },
+                "s1_alignment_threads": {
+                    "type": ["integer", "null"],
+                    "description": "Number of alignment threads for pbmm2 (-j parameter).",
+                    "help_text": "Specifies the number of threads for alignment in pbmm2. If not specified, defaults to 75% of available CPUs allocated to the process.",
+                    "fa_icon": "fas fa-microchip"
+                },
+                "s1_alignment_sorting_threads": {
+                    "type": ["integer", "null"],
+                    "description": "Number of sorting threads for pbmm2 (-J parameter).",
+                    "help_text": "Specifies the number of threads for BAM sorting in pbmm2. If not specified, defaults to 25% of available CPUs allocated to the process.",
+                    "fa_icon": "fas fa-microchip"
                 }
             }
         },

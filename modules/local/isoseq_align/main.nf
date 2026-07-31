@@ -21,10 +21,15 @@ process ISOSEQ_ALIGN {
     script:
     def args = task.ext.args ?: '--preset ISOSEQ --sort'
     def prefix = task.ext.prefix ?: "${meta.id}"
+    // Thread allocation priority: 1) command-line params, 2) process config, 3) calculated defaults (75%/25% split)
+    def align_threads = params.s1_alignment_threads ?: (task.ext.align_threads ?: Math.max(1, Math.round(task.cpus * 0.75) as int))
+    def sort_threads = params.s1_alignment_sorting_threads ?: (task.ext.sort_threads ?: Math.max(1, Math.round(task.cpus * 0.25) as int))
     """
     exec > >(tee ${prefix}_S1_PACBIO_ISOCALL_M2_ISOSEQ_ALIGN_log.txt) 2>&1
 
     pbmm2 align \\
+        -j ${align_threads} \\
+        -J ${sort_threads} \\
         $args \\
         $reference_fasta \\
         $bam \\
