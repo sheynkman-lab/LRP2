@@ -3,6 +3,7 @@
     IMPORT MODULES / SUBWORKFLOWS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+include { DOWNLOAD_REMOTE_FILE   } from '../../modules/local/download_remote_file/main'
 include { MSCONVERT_MZML         } from '../../modules/local/msconvert_mzml/main'
 include { METAMORPHEUS           } from '../../modules/local/metamorpheus/main'
 include { FRAGPIPE               } from '../../modules/local/fragpipe/main'
@@ -49,10 +50,33 @@ workflow PROTEOMICS {
         .unique()
 
     //
+    // MODULE: Download remote files in samplesheet if present!
+    //
+    // Separate remote URLs from local files using metadata flag
+    ch_ms_files
+        .branch { meta, file ->
+            remote: meta.containsKey('is_remote') && meta.is_remote
+                return [meta, file]  // file is URL string
+            local: true
+                return [meta, file]  // file is path
+        }
+        .set { ch_ms_files_branched }
+
+    // Download remote files using curl (file is passed as URL value)
+    DOWNLOAD_REMOTE_FILE(
+        ch_ms_files_branched.remote
+    )
+    ch_versions = ch_versions.mix(DOWNLOAD_REMOTE_FILE.out.versions.ifEmpty([]))
+
+    // Combine downloaded files with local files
+    ch_ms_files_local = DOWNLOAD_REMOTE_FILE.out.file
+        .mix(ch_ms_files_branched.local)
+
+    //
     // MODULE: Convert any protein sample files to .mzML format if needed
     //
     // Separate files that are already mzML from those that need conversion
-    ch_ms_files
+    ch_ms_files_local
         .branch { meta, file ->
             mzml: file.name.endsWith('.mzML') || file.name.endsWith('.mzml')
                 return [meta, file]

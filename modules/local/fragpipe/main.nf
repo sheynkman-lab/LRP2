@@ -364,7 +364,7 @@ process FRAGPIPE {
         fragpipe: \$(\$FRAGPIPE_CMD --version 2>&1 | grep -oP 'FragPipe \\K[0-9.]+' || echo "24.0")
         msfragger: \$(basename ${msfragger_jar} | grep -oP 'MSFragger-\\K[0-9.]+' || echo "unknown")
         ionquant: \$(basename ${ionquant_jar} | grep -oP 'IonQuant-\\K[0-9.]+' || echo "unknown")
-    END_VERSIONS
+	END_VERSIONS
     """
 
     stub:
@@ -381,6 +381,6 @@ process FRAGPIPE {
         fragpipe: 24.0
         msfragger: 4.1
         ionquant: 1.10.12
-    END_VERSIONS
+	END_VERSIONS
     """
 }
