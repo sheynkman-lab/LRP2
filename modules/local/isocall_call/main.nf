@@ -4,8 +4,8 @@ process ISOCALL_CALL {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'docker://quay.io/pacbio/isocall:0.15.0_build1' :
-        'quay.io/pacbio/isocall:0.15.0_build1' }"
+        'docker://quay.io/pacbio/isocall:1.3.0_build1' :
+        'quay.io/pacbio/isocall:1.3.0_build1' }"
 
     input:
     tuple val(meta), path(merged_profile)

@@ -3,7 +3,7 @@ process ISOCALL_PREP {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "quay.io/pacbio/isocall:0.15.0_build1"
+    container "quay.io/pacbio/isocall:1.3.0_build1"
 
     input:
     path(gtf)

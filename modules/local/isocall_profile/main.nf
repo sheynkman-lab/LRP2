@@ -3,7 +3,7 @@ process ISOCALL_PROFILE {
     label 'process_low'
 
     conda "${moduleDir}/environment.yml"
-    container "quay.io/pacbio/isocall:0.15.0_build1"
+    container "quay.io/pacbio/isocall:1.3.0_build1"
 
     input:
     tuple val(meta), path(aligned_bam)
