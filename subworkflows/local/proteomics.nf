@@ -65,7 +65,7 @@ workflow PROTEOMICS {
     DOWNLOAD_REMOTE_FILE(
         ch_ms_files_branched.remote
     )
-    ch_versions = ch_versions.mix(DOWNLOAD_REMOTE_FILE.out.versions.ifEmpty([]))
+    ch_versions = ch_versions.mix(DOWNLOAD_REMOTE_FILE.out.versions)
 
     // Combine downloaded files with local files
     ch_ms_files_local = DOWNLOAD_REMOTE_FILE.out.file
