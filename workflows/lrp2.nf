@@ -351,6 +351,10 @@ workflow LRP2 {
         log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Custom CDS GTF provided: ${s5_custom_cds_gtf_file}${colors.reset}-"
     }
     
+    def s5_custom_counts_path = params.S5_custom_counts ?: null
+    if (s5_custom_counts_path) {
+      log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Count matrix provided for search database filtering: ${s5_custom_counts_path}${colors.reset}-"
+    }
     //def protein_fasta_file = protein_fasta_path ? file(protein_fasta_path) : null
     //def is_protein_fasta_gzipped = protein_fasta_file && protein_fasta_file.name.endsWith('.gz')
 
@@ -408,6 +412,7 @@ workflow LRP2 {
         }
 
         def s5_custom_protein_fasta_file = s5_custom_protein_fasta_path ? file(s5_custom_protein_fasta_path) : null
+        def s5_custom_counts_file = s5_custom_counts_path ? file(s5_custom_counts_path) : null
         
         // BUILD_PROTEOME_REFERENCE search db creation logic:
         // - If RNA samples were processed, we build sample-specific references with LRP proteome + GENCODE concatenated
@@ -442,7 +447,7 @@ workflow LRP2 {
             // No RNA samples - use placeholder/user-provided files for proteomics-only mode
             ch_predicted_proteome_fasta = channel.value(s5_custom_protein_fasta_file ?: file('NO_FILE'))
             ch_transcript_counts_with_id = channel.value(['NO_RNA_SAMPLE', file('NO_FILE')])
-            ch_transcript_counts = channel.value(file('NO_FILE'))
+            ch_transcript_counts = channel.value(s5_custom_counts_file ?: file('NO_FILE'))
             ch_lr_cds_gtf = channel.value(s5_custom_cds_gtf_file ?: file('NO_FILE'))
             ch_lr_orf_fasta = channel.value(s5_custom_protein_fasta_file ?: file('NO_FILE'))
         }

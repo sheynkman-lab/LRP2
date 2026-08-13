@@ -183,7 +183,7 @@ if (has_fasta && !is.null(opt$counts)) {
 
   # Select transcript_id (column 1) and CPM column matching sample name
   cpm_cols = names(counts)[str_detect(names(counts), fixed(opt$sample_name)) &
-                             str_detect(names(counts), fixed("cpm"))]
+                             str_detect(names(counts), regex("cpm", ignore_case = TRUE))]
 
   # If no matching CPM column, remove LRP/custom entries and use GENCODE only
   if (length(cpm_cols) == 0) {
@@ -224,6 +224,11 @@ if (has_fasta && !is.null(opt$counts)) {
     cat("  Removed (not expressed in", opt$sample_name, "):", n_before - n_after, "\n")
     cat("  Kept:", n_after, "\n")
   }
+}
+
+if (nrow(combined_ref) == 0) {
+  stop("Reference is empty. Check that --sample_name matches a CPM column in --counts, ",
+       "or omit --no_gencode.")
 }
 
 # =============================================================================
