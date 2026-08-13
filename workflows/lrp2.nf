@@ -520,8 +520,7 @@ workflow LRP2 {
             ch_lr_cds_gtf,          // Custom/LRP CDS GTF (for samples with matched RNA)
             ch_lr_orf_fasta,        // Custom/LRP ORF FASTA (for samples with matched RNA)
             ch_gtf_for_novel,   // Reference annotation GTF (for BED mapping)
-            ch_gencode_protein_fasta,   // GENCODE protein FASTA (for BED mapping)
-            genome_name
+            ch_gencode_protein_fasta   // GENCODE protein FASTA (for BED mapping)
         )
         ch_versions = ch_versions.mix(PROTEOMICS.out.versions.ifEmpty([]))
     }
