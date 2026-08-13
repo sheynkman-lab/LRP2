@@ -62,7 +62,6 @@
                 "gtf": {
                     "type": "string",
                     "format": "file-path",
-                    "exists": true,
                     "description": "Path to custom reference GTF file (optional).",
                     "help_text": "Path to the GTF file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
                     "fa_icon": "far fa-file-code"
@@ -70,7 +69,6 @@
                 "fasta": {
                     "type": "string",
                     "format": "file-path",
-                    "exists": true,
                     "description": "Path to reference genome FASTA file (optional).",
                     "help_text": "Path to the genome FASTA file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
                     "fa_icon": "far fa-file-code"
