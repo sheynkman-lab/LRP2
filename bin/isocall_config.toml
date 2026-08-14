@@ -1,22 +1,26 @@
-###################################################################
-# LRP2 Default Configuration File for isocall call
-###################################################################
+# Example configuration file for isocall call command
+
 
 # Controls read support thresholds and downsampling behavior.
 [sampling]
-# Minimum read support required for calling novel transcripts.
+# Minimum reads required to consider an isoform.
 # Increase for higher confidence calls, decrease for detecting low-abundance isoforms.
-min_read_support = 3
+min_reads_per_isoform = 3
 
-# Maximum number of read bundles to use for isoform identification per gene.
+# Sample bundles until they account for at least this fraction of reads for a gene.
 # Higher values provide more thorough analysis but also increase runtime.
-max_bundles_per_gene = 1000
+min_read_fraction = 0.99
+
+# Upper bound on bundles retained per gene after read-fraction sampling.
+# Increase for more thorough analysis, decrease for faster runtime.
+max_bundles_per_gene = 10000
+
 
 # Detects and removes novel isoforms that are likely artifacts of internal
 # priming during reverse transcription (A-rich downstream sequences).
 [internal_priming_filter]
 # Enable or disable this filter.
-enabled = false
+enabled = true
 
 # Size of the downstream window to analyze for A-content (in bp).
 window = 20
@@ -37,34 +41,36 @@ rescue_distance = 25
 # potentially artifactual calls.
 [relative_abundance_filter]
 # Enable or disable this filter.
-enabled = false
+enabled = true
 
 # Maximum distance between transcripts to consider them for comparison.
 max_distance = 20
 
-# Base for the relative abundance threshold calculation.
+# Base for the distance-dependent threshold: a novel is filtered when its
+# relative abundance (vs a similar higher-abundance isoform) is <= abundance_base^((distance-1)/5).
 # Lower values are more stringent (filter more aggressively).
 abundance_base = 0.1
 
-# Controls peak detection parameters for single-exon isoform calling.
+
+# Controls gap-based clustering for single-exon isoform calling.
 [mono_exonic_caller]
-# Bin width for peak detection (in bp).
-bin_width = 10
+# Maximum gap (bp) between adjacent 3′ ends within one cluster.
+# Reads whose 3′ ends are further apart than this are split into separate candidates.
+max_3p_gap = 20
 
-# Window size for local background estimation (in bp).
-window_bp = 100
+# Minimum total read count for a cluster to be reported as a candidate.
+min_support = 10
 
-# Minimum count at a candidate bin to be considered.
-min_count = 3
+# Fraction of outermost 5′ read-end observations to trim when setting the
+# 5′ boundary of a mono-exon candidate (removes outlier long reads).
+five_prime_trim_fraction = 0.05
 
-# Minimum z-score for peak detection.
-# Higher values require more prominent peaks.
-z_min = 4.0
 
-# Controls parameters for multi-exon isoform calling.
+# Multi-exon isoform end calling.
 [multi_exonic_caller]
-# Whether to extend known isoform terminal exon coordinates based on reads.
-# When true, the start/end coordinates of identified known isoforms will be
-# extended to match the longest observed first/last exons from supporting reads.
-# Default is false, which keeps the original annotation coordinates.
-extend_known_ends = true
+# Extend known isoform ends when reads support longer ends.
+# Leave false to keep annotated known isoform ends.
+extend_known_ends = false
+
+# Ignore this fraction of the most extreme read-supported ends on each side.
+terminal_trim_fraction = 0.10
