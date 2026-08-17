@@ -152,12 +152,12 @@
                     "help_text": "Transcripts must be supported by at least this many reads to be called.",
                     "fa_icon": "fas fa-layer-group"
                 },
-                "max_bundles_per_gene": {
-                    "type": "integer",
-                    "default": 100,
-                    "description": "Maximum bundles to use per gene during read sampling.",
-                    "help_text": "Limits the number of read bundles processed per gene to improve performance.",
-                    "fa_icon": "fas fa-boxes"
+                "min_read_fraction": {
+                    "type": "number",
+                    "default": 0.99,
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Sample read bundles until they account for at least this fraction of a gene's reads."
                 },
                 "isocall_config": {
                     "type": "string",

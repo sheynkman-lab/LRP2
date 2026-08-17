@@ -1,5 +1,6 @@
-# Example configuration file for isocall call command
-
+###########################################################################
+# LRP2 Default Configuration File for isocall call- Updated August 14,2026
+###########################################################################
 
 # Controls read support thresholds and downsampling behavior.
 [sampling]
@@ -20,7 +21,7 @@ max_bundles_per_gene = 10000
 # priming during reverse transcription (A-rich downstream sequences).
 [internal_priming_filter]
 # Enable or disable this filter.
-enabled = true
+enabled = false
 
 # Size of the downstream window to analyze for A-content (in bp).
 window = 20
@@ -41,7 +42,7 @@ rescue_distance = 25
 # potentially artifactual calls.
 [relative_abundance_filter]
 # Enable or disable this filter.
-enabled = true
+enabled = false
 
 # Maximum distance between transcripts to consider them for comparison.
 max_distance = 20
@@ -70,7 +71,7 @@ five_prime_trim_fraction = 0.05
 [multi_exonic_caller]
 # Extend known isoform ends when reads support longer ends.
 # Leave false to keep annotated known isoform ends.
-extend_known_ends = false
+extend_known_ends = true
 
 # Ignore this fraction of the most extreme read-supported ends on each side.
-terminal_trim_fraction = 0.10
+terminal_trim_fraction = 0.05
