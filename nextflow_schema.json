@@ -54,14 +54,14 @@
             "properties": {
                 "genome": {
                     "type": "string",
+                    "default": "GRCh38.p14.v49",
                     "description": "Name of genome reference. This automatically populates the paths for the reference FASTA and GTF files if using GENCODE references.",
                     "fa_icon": "fas fa-book",
-                    "help_text": "If using a reference genome configured in the pipeline using GENCODE, use this parameter to give the ID for the reference. This is then used to build the full paths for all required reference genome files e.g. `--genome GRCh38`. \n\nSee the [nf-core website docs](https://nf-co.re/usage/reference_genomes) for more details."
+                    "help_text": "Use this parameter to specify a GENCODE reference by ID, which builds the full paths for the reference FASTA, GTF, and protein FASTA, e.g. `--genome GRCh38.p14.v47`. Available IDs are defined in `conf/gencode_references.config`. Defaults to `GRCh38.p14.v49` if not specified. To use custom references instead, provide `--fasta` and `--gtf` directly along with `--species`."
                 },
                 "gtf": {
                     "type": "string",
                     "format": "file-path",
-                    "exists": true,
                     "description": "Path to custom reference GTF file (optional).",
                     "help_text": "Path to the GTF file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
                     "fa_icon": "far fa-file-code"
@@ -69,7 +69,6 @@
                 "fasta": {
                     "type": "string",
                     "format": "file-path",
-                    "exists": true,
                     "description": "Path to reference genome FASTA file (optional).",
                     "help_text": "Path to the genome FASTA file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
                     "fa_icon": "far fa-file-code"
@@ -504,32 +503,26 @@
                     "help_text": "When enabled, only LRP-predicted or custom protein sequences will be used for proteomics searches, excluding GENCODE reference proteins.",
                     "fa_icon": "fas fa-ban"
                 },
-                "lrp_protein_fasta": {
+                "S5_custom_protein_fasta": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "Path to pre-computed LRP protein FASTA for proteomics-only runs.",
-                    "help_text": "Pre-computed LRP protein FASTA file (headers: transcript_id|gene_id|gene_name|pclass|status). Use this for proteomics-only runs with previously generated LRP protein sequences.",
+                    "description": "Path to a protein FASTA for the proteomics search database.",
+                    "help_text": "Protein FASTA used to build the search database. Accepts LRP2 pipeline output (headers: transcript_id|gene_id|gene_name|pclass|status) or any custom FASTA (headers: transcript_id|gene_id at minimum); the source is auto-detected. Use this for proteomics-only runs, or to override the FASTA generated upstream.",
                     "fa_icon": "far fa-file-code"
                 },
-                "lrp_gtf": {
+                "S5_custom_cds_gtf": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "Path to LRP CDS GTF from a previous run.",
-                    "help_text": "LRP CDS GTF file from a previous run, paired with lrp_protein_fasta for proteomics-only runs.",
+                    "description": "Path to a GTF with CDS entries, paired with S5_custom_protein_fasta.",
+                    "help_text": "GTF containing CDS entries, used to map peptides to genomic coordinates for the novel peptide BED output. Transcript IDs must match those in S5_custom_protein_fasta.",
                     "fa_icon": "far fa-file-code"
                 },
-                "custom_protein_fasta": {
+                "S5_custom_counts": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "Path to user-provided custom protein FASTA.",
-                    "help_text": "User-provided custom protein FASTA file (headers: transcript_id|gene_id at minimum) for proteomics analysis.",
-                    "fa_icon": "far fa-file-code"
-                },
-                "custom_gtf": {
-                    "type": "string",
-                    "format": "file-path",
-                    "description": "Path to user-provided custom GTF with CDS entries.",
-                    "help_text": "User-provided custom GTF file with CDS entries, paired with custom_protein_fasta.",
+                    "exists": true,
+                    "description": "Path to a transcript count matrix for filtering the proteomics search database.",
+                    "help_text": "Non-GENCODE transcripts with CPM > 0 are retained; GENCODE entries are always kept in full. Column 1 must contain transcript IDs matching S5_custom_protein_fasta, and the CPM column name must contain the protein sample_name from the samplesheet. Only used for proteomics-only runs; on a full run the count matrix is generated by the pipeline.",
                     "fa_icon": "far fa-file-code"
                 },
                 "protein_search": {
