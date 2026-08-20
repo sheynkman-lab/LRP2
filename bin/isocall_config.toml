@@ -10,7 +10,7 @@ min_reads_per_isoform = 3
 
 # Sample bundles until they account for at least this fraction of reads for a gene.
 # Higher values provide more thorough analysis but also increase runtime.
-min_read_fraction = 0.99
+min_read_fraction = 1
 
 # Upper bound on bundles retained per gene after read-fraction sampling.
 # Increase for more thorough analysis, decrease for faster runtime.

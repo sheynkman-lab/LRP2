@@ -315,7 +315,6 @@ nextflow run /path/to/LRP2 --help
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `--min_read_support` | Minimum read support for transcripts | `3` |
 | `--isocall_config` | Path to custom Isocall configuration TOML file | `bin/isocall_config.toml` |
   
 ### S2 Transcriptome

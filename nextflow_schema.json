@@ -145,20 +145,6 @@
             "fa_icon": "fas fa-dna",
             "description": "Options for the PacBio IsoCall transcript calling module.",
             "properties": {
-                "min_read_support": {
-                    "type": "integer",
-                    "default": 3,
-                    "description": "Minimum read support required for calling novel transcripts.",
-                    "help_text": "Transcripts must be supported by at least this many reads to be called.",
-                    "fa_icon": "fas fa-layer-group"
-                },
-                "min_read_fraction": {
-                    "type": "number",
-                    "default": 0.99,
-                    "minimum": 0,
-                    "maximum": 1,
-                    "description": "Sample read bundles until they account for at least this fraction of a gene's reads."
-                },
                 "isocall_config": {
                     "type": "string",
                     "format": "file-path",

@@ -42,9 +42,9 @@ workflow LRP2 {
     // Detect multisample-only mode
     //
     def is_multisample_only = params.transcripts_gtf &&
-                               params.transcript_counts &&
-                               params.orf_counts &&
-                               params.multisample_metadata
+                              params.transcript_counts &&
+                              params.orf_counts &&
+                              params.multisample_metadata
 
     //
     // Separate RNA and protein samples based on sample_type metadata
@@ -234,7 +234,7 @@ workflow LRP2 {
         // SUBWORKFLOW: Run PacBio IsoCall analysis
         //
         // IsoCall requires config TOML and gzipped GTF reference for ISOCALL_PREP
-        ch_isocall_config = channel.value(file("${projectDir}/bin/isocall_config.toml"))
+        ch_isocall_config = channel.value(file(params.isocall_config))
 
         PACBIO_ISOCALL (
             ch_rna_samples_filtered,

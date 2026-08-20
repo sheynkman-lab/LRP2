@@ -25,8 +25,6 @@ process ISOCALL_CALL {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def threads = task.cpus ?: 1
-    def min_read_support = task.ext.min_read_support ?: params.min_read_support
-    def min_read_fraction = task.ext.min_read_fraction ?: params.min_read_fraction
     """
     isocall call \\
         --threads $threads \\
@@ -35,8 +33,6 @@ process ISOCALL_CALL {
         --reference $reference_fasta \\
         --output-prefix ${prefix}.isocall \\
         --config $config_toml \\
-        --min-reads-per-isoform $min_read_support \\
-        --min-read-fraction $min_read_fraction \\
         $args
     
     mv ${prefix}.isocall.count_matrix.txt ${prefix}.isocall.count_matrix.csv
