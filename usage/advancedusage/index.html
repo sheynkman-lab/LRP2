@@ -913,6 +913,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#optional-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#important-considerations" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1355,6 +1366,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#optional-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#important-considerations" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1457,17 +1479,21 @@
 </div>
 <hr />
 <h2 id="re-running-s5-proteomics-only">Re-running S5 Proteomics Only<a class="headerlink" href="#re-running-s5-proteomics-only" title="Permanent link">&para;</a></h2>
-<p>If you have previously completed the LRP2 pipeline through S3 (PREDICTED PROTEOME) and want to re-run only the proteomics analysis (S5 PROTEOMICS), you can use <strong>proteomics-only mode</strong> by providing the LRP2-generated protein FASTA and GTF from your previous run. This is useful for re-analyzing proteomics data with different search parameters and configurations,or if you would like to add new mass spectrometry samples while using the same LRP2 predicted proteome reference. </p>
+<p>If you have already generated a transcriptome and predicted proteome, you can run just the proteomics subworkflow (S5) by providing a samplesheet containing only protein samples along with the reference files from your previous run. </p>
 <h3 id="usage_1">Usage<a class="headerlink" href="#usage_1" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>nextflow<span class="w"> </span>run<span class="w"> </span>/path/to/LRP2<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span>--input<span class="w"> </span>samplesheet_proteomics_only.csv<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span>--lrp_protein_fasta<span class="w"> </span>results/S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/merged.predicted_proteome.best_ORF.fa<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span>--lrp_gtf<span class="w"> </span>results/S3_PREDICTED_PROTEOME/M2_FILTER_CPAT/merged.predicted_proteome.best_ORF.gtf<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span>--gencode_fasta<span class="w"> </span>gencode.v46.pc_translations.fa<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span>--gencode_gtf<span class="w"> </span>gencode.v46.annotation.gtf<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span>--outdir<span class="w"> </span>results_proteomics_reanalysis<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span>-profile<span class="w"> </span>singularity,slurm
+<p><div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>nextflow<span class="w"> </span>run<span class="w"> </span>/path/to/LRP2<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">    </span>--input<span class="w"> </span>samplesheet.csv<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span>--outdir<span class="w"> </span>results<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">    </span>--genome<span class="w"> </span>GRCh38.p14.v49<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span>--S5_custom_protein_fasta<span class="w"> </span>S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/lrp2.predicted_proteome.best_ORF.fa<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span>--S5_custom_cds_gtf<span class="w"> </span>S3_PREDICTED_PROTEOME/M2_FILTER_CPAT/lrp2.predicted_proteome.best_ORF.gtf<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span>--S5_custom_counts<span class="w"> </span>S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrp2.transcriptome.all_hashids_with_cpm.txt<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span>--protein_search<span class="w"> </span>fragpipe<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">    </span>--fragpipe_token<span class="w"> </span><span class="s2">"YOUR_TOKEN"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">    </span>-profile<span class="w"> </span>singularity,slurm
 </span></code></pre></div>
+<code>--S5_custom_counts</code> is optional. The count matrix must have transcript IDs matching <code>--S5_custom_protein_fasta</code> in the first column, and a CPM column whose name contains the <code>sample_name</code> used for your protein samples in the samplesheet.</p>
+<p>These parameters apply only to proteomics-only runs. On a full pipeline run, the equivalent files are generated by S2 and S3 and used automatically. </p>
 <h3 id="required-parameters_1">Required Parameters<a class="headerlink" href="#required-parameters_1" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
@@ -1478,37 +1504,37 @@
 </thead>
 <tbody>
 <tr>
-<td><code>--input</code></td>
-<td>Path to samplesheet CSV with <strong>only proteomics (protein) samples</strong></td>
-</tr>
-<tr>
-<td><code>--lrp_protein_fasta</code></td>
+<td><code>--S5_custom_protein_fasta</code></td>
 <td>Path to LRP2 protein FASTA from a previous S3 run</td>
 </tr>
 <tr>
-<td><code>--lrp_gtf</code></td>
+<td><code>--S5_custom_cds_gtf</code></td>
 <td>Path to LRP2 CDS GTF from a previous S3 run</td>
-</tr>
-<tr>
-<td><code>--gencode_fasta</code></td>
-<td>Path to GENCODE protein FASTA for reference proteome.</td>
-</tr>
-<tr>
-<td><code>--gencode_gtf</code></td>
-<td>Path to GENCODE annotation GTF. Required for novel peptide mapping if <code>--gencode_fasta</code> is provided.</td>
-</tr>
-<tr>
-<td><code>--outdir</code></td>
-<td>Output directory for the proteomics reanalysis</td>
 </tr>
 </tbody>
 </table>
-<div class="admonition warning">
-<p class="admonition-title">Protein Samples Only</p>
-<p>For proteomics-only mode to work correctly, your samplesheet must contain <strong>only</strong> <code>sample_type=protein</code> entries. Do not include any RNA samples. The pipeline will automatically detect the absence of RNA samples and skip S1-S4.</p>
+<h3 id="optional-parameters">Optional Parameters<a class="headerlink" href="#optional-parameters" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--S5_custom_counts</code></td>
+<td>Path to count matrix with matching transcript IDs and CPM columns with sample names</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning protein samples only">
+<p class="admonition-title">Warning</p>
+<p>For proteomics-only mode to work correctly, your samplesheet should <strong>only</strong> contain <code>sample_type=protein</code> entries. Do not include any RNA samples. The pipeline will automatically detect the absence of RNA samples and skip S1-S4.</p>
 </div>
 <h3 id="important-considerations">Important Considerations<a class="headerlink" href="#important-considerations" title="Permanent link">&para;</a></h3>
 <p>If using an LRP2 protein FASTA from S3 containing ALL predicted ORFs, keep in mind that proteomic search spaces will be larger, which affects false discovery rates. For more targeted proteomics searches, you may want to pre-filter the LRP2 FASTA. </p>
+<hr />
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <p>For a list of all available parameters and their descriptions, see the <a href="../parameters/">Parameters</a> documentation.</p>
 
@@ -1533,7 +1559,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 17, 2026 21:30:08 UTC">July 17, 2026</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="August 21, 2026 15:39:12 UTC">August 21, 2026</span>
   </span>
 
     
