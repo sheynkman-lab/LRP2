@@ -1,6 +1,6 @@
 process FILTER_TRANSCRIPTOME {
     tag "$meta.id"
-    label 'process_low'
+    label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
     container "docker://docker.io/jtllab/lrp2-lite:latest"
