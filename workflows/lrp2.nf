@@ -269,10 +269,22 @@ workflow LRP2 {
             log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Using external GTF and counts - skipping PACBIO_ISOCALL subworkflow${colors.reset}-"
 
             // Create channels from external files
-            ch_called_gtf = channel.of([
+            ch_external_gtf_input = channel.of([
                 [id: params.dataset_name],
                 file(params.external_gtf)
             ])
+
+            // Conditionally sanitize PAR gene IDs in external GTF (same logic as reference GTF)
+            ch_external_gtf_input
+                .branch { meta, gtf ->
+                    needs_sanitization: gtf.text.contains('_PAR_Y')
+                    no_sanitization: true
+                }
+                .set { ch_external_gtf_branched }
+
+            SANITIZE_PAR_IDS(ch_external_gtf_branched.needs_sanitization)
+            ch_called_gtf = ch_external_gtf_branched.no_sanitization
+                .mix(SANITIZE_PAR_IDS.out.sanitized_gtf)
 
             ch_count_matrix = channel.of([
                 [id: params.dataset_name],
