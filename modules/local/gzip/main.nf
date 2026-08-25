@@ -3,7 +3,7 @@ process GZIP {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "community.wave.seqera.io/library/gzip:latest"
+    container "docker://ubuntu:22.04"
 
     input:
     tuple val(meta), path(archive)
