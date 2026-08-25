@@ -8,7 +8,6 @@ process NOVEL_PEPTIDES {
     input:
     tuple val(meta), path(fragpipe_peptide_file), path(reference_fasta), path(custom_gtf), path(custom_fasta), path(gencode_gtf), path(gencode_fasta)
     path novel_peptides_script
-    val gencode_version
 
     output:
     tuple val(meta), path("*.proteomics.novel_peptides.tsv"), emit: novel_peptides
@@ -70,7 +69,6 @@ process NOVEL_PEPTIDES {
         ${custom_fasta_arg} \\
         ${gencode_gtf_arg} \\
         ${gencode_fasta_arg} \\
-        --gencode_version ${gencode_version} \\
         --outdir . \\
         $args
 

@@ -37,7 +37,6 @@ workflow PROTEOMICS {
     lr_orf_fasta                // path: Custom/LRP ORF FASTA (only for samples with matched RNA sample)
     gencode_gtf_for_novel       // path: GENCODE annotation GTF (for novel peptides BED mapping)
     gencode_fasta_for_novel     // path: GENCODE protein FASTA (for novel peptides BED mapping)
-    genome                      // val: Genome reference name (e.g., 'GRCh38.p14.v49')
 
     main:
     ch_versions = channel.empty()
@@ -66,7 +65,7 @@ workflow PROTEOMICS {
     DOWNLOAD_REMOTE_FILE(
         ch_ms_files_branched.remote
     )
-    ch_versions = ch_versions.mix(DOWNLOAD_REMOTE_FILE.out.versions.ifEmpty([]))
+    ch_versions = ch_versions.mix(DOWNLOAD_REMOTE_FILE.out.versions)
 
     // Combine downloaded files with local files
     ch_ms_files_local = DOWNLOAD_REMOTE_FILE.out.file
@@ -199,8 +198,6 @@ workflow PROTEOMICS {
         ch_search_results = FRAGPIPE.out.results
 
         // Step 4: Run NOVEL_PEPTIDES on FragPipe results
-        // Extract GENCODE version from genome parameter (e.g., 'GRCh38.p14.v49' -> '49')
-        def gencode_version = genome ? genome.tokenize('.')[-1].replaceAll(/[^0-9]/, '') : '49'
 
         // Merge DIA and DDA peptide files: since at least one will be present we make sure we get one of the actual files from FragPipe work directory, as fix for novel peptides stalling for larger datasets
         ch_fragpipe_peptide_files = FRAGPIPE.out.combined_peptide_tsv
@@ -226,8 +223,7 @@ workflow PROTEOMICS {
 
         NOVEL_PEPTIDES(
             ch_novel_peptides_input,
-            novel_peptides_script,
-            gencode_version
+            novel_peptides_script
         )
         ch_versions = ch_versions.mix(NOVEL_PEPTIDES.out.versions)
         ch_novel_peptides = NOVEL_PEPTIDES.out.novel_peptides
