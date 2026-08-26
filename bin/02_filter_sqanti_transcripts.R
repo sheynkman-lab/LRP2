@@ -215,12 +215,14 @@ sqanti_df %<>%
 original_isoform_ids = sqanti_df$isoform
 
 # Replace original isoform IDs with new pipeline isoform_id throughout
+# Use resolved gene_id from 'GENERATE HASHIDS' script - resolving composite gene mappings
 sqanti_df_full = sqanti_df %>%
-  inner_join(mapping %>% select(isoform_id, original_transcript_id,
+  inner_join(mapping %>% select(isoform_id, original_transcript_id, reference_gene_id,
                                 any_of("gene_type"), any_of("gene_name")),
              by = c("isoform" = "original_transcript_id")) %>%
-  mutate(isoform = isoform_id) %>%
-  select(-isoform_id)
+  mutate(isoform = isoform_id,
+         associated_gene = reference_gene_id) %>%
+  select(-isoform_id, -reference_gene_id)
 
 # Build the hashids + CPM table using new isoform IDs
 all_ids = mapping %>%

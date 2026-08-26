@@ -338,35 +338,23 @@ workflow LRP2 {
       log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} GENCODE protein FASTA resolved from --genome ${params.genome}: ${gencode_protein_fasta_path}${colors.reset}-"
     }
     
-    // Resolve custom protein FASTA (optional, user-provided via --custom_protein_fasta)
-    def custom_protein_fasta_path = params.custom_protein_fasta ?: null
-    if (custom_protein_fasta_path) {
-      log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Custom protein FASTA provided: ${custom_protein_fasta_path}${colors.reset}-"
+    // Resolve protein FASTA for the proteomics search database (optional, user-provided)
+    // Accepts LRP2 output or any custom FASTA; source is auto-detected in build_mass_spec_reference.R
+    def s5_custom_protein_fasta_path = params.S5_custom_protein_fasta ?: null
+    if (s5_custom_protein_fasta_path) {
+      log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Protein FASTA provided for search database: ${s5_custom_protein_fasta_path}${colors.reset}-"
     }
     
-    // Resolve custom GTF (optional, paired with custom_protein_fasta)
-    def custom_gtf_file = params.custom_gtf ? file(params.custom_gtf) : null
-    if (custom_gtf_file) {
-        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Custom GTF provided: ${custom_gtf_file}${colors.reset}-"
+    // Resolve CDS GTF paired with the protein FASTA (for novel peptide BED mapping)
+    def s5_custom_cds_gtf_file = params.S5_custom_cds_gtf ? file(params.S5_custom_cds_gtf) : null
+    if (s5_custom_cds_gtf_file) {
+        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Custom CDS GTF provided: ${s5_custom_cds_gtf_file}${colors.reset}-"
     }
     
-    // LRP protein fasta when only proteomics subworflow is run
-    def lrp_protein_fasta_path = params.lrp_protein_fasta ?: null
-    if (lrp_protein_fasta_path) {
-        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} LRP protein FASTA provided: ${lrp_protein_fasta_path}${colors.reset}-"
+    def s5_custom_counts_path = params.S5_custom_counts ?: null
+    if (s5_custom_counts_path) {
+      log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Count matrix provided for search database filtering: ${s5_custom_counts_path}${colors.reset}-"
     }
-    
-    if (lrp_protein_fasta_path && custom_protein_fasta_path) {
-        error "--lrp_protein_fasta and --custom_protein_fasta are mutually exclusive. Provide one or neither."
-    }
-    
-    // Resolve LRP GTF (optional, for proteomics-only runs with prior LRP output)
-    def lrp_gtf_file = params.lrp_gtf ? file(params.lrp_gtf) : null
-    if (lrp_gtf_file) {
-        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} LRP GTF provided: ${lrp_gtf_file}${colors.reset}-"
-    }
-
-    
     //def protein_fasta_file = protein_fasta_path ? file(protein_fasta_path) : null
     //def is_protein_fasta_gzipped = protein_fasta_file && protein_fasta_file.name.endsWith('.gz')
 
@@ -397,7 +385,7 @@ workflow LRP2 {
 
     // note: pipeline will only execute PROTEOMICS if protein_fasta is available (user-provided or auto-detected) AND protein samples exist
     //if (protein_fasta_path) {
-    if ((gencode_protein_fasta_path || custom_protein_fasta_path || lrp_protein_fasta_path) && has_protein_samples_sync) {
+    if ((gencode_protein_fasta_path || s5_custom_protein_fasta_path) && has_protein_samples_sync) {
         ch_metamorpheus_config = channel.value(
             params.metamorpheus_config ?
                 file(params.metamorpheus_config) :
@@ -422,23 +410,10 @@ workflow LRP2 {
         } else {
             ch_gencode_protein_fasta = channel.value(file('NO_FILE'))
         }
+
+        def s5_custom_protein_fasta_file = s5_custom_protein_fasta_path ? file(s5_custom_protein_fasta_path) : null
+        def s5_custom_counts_file = s5_custom_counts_path ? file(s5_custom_counts_path) : null
         
-        //
-        // Resolve custom protein FASTA channel
-        //
-        def custom_protein_fasta_file = custom_protein_fasta_path ? file(custom_protein_fasta_path) : null
-        ch_custom_protein_fasta = custom_protein_fasta_file
-            ? channel.value(custom_protein_fasta_file)
-            : channel.value(file('NO_FILE'))
-        
-        //
-        // Resolve LRP protein FASTA channel (user-provided, for proteomics-only runs)
-        //
-        def lrp_protein_fasta_file = lrp_protein_fasta_path ? file(lrp_protein_fasta_path) : null
-        ch_lrp_protein_fasta = lrp_protein_fasta_file
-            ? channel.value(lrp_protein_fasta_file)
-            : channel.value(file('NO_FILE'))
-            
         // BUILD_PROTEOME_REFERENCE search db creation logic:
         // - If RNA samples were processed, we build sample-specific references with LRP proteome + GENCODE concatenated
         // - If no RNA samples then we build GENCODE-only references per sample group
@@ -448,7 +423,7 @@ workflow LRP2 {
             ch_predicted_proteome_fasta = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
                 .map { _meta, fasta -> fasta }
                 .first()
-                .ifEmpty(lrp_protein_fasta_file ?: file('NO_FILE'))
+                .ifEmpty(s5_custom_protein_fasta_file ?: file('NO_FILE'))
 
             ch_transcript_counts_with_id = TRANSCRIPTOME.out.hashids_all
                 .map { meta, counts -> [meta.id, counts] }
@@ -462,19 +437,19 @@ workflow LRP2 {
             ch_lr_cds_gtf = PREDICTED_PROTEOME.out.cds_gtf
                 .map { _meta, gtf -> gtf }
                 .first()
-                .ifEmpty(lrp_gtf_file ?: custom_gtf_file ?: file('NO_FILE'))
+                .ifEmpty(s5_custom_cds_gtf_file ?: file('NO_FILE'))
 
             ch_lr_orf_fasta = PREDICTED_PROTEOME.out.protein_all_orfs_fasta
                 .map { _meta, fasta -> fasta }
                 .first()
-                .ifEmpty(lrp_protein_fasta_file ?: custom_protein_fasta_file ?: file('NO_FILE'))
+                .ifEmpty(s5_custom_protein_fasta_file ?: file('NO_FILE'))
         } else {
             // No RNA samples - use placeholder/user-provided files for proteomics-only mode
-            ch_predicted_proteome_fasta = channel.value(lrp_protein_fasta_file ?: file('NO_FILE'))
+            ch_predicted_proteome_fasta = channel.value(s5_custom_protein_fasta_file ?: file('NO_FILE'))
             ch_transcript_counts_with_id = channel.value(['NO_RNA_SAMPLE', file('NO_FILE')])
-            ch_transcript_counts = channel.value(file('NO_FILE'))
-            ch_lr_cds_gtf = channel.value(lrp_gtf_file ?: custom_gtf_file ?: file('NO_FILE'))
-            ch_lr_orf_fasta = channel.value(lrp_protein_fasta_file ?: custom_protein_fasta_file ?: file('NO_FILE'))
+            ch_transcript_counts = channel.value(s5_custom_counts_file ?: file('NO_FILE'))
+            ch_lr_cds_gtf = channel.value(s5_custom_cds_gtf_file ?: file('NO_FILE'))
+            ch_lr_orf_fasta = channel.value(s5_custom_protein_fasta_file ?: file('NO_FILE'))
         }
 
         // Resolve GENCODE annotation GTF for novel peptides BED mapping
@@ -498,47 +473,25 @@ workflow LRP2 {
                 return [grouped_meta, files]
             }
 
-        // Build proteome references per sample group
-        // Prepare input channel for BUILD_PROTEOME_REFERENCE
-        //ch_build_ref_input = ch_protein_samples_grouped
-        //    .combine(ch_predicted_proteome_fasta)
-        //    .combine(ch_transcript_counts)
-        //    .combine(ch_protein_fasta)
-        //    .map { meta, _files, lrp_fasta, counts, gencode_fasta ->
-        //        // If lrp_fasta or counts are NO_FILE placeholders, create unique ones per sample to avoid Nextflow staging collisions when multiple samples use the same placeholder
-        //        def unique_lrp_fasta = lrp_fasta.name == 'NO_FILE' ? file("${meta.id}_NO_LRP_FASTA") : lrp_fasta
-        //        def unique_counts = counts.name == 'NO_FILE' ? file("${meta.id}_NO_COUNTS") : counts
-        //        return [meta, unique_lrp_fasta, unique_counts, gencode_fasta]
-        //    }
-        
         ch_build_ref_input = ch_protein_samples_grouped
             .combine(ch_predicted_proteome_fasta)
             .combine(ch_transcript_counts)
-            .combine(ch_custom_protein_fasta)
             .combine(ch_gencode_protein_fasta)
-            .map { meta, _files, lrp_fasta, counts, custom_fasta, gencode_protein_fasta ->
+            .map { meta, _files, custom_fasta, counts, gencode_protein_fasta ->
                 // Create unique placeholder names per sample to avoid Nextflow staging collisions
-                def unique_lrp_fasta = lrp_fasta.name == 'NO_FILE' ? file("${meta.id}_NO_LRP_FASTA") : lrp_fasta
-                def unique_counts = counts.name == 'NO_FILE' ? file("${meta.id}_NO_COUNTS") : counts
                 def unique_custom = custom_fasta.name == 'NO_FILE' ? file("${meta.id}_NO_CUSTOM_FASTA") : custom_fasta
+                def unique_counts = counts.name == 'NO_FILE' ? file("${meta.id}_NO_COUNTS") : counts
                 def unique_gencode = gencode_protein_fasta.name == 'NO_FILE' ? file("${meta.id}_NO_GENCODE_PROTEIN_FASTA") : gencode_protein_fasta
-                return [meta, unique_lrp_fasta, unique_counts, unique_custom, unique_gencode]
+                return [meta, unique_counts, unique_custom, unique_gencode]
             }
             
         // Script path for build_mass_spec_reference.R
         ch_build_proteome_script = channel.value(file("${projectDir}/bin/build_mass_spec_reference.R"))
 
         // BUILD_PROTEOME_REFERENCE runs once for each sample group to create per-group sample-specific references
-        // note: currently auto-detects genome name from FASTA filename if not explicitly provided, might need to improve upon this logic
-        def genome_name = params.genome ?: (
-            params.fasta ? file(params.fasta).name.tokenize('.')[0] :
-            'custom'
-        )
-
         BUILD_PROTEOME_REFERENCE(
             ch_build_ref_input,
             ch_build_proteome_script,
-            genome_name,
             params.no_gencode ?: false
         )
         ch_versions = ch_versions.mix(BUILD_PROTEOME_REFERENCE.out.versions.ifEmpty([]))
@@ -572,8 +525,7 @@ workflow LRP2 {
             ch_lr_cds_gtf,          // Custom/LRP CDS GTF (for samples with matched RNA)
             ch_lr_orf_fasta,        // Custom/LRP ORF FASTA (for samples with matched RNA)
             ch_gtf_for_novel,   // Reference annotation GTF (for BED mapping)
-            ch_gencode_protein_fasta,   // GENCODE protein FASTA (for BED mapping)
-            genome_name
+            ch_gencode_protein_fasta   // GENCODE protein FASTA (for BED mapping)
         )
         ch_versions = ch_versions.mix(PROTEOMICS.out.versions.ifEmpty([]))
     }
