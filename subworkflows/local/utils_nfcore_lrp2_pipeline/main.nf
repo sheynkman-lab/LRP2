@@ -352,14 +352,6 @@ def sanitizeSamplesheet(input_file) {
     def has_bom = content.startsWith('\uFEFF')
     def has_windows_endings = content.contains('\r')
 
-    // If the file is already clean, return original path
-    if (!has_bom && !has_windows_endings) {
-        return input_file
-    }
-
-    // otherwise file needs sanitization - create sanitized version
-    log.info "Sanitizing samplesheet: Detected encoding issues (BOM: ${has_bom}, Windows line endings: ${has_windows_endings})"
-
     // Remove BOM if present (UTF-8 BOM: EF BB BF)
     if (has_bom) {
         content = content.substring(1)
@@ -367,12 +359,57 @@ def sanitizeSamplesheet(input_file) {
     content = content.replaceAll('\r\n', '\n')  // Remove Windows line endings (\r\n -> \n)
     content = content.replaceAll('\r', '\n')    // Remove any remaining carriage returns
 
-    // Write sanitized content to new samplesheet (need this because sampleseetToList() expects a filepath and not raw content)
-    def sanitized_file = new File("${input_file}.sanitized")
-    sanitized_file.write(content, 'UTF-8')
-    log.info "Sanitized samplesheet created at: ${sanitized_file}"
+    // Sanitize sample names: replace underscores with dashes
+    def lines = content.split('\n')
+    if (lines.size() > 0) {
+        def header = lines[0].split(',')
+        def sample_name_idx = header.findIndexOf { it.trim().toLowerCase() in ['sample_name', 'name'] }
 
-    return sanitized_file.toString()
+        if (sample_name_idx != -1) {
+            def has_underscores = false
+            def sanitized_lines = []
+
+            sanitized_lines << lines[0]
+
+            lines.drop(1).each { line ->
+                if (line.trim()) {
+                    def parts = line.split(',', -1)  // -1 to keep empty trailing fields
+                    if (parts.size() > sample_name_idx) {
+                        def original_name = parts[sample_name_idx]
+                        if (original_name.contains('_')) {
+                            parts[sample_name_idx] = original_name.replaceAll('_', '-')
+                            has_underscores = true
+                        }
+                    }
+                    sanitized_lines << parts.join(',')
+                } else {
+                    sanitized_lines << line
+                }
+            }
+
+            if (has_underscores) {
+                content = sanitized_lines.join('\n')
+                log.info "Sanitizing samplesheet: Replaced underscores with dashes in sample names"
+            }
+        }
+    }
+
+    // If the file needed any sanitization, write to new file
+    if (has_bom || has_windows_endings || content != file.getText('UTF-8')) {
+        def reasons = []
+        if (has_bom) reasons << "BOM"
+        if (has_windows_endings) reasons << "Windows line endings"
+        if (content != file.getText('UTF-8') && !has_bom && !has_windows_endings) reasons << "sample name underscores"
+
+        log.info "Sanitizing samplesheet: ${reasons.join(', ')}"
+
+        def sanitized_file = new File("${input_file}.sanitized")
+        sanitized_file.write(content, 'UTF-8')
+        log.info "Sanitized samplesheet created at: ${sanitized_file}"
+        return sanitized_file.toString()
+    }
+
+    return input_file
 }
 
 //

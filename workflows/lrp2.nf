@@ -3,11 +3,15 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { GUNZIP as GUNZIP_GTF           } from '../modules/nf-core/gunzip/main'
-include { GUNZIP as GUNZIP_FASTA         } from '../modules/nf-core/gunzip/main'
-include { GUNZIP as GUNZIP_PROTEIN_FASTA } from '../modules/nf-core/gunzip/main'
-include { GZIP as GZIP_GTF               } from '../modules/local/gzip/main'
-include { SANITIZE_PAR_IDS               } from '../modules/local/sanitize_par_ids/main'
+include { GUNZIP as GUNZIP_GTF                        } from '../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_FASTA                      } from '../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_PROTEIN_FASTA              } from '../modules/nf-core/gunzip/main'
+include { GZIP as GZIP_GTF                            } from '../modules/local/gzip/main'
+include { SANITIZE_PAR_IDS                            } from '../modules/local/sanitize_par_ids/main'
+include { SANITIZE_TRANSCRIPT_IDS as SANITIZE_TRANSCRIPT_IDS_S2_GTF   } from '../modules/local/sanitize_transcript_ids/main'
+include { SANITIZE_TRANSCRIPT_IDS as SANITIZE_TRANSCRIPT_IDS_S2_COUNTS } from '../modules/local/sanitize_transcript_ids/main'
+include { SANITIZE_SAMPLE_NAMES as SANITIZE_SAMPLE_NAMES_S2 } from '../modules/local/sanitize_sample_names/main'
+include { VALIDATE_TRANSCRIPT_IDS as VALIDATE_TRANSCRIPT_IDS_S2 } from '../modules/local/validate_transcript_ids/main'
 include { BUILD_PROTEOME_REFERENCE       } from '../modules/local/build_proteome_reference/main'
 include { PACBIO_ISOCALL                 } from '../subworkflows/local/pacbio_isocall'
 include { TRANSCRIPTOME                  } from '../subworkflows/local/transcriptome'
@@ -41,16 +45,27 @@ workflow LRP2 {
     //
     // Detect multisample-only mode
     //
-    def is_multisample_only = params.transcripts_gtf &&
-                               params.transcript_counts &&
-                               params.orf_counts &&
-                               params.multisample_metadata
+    def is_multisample_only = params.S4_custom_gtf &&
+                               params.S4_custom_counts &&
+                               params.S4_custom_orf_counts &&
+                               params.S4_multisample_metadata
+
+    //
+    // Detect skip-isocall mode (for non-PacBio data like ONT)
+    //
+    def skip_isocall_mode = params.S2_custom_gtf && params.S2_custom_counts
+
+    //
+    // Determine samplesheet path (use sanitized version if it exists)
+    //
+    def sanitized_samplesheet = file("${params.input}.sanitized")
+    def samplesheet_path = sanitized_samplesheet.exists() ? sanitized_samplesheet.toString() : params.input
 
     //
     // Separate RNA and protein samples based on sample_type metadata
     // Note: Genome FASTA decompression is deferred until after we determine if RNA samples are present, and skip samplesheet parsing if in multisample-only mode
     //
-    def samplesheet_file = !is_multisample_only ? file(params.input) : null
+    def samplesheet_file = !is_multisample_only ? file(samplesheet_path) : null
     def has_rna_samples_sync = false
     def has_protein_samples_sync = false
 
@@ -109,9 +124,13 @@ workflow LRP2 {
             // Only log RNA sample detection in normal mode (not multisample-only mode)
             if (!is_multisample_only) {
                 if (count > 0) {
-                    log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.green} Detected ${count} RNA sample(s) - RNA analysis subworkflows will run${colors.reset}-"
+                    if (skip_isocall_mode) {
+                        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.green} Detected ${count} RNA sample(s) - RNA analysis will start from S2 TRANSCRIPTOME (skipping S1 PACBIO ISOCALL)${colors.reset}-"
+                    } else {
+                        log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.green} Detected ${count} RNA sample(s) - RNA analysis subworkflows will run${colors.reset}-"
+                    }
                 } else {
-                    log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No RNA samples detected - skipping RNA analysis subworkflows (PACBIO_ISOCALL, TRANSCRIPTOME, PREDICTED_PROTEOME)${colors.reset}-"
+                    log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.dim} No RNA samples detected - skipping RNA analysis subworkflows (S1 PACBIO ISOCALL, S2 TRANSCRIPTOME, S3 PREDICTED PROTEOME)${colors.reset}-"
                 }
             }
             return count
@@ -224,33 +243,81 @@ workflow LRP2 {
     //
     // Define sample metadata file (used by both RNA subworkflows and multisample analysis)
     //
-    sample_metadata_file = params.sample_metadata ?: params.input
+    sample_metadata_file = params.sample_metadata ?: samplesheet_path
 
     //
     // RNA-specific subworkflows (only execute if RNA samples are present AND not in multisample-only mode)
     //
     if (has_rna_samples_sync && !is_multisample_only) {
-        //
-        // SUBWORKFLOW: Run PacBio IsoCall analysis
-        //
-        // IsoCall requires config TOML and gzipped GTF reference for ISOCALL_PREP
-        ch_isocall_config = channel.value(file("${projectDir}/bin/isocall_config.toml"))
 
-        PACBIO_ISOCALL (
-            ch_rna_samples_filtered,
-            ch_fasta,
-            ch_gtf_gz,
-            ch_isocall_config
-        )
-        ch_versions = ch_versions.mix(PACBIO_ISOCALL.out.versions.ifEmpty([]))
+        // Declare channels for GTF and counts that will be used by TRANSCRIPTOME
+        // These will be populated either from PACBIO_ISOCALL or from external files
+        def ch_called_gtf
+        def ch_count_matrix
+
+        if (!skip_isocall_mode) {
+            //
+            // SUBWORKFLOW: Run PacBio IsoCall analysis (normal mode)
+            //
+            // IsoCall requires config TOML and gzipped GTF reference for ISOCALL_PREP
+            ch_isocall_config = channel.value(file("${projectDir}/bin/isocall_config.toml"))
+
+            PACBIO_ISOCALL (
+                ch_rna_samples_filtered,
+                ch_fasta,
+                ch_gtf_gz,
+                ch_isocall_config
+            )
+            ch_versions = ch_versions.mix(PACBIO_ISOCALL.out.versions.ifEmpty([]))
+            ch_called_gtf = PACBIO_ISOCALL.out.called_gtf
+            ch_count_matrix = PACBIO_ISOCALL.out.count_matrix
+
+        } else {
+            //
+            // Skip-IsoCall mode: Use external GTF and counts from user
+            //
+            log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Using external GTF and counts - skipping PACBIO_ISOCALL subworkflow${colors.reset}-"
+
+            // Create channels from external files
+            ch_external_gtf_input = channel.of([
+                [id: params.dataset_name],
+                file(params.S2_custom_gtf)
+            ])
+
+            ch_count_matrix_input = channel.of([
+                [id: params.dataset_name],
+                file(params.S2_custom_counts)
+            ])
+
+            // Sanitize transcript IDs in GTF (_PAR_Y → -PAR-Y)
+            SANITIZE_TRANSCRIPT_IDS_S2_GTF(ch_external_gtf_input)
+            ch_versions = ch_versions.mix(SANITIZE_TRANSCRIPT_IDS_S2_GTF.out.versions)
+
+            // Sanitize transcript IDs in counts matrix (_PAR_Y → -PAR-Y)
+            SANITIZE_TRANSCRIPT_IDS_S2_COUNTS(ch_count_matrix_input)
+            ch_versions = ch_versions.mix(SANITIZE_TRANSCRIPT_IDS_S2_COUNTS.out.versions)
+
+            // Sanitize sample column names (underscores → dashes in column headers)
+            SANITIZE_SAMPLE_NAMES_S2(SANITIZE_TRANSCRIPT_IDS_S2_COUNTS.out.sanitized)
+            ch_versions = ch_versions.mix(SANITIZE_SAMPLE_NAMES_S2.out.versions)
+
+            // Validate transcript ID overlap between sanitized GTF and sanitized counts
+            VALIDATE_TRANSCRIPT_IDS_S2(
+                SANITIZE_TRANSCRIPT_IDS_S2_GTF.out.sanitized.join(SANITIZE_SAMPLE_NAMES_S2.out.sanitized_counts, by: 0)
+            )
+            ch_versions = ch_versions.mix(VALIDATE_TRANSCRIPT_IDS_S2.out.versions)
+
+            // Extract validated channels
+            ch_called_gtf = VALIDATE_TRANSCRIPT_IDS_S2.out.validated.map { meta, gtf, counts -> [meta, gtf] }
+            ch_count_matrix = VALIDATE_TRANSCRIPT_IDS_S2.out.validated.map { meta, gtf, counts -> [meta, counts] }
+        }
 
         //
         // SUBWORKFLOW: Run SQANTI3 QC and filtering
         //
-
         TRANSCRIPTOME (
-            PACBIO_ISOCALL.out.called_gtf
-                .join(PACBIO_ISOCALL.out.count_matrix, by: 0)
+            ch_called_gtf
+                .join(ch_count_matrix, by: 0)
                 .map { meta, gtf, count ->
                     [meta, gtf, count] },
             ch_gtf,
@@ -622,16 +689,16 @@ workflow LRP2 {
 
         ch_transcripts = channel.of([
             [id: params.dataset_name],
-            file(params.transcripts_gtf),
-            file(params.transcript_counts)
+            file(params.S4_custom_gtf),
+            file(params.S4_custom_counts)
         ])
 
         ch_orfs = channel.of([
             [id: params.dataset_name],
-            file(params.orf_counts)
+            file(params.S4_custom_orf_counts)
         ])
 
-        rna_metadata_file = file(params.multisample_metadata)
+        rna_metadata_file = file(params.S4_multisample_metadata)
 
     } else if (should_run_multisample) {
          // Normal mode: prepare channels from RNA subworkflow outputs

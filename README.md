@@ -201,24 +201,52 @@ Submit with:
 ```bash
 sbatch run_lrp2.sh
 ```
-> **Note**: Customize the above template for your HPC. This includes `#SBATCH` directives (partition, account) and module names (nextflow, apptainer), and the `--hpc_queue` and `--hpc_cluster_options` pipeline parameters. For LSF, replace `#SBATCH` directives with `#BSUB` equivalents and use `-profile singularity,lsf`. For other schedulers, see [Support and customization](#support-and-customization).
+> [!INFO]
+> You should customize the above template for your HPC. This includes `#SBATCH` directives (partition, account), module names (nextflow, apptainer), and the `--hpc_queue` and `--hpc_cluster_options` pipeline parameters. For LSF, replace `#SBATCH` directives with `#BSUB` equivalents and use `-profile singularity,lsf`. For other schedulers, see [Support and customization](#support-and-customization).
 >
 > **Resource allocation** works on two levels:
-> - **The driver job** (`#SBATCH` directives in the shell script): modest resources are sufficient — Nextflow itself only orchestrates submissions and doesn't run the heavy work.
+> - **The driver job** (`#SBATCH` directives in the shell script): modest resources are sufficient. Nextflow itself only orchestrates submissions and doesn't run the heavy work.
 > - **Individual pipeline tasks** (CPUs, memory, time per process): handled automatically by LRP2's internal configuration. You do **not** need to specify these on the command line. To customize, edit `conf/base.config`.
 >
 > Include `--fragpipe_token` only if running the proteomics subworkflow (see [Run the RNA + DDA proteomics test dataset](#run-the-rna--dda-proteomics-test-dataset) for obtaining a token). Differential analysis runs automatically when two or more conditions are present in the samplesheet.
 
+### Running from S2 Transcriptome with non-Pacbio Data
+
+If you have **Oxford Nanopore (ONT)** or other non-PacBio long-read data and have already quantified transcripts using an external tool such as **Bambu**, **StringTie**, or **IsoQuant**, you can start the pipeline from **S2 TRANSCRIPTOME** by providing paths to your external GTF and counts matrix file in addition to your input samplesheet. This allows LRP2 to skip from **S1 PACBIO ISOCALL** directly to **S2 TRANSCRIPTOME**. 
+
+**Required parameters:**
+- `--S2_custom_gtf`: Path to your transcript GTF file
+- `--S2_custom_counts`: Path to your transcript count matrix (TSV format)
+
+**Example command:**
+```bash
+nextflow run /path/to/LRP2 \
+    --input samplesheet.csv \
+    --S2_custom_gtf bambu_extended_annotations.gtf \
+    --S2_custom_counts bambu_counts.tsv \
+    --fasta /path/to/GRCh38.primary_assembly.genome.fa \
+    --gtf /path/to/gencode.v43.primary_assembly.annotation.gtf \
+    --genome GRCh38.p14.v49 \
+    --outdir results \
+    -profile singularity,slurm
+```
+
+> [!INFO] Critical Requirements
+>  1. Transcript IDs **must match exactly** between your provided GTF and counts matrix. If they do not, LRP2 will exit with logging identifying mismatched transcript IDs.  
+>  2. Your provided counts matrix **must be tab-delimited**.
+>  3.  Your provided counts matrix **first column must be named `transcript_id` containing transcript identifiers**, while **subsequent columns have sample names** matching the `sample_name` values in your samplesheet. All values must correspond to raw counts. If your counts matrix contains any other columns, they should be removed as a preprocessing step before input into the pipeline. 
+>  4. Sample names in your samplesheet and counts matrix should not contain underscores. All underscores will be replaced with `-` automatically in the pipeline execution. 
+
 ### Re-running S4 Multisample Analysis Only
 
-If you have already completed a full LRP2 run and  want to re-run just the differential analysis modules (S4 MULTISAMPLE ANALYSIS) with different parameters, you can use **multisample-only mode** by passing a samplesheet through ``--multisample_metadata``, as well as paths to three required input transcript and ORF-level output files from a previous run, as shown:
+If you have already completed a full LRP2 run and  want to re-run just the differential analysis modules (S4 MULTISAMPLE ANALYSIS) with different parameters, you can use **multisample-only mode** by passing a samplesheet through ``--S4_multisample_metadata``, as well as paths to three required input transcript and ORF-level output files from a previous run, as shown:
 
 ```bash
 nextflow run /path/to/LRP2 \
-    --multisample_metadata samplesheet.csv \
-    --transcripts_gtf results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged.transcriptome.filtered.gtf \
-    --transcript_counts results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged.transcriptome.filtered_hashids_with_cpm.txt \
-    --orf_counts results/S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/merged.predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt \
+    --S4_multisample_metadata samplesheet.csv \
+    --S4_custom_gtf results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged.transcriptome.filtered.gtf \
+    --S4_custom_counts results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged.transcriptome.filtered_hashids_with_cpm.txt \
+    --S4_custom_orf_counts results/S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/merged.predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt \
     --outdir results_reanalysis \
     --min_samples_per_intron 1 \
     --min_usage_ratio 0.05 \
@@ -226,7 +254,7 @@ nextflow run /path/to/LRP2 \
 ```
 This mode skips S1-S3 (PacBio Isocall, Transcriptome, Predicted Proteome) and runs only S4 (Multisample Analysis), which is useful for saving time and compute if you are interested in testing different statistical thresholds, filtering parameters, or subgroupings of your samples with multisample analysis.
 
-Your metadata CSV passed to ``--multisample_metadata`` **must** have columns named ``sample_name``, ``sample_path``, ``condition`` or ``group``, and ``sample_type``.  Note that the standard samplesheet format will work for ``--multisample_metadata``. However, if you are rerunning this for the same data with only different condition group labels for samples or minor parameter value changes, we recommend creating a unique samplesheet for each one and choosing a corresponding name for your output results directory to help keep your results organized and straightforward to differentiate between. 
+Your metadata CSV passed to ``--S4_multisample_metadata`` **must** have columns named ``sample_name``, ``sample_path``, ``condition`` or ``group``, and ``sample_type``.  Note that the standard samplesheet format will work for ``--S4_multisample_metadata``. However, if you are rerunning this for the same data with only different condition group labels for samples or minor parameter value changes, we recommend creating a unique samplesheet for each one and choosing a corresponding name for your output results directory to help keep your results organized and straightforward to differentiate between.
 
 ### S5 Proteomics-only Mode
 
@@ -306,6 +334,9 @@ The pipeline supports human and mouse data using GENCODE reference genomes acros
 The pipeline automatically downloads the appropriate FASTA and GTF files based on your `--genome` selection. Species is auto-detected from `--genome` and determines which CPAT model (human or mouse) is used for ORF prediction. See `conf/gencode_references.config` for the full list of supported versions.
 
 Support for RefSeq / igenomes and custom references is under active development.
+
+> [!INFO]
+>  For GENCODE references v25 - v43, the pipeline automatically sanitizes Pseudoautosomal Region (PAR) gene IDs by converting `_PAR_Y` to `-PAR-Y` in the reference GTF (and any GTF and counts matrix from the user for entry from S2 TRANSCRIPTOME, if provided) to ensure formatting compatibility. 
 
 ## Parameters
 
