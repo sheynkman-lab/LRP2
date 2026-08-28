@@ -3,11 +3,15 @@
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { GUNZIP as GUNZIP_GTF           } from '../modules/nf-core/gunzip/main'
-include { GUNZIP as GUNZIP_FASTA         } from '../modules/nf-core/gunzip/main'
-include { GUNZIP as GUNZIP_PROTEIN_FASTA } from '../modules/nf-core/gunzip/main'
-include { GZIP as GZIP_GTF               } from '../modules/local/gzip/main'
-include { SANITIZE_PAR_IDS               } from '../modules/local/sanitize_par_ids/main'
+include { GUNZIP as GUNZIP_GTF                        } from '../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_FASTA                      } from '../modules/nf-core/gunzip/main'
+include { GUNZIP as GUNZIP_PROTEIN_FASTA              } from '../modules/nf-core/gunzip/main'
+include { GZIP as GZIP_GTF                            } from '../modules/local/gzip/main'
+include { SANITIZE_PAR_IDS                            } from '../modules/local/sanitize_par_ids/main'
+include { SANITIZE_TRANSCRIPT_IDS as SANITIZE_TRANSCRIPT_IDS_S2_GTF   } from '../modules/local/sanitize_transcript_ids/main'
+include { SANITIZE_TRANSCRIPT_IDS as SANITIZE_TRANSCRIPT_IDS_S2_COUNTS } from '../modules/local/sanitize_transcript_ids/main'
+include { SANITIZE_SAMPLE_NAMES as SANITIZE_SAMPLE_NAMES_S2 } from '../modules/local/sanitize_sample_names/main'
+include { VALIDATE_TRANSCRIPT_IDS as VALIDATE_TRANSCRIPT_IDS_S2 } from '../modules/local/validate_transcript_ids/main'
 include { BUILD_PROTEOME_REFERENCE       } from '../modules/local/build_proteome_reference/main'
 include { PACBIO_ISOCALL                 } from '../subworkflows/local/pacbio_isocall'
 include { TRANSCRIPTOME                  } from '../subworkflows/local/transcriptome'
@@ -52,10 +56,16 @@ workflow LRP2 {
     def skip_isocall_mode = params.external_gtf && params.external_counts
 
     //
+    // Determine samplesheet path (use sanitized version if it exists)
+    //
+    def sanitized_samplesheet = file("${params.input}.sanitized")
+    def samplesheet_path = sanitized_samplesheet.exists() ? sanitized_samplesheet.toString() : params.input
+
+    //
     // Separate RNA and protein samples based on sample_type metadata
     // Note: Genome FASTA decompression is deferred until after we determine if RNA samples are present, and skip samplesheet parsing if in multisample-only mode
     //
-    def samplesheet_file = !is_multisample_only ? file(params.input) : null
+    def samplesheet_file = !is_multisample_only ? file(samplesheet_path) : null
     def has_rna_samples_sync = false
     def has_protein_samples_sync = false
 
@@ -233,7 +243,7 @@ workflow LRP2 {
     //
     // Define sample metadata file (used by both RNA subworkflows and multisample analysis)
     //
-    sample_metadata_file = params.sample_metadata ?: params.input
+    sample_metadata_file = params.sample_metadata ?: samplesheet_path
 
     //
     // RNA-specific subworkflows (only execute if RNA samples are present AND not in multisample-only mode)
@@ -274,22 +284,32 @@ workflow LRP2 {
                 file(params.external_gtf)
             ])
 
-            // Conditionally sanitize PAR gene IDs in external GTF (same logic as reference GTF)
-            ch_external_gtf_input
-                .branch { meta, gtf ->
-                    needs_sanitization: gtf.text.contains('_PAR_Y')
-                    no_sanitization: true
-                }
-                .set { ch_external_gtf_branched }
-
-            SANITIZE_PAR_IDS(ch_external_gtf_branched.needs_sanitization)
-            ch_called_gtf = ch_external_gtf_branched.no_sanitization
-                .mix(SANITIZE_PAR_IDS.out.sanitized_gtf)
-
-            ch_count_matrix = channel.of([
+            ch_count_matrix_input = channel.of([
                 [id: params.dataset_name],
                 file(params.external_counts)
             ])
+
+            // Sanitize transcript IDs in GTF (_PAR_Y → -PAR-Y)
+            SANITIZE_TRANSCRIPT_IDS_S2_GTF(ch_external_gtf_input)
+            ch_versions = ch_versions.mix(SANITIZE_TRANSCRIPT_IDS_S2_GTF.out.versions)
+
+            // Sanitize transcript IDs in counts matrix (_PAR_Y → -PAR-Y)
+            SANITIZE_TRANSCRIPT_IDS_S2_COUNTS(ch_count_matrix_input)
+            ch_versions = ch_versions.mix(SANITIZE_TRANSCRIPT_IDS_S2_COUNTS.out.versions)
+
+            // Sanitize sample column names (underscores → dashes in column headers)
+            SANITIZE_SAMPLE_NAMES_S2(SANITIZE_TRANSCRIPT_IDS_S2_COUNTS.out.sanitized)
+            ch_versions = ch_versions.mix(SANITIZE_SAMPLE_NAMES_S2.out.versions)
+
+            // Validate transcript ID overlap between sanitized GTF and sanitized counts
+            VALIDATE_TRANSCRIPT_IDS_S2(
+                SANITIZE_TRANSCRIPT_IDS_S2_GTF.out.sanitized.join(SANITIZE_SAMPLE_NAMES_S2.out.sanitized_counts, by: 0)
+            )
+            ch_versions = ch_versions.mix(VALIDATE_TRANSCRIPT_IDS_S2.out.versions)
+
+            // Extract validated channels
+            ch_called_gtf = VALIDATE_TRANSCRIPT_IDS_S2.out.validated.map { meta, gtf, counts -> [meta, gtf] }
+            ch_count_matrix = VALIDATE_TRANSCRIPT_IDS_S2.out.validated.map { meta, gtf, counts -> [meta, counts] }
         }
 
         //
