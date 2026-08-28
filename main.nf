@@ -65,10 +65,10 @@ workflow {
     //
     // Auto-detect multisample-only mode based on parameter presence
     //
-    def is_multisample_only_mode = params.transcripts_gtf &&
-                                    params.transcript_counts &&
-                                    params.orf_counts &&
-                                    params.multisample_metadata
+    def is_multisample_only_mode = params.S4_custom_gtf &&
+                                    params.S4_custom_counts &&
+                                    params.S4_custom_orf_counts &&
+                                    params.S4_multisample_metadata
 
     //
     // Validate input parameters
@@ -80,10 +80,10 @@ workflow {
 
         // Validate all four parameters are provided
         def required_params = [
-            'transcripts_gtf': params.transcripts_gtf,
-            'transcript_counts': params.transcript_counts,
-            'orf_counts': params.orf_counts,
-            'multisample_metadata': params.multisample_metadata
+            'transcripts_gtf': params.S4_custom_gtf,
+            'transcript_counts': params.S4_custom_counts,
+            'orf_counts': params.S4_custom_orf_counts,
+            'multisample_metadata': params.S4_multisample_metadata
         ]
 
         required_params.each { param_name, param_value ->
@@ -94,10 +94,10 @@ workflow {
 
         // Validate files exist
         def files_to_check = [
-            'transcripts_gtf': file(params.transcripts_gtf),
-            'transcript_counts': file(params.transcript_counts),
-            'orf_counts': file(params.orf_counts),
-            'multisample_metadata': file(params.multisample_metadata)
+            'transcripts_gtf': file(params.S4_custom_gtf),
+            'transcript_counts': file(params.S4_custom_counts),
+            'orf_counts': file(params.S4_custom_orf_counts),
+            'multisample_metadata': file(params.S4_multisample_metadata)
         ]
 
         files_to_check.each { param_name, file_obj ->
@@ -107,10 +107,10 @@ workflow {
         }
 
         // Validate metadata file format
-        def metadata_file = file(params.multisample_metadata)
+        def metadata_file = file(params.S4_multisample_metadata)
         def metadata_lines = metadata_file.text.split('\n')
         if (metadata_lines.size() < 2) {
-            error("ERROR: Metadata file is empty or has no data rows: ${params.multisample_metadata}")
+            error("ERROR: Metadata file is empty or has no data rows: ${params.S4_multisample_metadata}")
         }
 
         def header = metadata_lines[0].toLowerCase()
@@ -122,14 +122,14 @@ workflow {
             def missing = []
             if (!has_name_column) missing << "'name' or 'sample_name'"
             if (!has_group_column) missing << "'group' or 'condition'"
-            error("ERROR: Metadata file must have ${missing.join(' and ')} column(s). Found header: ${metadata_lines[0]}\nFile: ${params.multisample_metadata}")
+            error("ERROR: Metadata file must have ${missing.join(' and ')} column(s). Found header: ${metadata_lines[0]}\nFile: ${params.S4_multisample_metadata}")
         }
 
         log.info "${logColours(params.monochrome_logs).green} ${logColours(params.monochrome_logs).reset} All multisample-only input files validated successfully!"
-        log.info "${logColours(params.monochrome_logs).dim}  - Transcripts GTF: ${params.transcripts_gtf}${logColours(params.monochrome_logs).reset}"
-        log.info "${logColours(params.monochrome_logs).dim}  - Transcript counts: ${params.transcript_counts}${logColours(params.monochrome_logs).reset}"
-        log.info "${logColours(params.monochrome_logs).dim}  - ORF counts: ${params.orf_counts}${logColours(params.monochrome_logs).reset}"
-        log.info "${logColours(params.monochrome_logs).dim}  - Sample metadata: ${params.multisample_metadata}${logColours(params.monochrome_logs).reset}"
+        log.info "${logColours(params.monochrome_logs).dim}  - Transcripts GTF: ${params.S4_custom_gtf}${logColours(params.monochrome_logs).reset}"
+        log.info "${logColours(params.monochrome_logs).dim}  - Transcript counts: ${params.S4_custom_counts}${logColours(params.monochrome_logs).reset}"
+        log.info "${logColours(params.monochrome_logs).dim}  - ORF counts: ${params.S4_custom_orf_counts}${logColours(params.monochrome_logs).reset}"
+        log.info "${logColours(params.monochrome_logs).dim}  - Sample metadata: ${params.S4_multisample_metadata}${logColours(params.monochrome_logs).reset}"
         log.info ""
 
     }
@@ -137,7 +137,7 @@ workflow {
     //
     // Auto-detect skip-isocall mode based on parameter presence
     //
-    def skip_isocall_mode = params.external_gtf || params.external_counts
+    def skip_isocall_mode = params.S2_custom_gtf || params.S2_custom_counts
 
     if (skip_isocall_mode) {
         log.info "${logColours(params.monochrome_logs).blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${logColours(params.monochrome_logs).reset}"
@@ -145,8 +145,8 @@ workflow {
         log.info "${logColours(params.monochrome_logs).blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${logColours(params.monochrome_logs).reset}"
 
         // Validate both parameters are provided together
-        if (!params.external_gtf || !params.external_counts) {
-            error("ERROR: Both --external_gtf and --external_counts must be provided together to skip PACBIO_ISOCALL.\n\nProvided:\n  --external_gtf: ${params.external_gtf ?: 'NOT PROVIDED'}\n  --external_counts: ${params.external_counts ?: 'NOT PROVIDED'}\n\nTo use skip-isocall mode, provide both parameters. To run normally, omit both parameters.")
+        if (!params.S2_custom_gtf || !params.S2_custom_counts) {
+            error("ERROR: Both --S2_custom_gtf and --S2_custom_counts must be provided together to skip PACBIO_ISOCALL.\n\nProvided:\n  --S2_custom_gtf: ${params.S2_custom_gtf ?: 'NOT PROVIDED'}\n  --S2_custom_counts: ${params.S2_custom_counts ?: 'NOT PROVIDED'}\n\nTo use skip-isocall mode, provide both parameters. To run normally, omit both parameters.")
         }
 
         // Validate samplesheet is still required
@@ -155,14 +155,14 @@ workflow {
         }
 
         // Validate files exist
-        def external_gtf_file = file(params.external_gtf)
-        def external_counts_file = file(params.external_counts)
+        def external_gtf_file = file(params.S2_custom_gtf)
+        def external_counts_file = file(params.S2_custom_counts)
 
         if (!external_gtf_file.exists()) {
-            error("ERROR: External GTF file not found: ${params.external_gtf}")
+            error("ERROR: External GTF file not found: ${params.S2_custom_gtf}")
         }
         if (!external_counts_file.exists()) {
-            error("ERROR: External count matrix file not found: ${params.external_counts}")
+            error("ERROR: External count matrix file not found: ${params.S2_custom_counts}")
         }
 
         // Validate GTF format (basic check)
@@ -172,7 +172,7 @@ workflow {
 
         def gtf_lines = gtf_content.split('\n').findAll { line -> !line.startsWith('#') && line.trim() }
         if (gtf_lines.size() == 0) {
-            error("ERROR: External GTF file appears to be empty or contains only comments: ${params.external_gtf}")
+            error("ERROR: External GTF file appears to be empty or contains only comments: ${params.S2_custom_gtf}")
         }
 
         // Validate count matrix format and sample name matching
@@ -180,14 +180,14 @@ workflow {
         def counts_lines = counts_content.split('\n').findAll { it.trim() }
 
         if (counts_lines.size() < 2) {
-            error("ERROR: External count matrix appears to be empty or has no data rows: ${params.external_counts}")
+            error("ERROR: External count matrix appears to be empty or has no data rows: ${params.S2_custom_counts}")
         }
 
         def counts_header = counts_lines[0]
         def counts_header_parts = counts_header.split(/[,\t]/)
 
         if (counts_header_parts.size() < 2) {
-            error("ERROR: External count matrix must have at least 2 columns (transcript_id + at least one sample). Found: ${counts_header_parts.size()} column(s)\nHeader: ${counts_header}\nFile: ${params.external_counts}")
+            error("ERROR: External count matrix must have at least 2 columns (transcript_id + at least one sample). Found: ${counts_header_parts.size()} column(s)\nHeader: ${counts_header}\nFile: ${params.S2_custom_counts}")
         }
 
         // Extract sample names from count matrix (skip first column which is transcript_id)
@@ -234,8 +234,8 @@ workflow {
         }
 
         log.info "${logColours(params.monochrome_logs).green} ${logColours(params.monochrome_logs).reset} All skip-isocall input files validated successfully!"
-        log.info "${logColours(params.monochrome_logs).dim}  - External GTF: ${params.external_gtf}${logColours(params.monochrome_logs).reset}"
-        log.info "${logColours(params.monochrome_logs).dim}  - External counts: ${params.external_counts}${logColours(params.monochrome_logs).reset}"
+        log.info "${logColours(params.monochrome_logs).dim}  - External GTF: ${params.S2_custom_gtf}${logColours(params.monochrome_logs).reset}"
+        log.info "${logColours(params.monochrome_logs).dim}  - External counts: ${params.S2_custom_counts}${logColours(params.monochrome_logs).reset}"
         log.info "${logColours(params.monochrome_logs).dim}  - Count matrix samples (${count_matrix_samples.size()}): ${count_matrix_samples.join(', ')}${logColours(params.monochrome_logs).reset}"
         log.info "${logColours(params.monochrome_logs).dim}  - RNA samples in samplesheet (${rna_sample_names.size()}): ${rna_sample_names.join(', ')}${logColours(params.monochrome_logs).reset}"
         log.info ""

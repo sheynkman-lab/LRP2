@@ -215,15 +215,15 @@ sbatch run_lrp2.sh
 If you have **Oxford Nanopore (ONT)** or other non-PacBio long-read data and have already quantified transcripts using an external tool such as **Bambu**, **StringTie**, or **IsoQuant**, you can start the pipeline from **S2 TRANSCRIPTOME** by providing paths to your external GTF and counts matrix file in addition to your input samplesheet. This allows LRP2 to skip from **S1 PACBIO ISOCALL** directly to **S2 TRANSCRIPTOME**. 
 
 **Required parameters:**
-- `--external_gtf`: Path to your transcript GTF file
-- `--external_counts`: Path to your transcript count matrix (TSV format)
+- `--S2_custom_gtf`: Path to your transcript GTF file
+- `--S2_custom_counts`: Path to your transcript count matrix (TSV format)
 
 **Example command:**
 ```bash
 nextflow run /path/to/LRP2 \
     --input samplesheet.csv \
-    --external_gtf bambu_extended_annotations.gtf \
-    --external_counts bambu_counts.tsv \
+    --S2_custom_gtf bambu_extended_annotations.gtf \
+    --S2_custom_counts bambu_counts.tsv \
     --fasta /path/to/GRCh38.primary_assembly.genome.fa \
     --gtf /path/to/gencode.v43.primary_assembly.annotation.gtf \
     --genome GRCh38.p14.v49 \
@@ -239,14 +239,14 @@ nextflow run /path/to/LRP2 \
 
 ### Re-running S4 Multisample Analysis Only
 
-If you have already completed a full LRP2 run and  want to re-run just the differential analysis modules (S4 MULTISAMPLE ANALYSIS) with different parameters, you can use **multisample-only mode** by passing a samplesheet through ``--multisample_metadata``, as well as paths to three required input transcript and ORF-level output files from a previous run, as shown:
+If you have already completed a full LRP2 run and  want to re-run just the differential analysis modules (S4 MULTISAMPLE ANALYSIS) with different parameters, you can use **multisample-only mode** by passing a samplesheet through ``--S4_multisample_metadata``, as well as paths to three required input transcript and ORF-level output files from a previous run, as shown:
 
 ```bash
 nextflow run /path/to/LRP2 \
-    --multisample_metadata samplesheet.csv \
-    --transcripts_gtf results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged.transcriptome.filtered.gtf \
-    --transcript_counts results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged.transcriptome.filtered_hashids_with_cpm.txt \
-    --orf_counts results/S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/merged.predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt \
+    --S4_multisample_metadata samplesheet.csv \
+    --S4_custom_gtf results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged.transcriptome.filtered.gtf \
+    --S4_custom_counts results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged.transcriptome.filtered_hashids_with_cpm.txt \
+    --S4_custom_orf_counts results/S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/merged.predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt \
     --outdir results_reanalysis \
     --min_samples_per_intron 1 \
     --min_usage_ratio 0.05 \
@@ -254,7 +254,7 @@ nextflow run /path/to/LRP2 \
 ```
 This mode skips S1-S3 (PacBio Isocall, Transcriptome, Predicted Proteome) and runs only S4 (Multisample Analysis), which is useful for saving time and compute if you are interested in testing different statistical thresholds, filtering parameters, or subgroupings of your samples with multisample analysis.
 
-Your metadata CSV passed to ``--multisample_metadata`` **must** have columns named ``sample_name``, ``sample_path``, ``condition`` or ``group``, and ``sample_type``.  Note that the standard samplesheet format will work for ``--multisample_metadata``. However, if you are rerunning this for the same data with only different condition group labels for samples or minor parameter value changes, we recommend creating a unique samplesheet for each one and choosing a corresponding name for your output results directory to help keep your results organized and straightforward to differentiate between.
+Your metadata CSV passed to ``--S4_multisample_metadata`` **must** have columns named ``sample_name``, ``sample_path``, ``condition`` or ``group``, and ``sample_type``.  Note that the standard samplesheet format will work for ``--S4_multisample_metadata``. However, if you are rerunning this for the same data with only different condition group labels for samples or minor parameter value changes, we recommend creating a unique samplesheet for each one and choosing a corresponding name for your output results directory to help keep your results organized and straightforward to differentiate between.
 
 ### S5 Proteomics-only Mode
 

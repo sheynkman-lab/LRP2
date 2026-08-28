@@ -45,15 +45,15 @@ workflow LRP2 {
     //
     // Detect multisample-only mode
     //
-    def is_multisample_only = params.transcripts_gtf &&
-                               params.transcript_counts &&
-                               params.orf_counts &&
-                               params.multisample_metadata
+    def is_multisample_only = params.S4_custom_gtf &&
+                               params.S4_custom_counts &&
+                               params.S4_custom_orf_counts &&
+                               params.S4_multisample_metadata
 
     //
     // Detect skip-isocall mode (for non-PacBio data like ONT)
     //
-    def skip_isocall_mode = params.external_gtf && params.external_counts
+    def skip_isocall_mode = params.S2_custom_gtf && params.S2_custom_counts
 
     //
     // Determine samplesheet path (use sanitized version if it exists)
@@ -281,12 +281,12 @@ workflow LRP2 {
             // Create channels from external files
             ch_external_gtf_input = channel.of([
                 [id: params.dataset_name],
-                file(params.external_gtf)
+                file(params.S2_custom_gtf)
             ])
 
             ch_count_matrix_input = channel.of([
                 [id: params.dataset_name],
-                file(params.external_counts)
+                file(params.S2_custom_counts)
             ])
 
             // Sanitize transcript IDs in GTF (_PAR_Y → -PAR-Y)
@@ -689,16 +689,16 @@ workflow LRP2 {
 
         ch_transcripts = channel.of([
             [id: params.dataset_name],
-            file(params.transcripts_gtf),
-            file(params.transcript_counts)
+            file(params.S4_custom_gtf),
+            file(params.S4_custom_counts)
         ])
 
         ch_orfs = channel.of([
             [id: params.dataset_name],
-            file(params.orf_counts)
+            file(params.S4_custom_orf_counts)
         ])
 
-        rna_metadata_file = file(params.multisample_metadata)
+        rna_metadata_file = file(params.S4_multisample_metadata)
 
     } else if (should_run_multisample) {
          // Normal mode: prepare channels from RNA subworkflow outputs

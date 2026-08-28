@@ -438,16 +438,16 @@
             "type": "object",
             "fa_icon": "fas fa-forward",
             "description": "Parameters for providing external isoform calls (e.g., from ONT data) to skip the PACBIO_ISOCALL subworkflow.",
-            "help_text": "Use these parameters to provide pre-computed isoform GTF and count matrix from external sources (e.g., ONT with StringTie, Bambu, FLAMES, etc.). When both external_gtf and external_counts are provided, the pipeline will skip PACBIO_ISOCALL and start from the TRANSCRIPTOME subworkflow. The --input samplesheet parameter is still required as it contains metadata needed for downstream analysis.",
+            "help_text": "Use these parameters to provide pre-computed isoform GTF and count matrix from external sources (e.g., ONT with StringTie, Bambu, FLAMES, etc.). When both S2_custom_gtf and S2_custom_counts are provided, the pipeline will skip PACBIO_ISOCALL and start from the TRANSCRIPTOME subworkflow. The --input samplesheet parameter is still required as it contains metadata needed for downstream analysis.",
             "properties": {
-                "external_gtf": {
+                "S2_custom_gtf": {
                     "type": "string",
                     "format": "file-path",
                     "description": "Pre-computed GTF file with called isoforms (from any isoform caller).",
                     "help_text": "Path to a GTF file containing called transcript isoforms from any long-read isoform caller (e.g., PacBio IsoCall, ONT Bambu, ONT FLAMES, StringTie, etc.). Can be gzipped (.gtf.gz) or uncompressed (.gtf). Transcript IDs should follow the format: ENSEMBL_ID for annotated transcripts, or ENSEMBL_ID.{suffix} for novel transcripts.",
                     "fa_icon": "far fa-file-code"
                 },
-                "external_counts": {
+                "S2_custom_counts": {
                     "type": "string",
                     "format": "file-path",
                     "description": "Pre-computed count matrix (transcript counts per sample).",
@@ -463,28 +463,28 @@
             "description": "Parameters for running only multisample analysis with pre-computed inputs from a previous LRP2 run.",
             "help_text": "Use these parameters to re-run only the multisample analysis subworkflow using outputs from a previous full pipeline run. All four file parameters must be provided together to enable this mode. The --input samplesheet parameter is not required in this mode.",
             "properties": {
-                "transcripts_gtf": {
+                "S4_custom_gtf": {
                     "type": "string",
                     "format": "file-path",
                     "description": "Pre-computed filtered GTF file from TRANSCRIPTOME subworkflow.",
                     "help_text": "Path to the filtered GTF file (typically named *_corrected_filtered.gtf) from a previous LRP2 run. This file is output by the FILTER_TRANSCRIPTOME module in the TRANSCRIPTOME subworkflow.",
                     "fa_icon": "far fa-file-code"
                 },
-                "transcript_counts": {
+                "S4_custom_counts": {
                     "type": "string",
                     "format": "file-path",
                     "description": "Pre-computed transcript count matrix from TRANSCRIPTOME subworkflow.",
                     "help_text": "Path to the transcript count matrix file (typically named *_hashids_with_cpm_filtered.txt) from a previous LRP2 run. This file contains CPM-normalized transcript counts.",
                     "fa_icon": "far fa-file-alt"
                 },
-                "orf_counts": {
+                "S4_custom_orf_counts": {
                     "type": "string",
                     "format": "file-path",
                     "description": "Pre-computed ORF count matrix from PREDICTED_PROTEOME subworkflow.",
                     "help_text": "Path to the ORF count matrix file (typically named *.predicted.proteome.high_confidence_ORF_cpm.txt) from a previous LRP2 run. This file contains CPM-normalized ORF counts.",
                     "fa_icon": "far fa-file-alt"
                 },
-                "multisample_metadata": {
+                "S4_multisample_metadata": {
                     "type": "string",
                     "format": "file-path",
                     "description": "RNA sample metadata CSV file for multisample analysis.",
