@@ -105,7 +105,7 @@ option_list = list(
               help = "Minimum junctions after stop codon for NMD filter [default: %default]"),
   make_option(c("--protein_class_keep"), type = "character", default = "FPM,NPC,NPE",
               help = "Comma-separated protein classes to keep [default: %default]"),
-  make_option(c("--nmd_rescue_dist"), type = "integer", default = 25,
+  make_option(c("--nmd_rescue_dist"), type = "integer", default = 50,
               help = "Max distance (bp) from stop to junction for NMD rescue [default: %default]")
 )
 

@@ -54,10 +54,10 @@
             "properties": {
                 "genome": {
                     "type": "string",
-                    "default": "GRCh38.p14.v49",
+                    "default": "GRCh38.p14.v50",
                     "description": "Name of genome reference. This automatically populates the paths for the reference FASTA and GTF files if using GENCODE references.",
                     "fa_icon": "fas fa-book",
-                    "help_text": "Use this parameter to specify a GENCODE reference by ID, which builds the full paths for the reference FASTA, GTF, and protein FASTA, e.g. `--genome GRCh38.p14.v47`. Available IDs are defined in `conf/gencode_references.config`. Defaults to `GRCh38.p14.v49` if not specified. To use custom references instead, provide `--fasta` and `--gtf` directly along with `--species`."
+                    "help_text": "Use this parameter to specify a GENCODE reference by ID, which builds the full paths for the reference FASTA, GTF, and protein FASTA, e.g. `--genome GRCh38.p14.v50`. Available IDs are defined in `conf/gencode_references.config`. Defaults to `GRCh38.p14.v50` if not specified. To use custom references instead, provide `--fasta` and `--gtf` directly along with `--species`."
                 },
                 "gtf": {
                     "type": "string",
@@ -144,20 +144,6 @@
             "fa_icon": "fas fa-dna",
             "description": "Options for the PacBio IsoCall transcript calling module.",
             "properties": {
-                "min_read_support": {
-                    "type": "integer",
-                    "default": 3,
-                    "description": "Minimum read support required for calling novel transcripts.",
-                    "help_text": "Transcripts must be supported by at least this many reads to be called.",
-                    "fa_icon": "fas fa-layer-group"
-                },
-                "max_bundles_per_gene": {
-                    "type": "integer",
-                    "default": 100,
-                    "description": "Maximum bundles to use per gene during read sampling.",
-                    "help_text": "Limits the number of read bundles processed per gene to improve performance.",
-                    "fa_icon": "fas fa-boxes"
-                },
                 "isocall_config": {
                     "type": "string",
                     "format": "file-path",
