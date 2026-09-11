@@ -215,12 +215,14 @@ sqanti_df %<>%
 original_isoform_ids = sqanti_df$isoform
 
 # Replace original isoform IDs with new pipeline isoform_id throughout
+# Use resolved gene_id from 'GENERATE HASHIDS' script - resolving composite gene mappings
 sqanti_df_full = sqanti_df %>%
-  inner_join(mapping %>% select(isoform_id, original_transcript_id,
+  inner_join(mapping %>% select(isoform_id, original_transcript_id, reference_gene_id,
                                 any_of("gene_type"), any_of("gene_name")),
              by = c("isoform" = "original_transcript_id")) %>%
-  mutate(isoform = isoform_id) %>%
-  select(-isoform_id)
+  mutate(isoform = isoform_id,
+         associated_gene = reference_gene_id) %>%
+  select(-isoform_id, -reference_gene_id)
 
 # Build the hashids + CPM table using new isoform IDs
 all_ids = mapping %>%
@@ -400,6 +402,7 @@ gtf = import(sqanti_gtf) %>%
   as.data.frame()
 
 # Filter to kept transcripts (using original IDs since GTF still has them)
+# update transcript_id but old gene_id and gene_name are still present, replace in next step
 filtered_gtf = gtf %>%
   filter(transcript_id %in% kept_original_ids) %>%
   left_join(id_lookup, by = c("transcript_id" = "original_transcript_id")) %>%
@@ -416,11 +419,14 @@ new_attributes = all_ids %>%
     avg_ratio = round(avg_cpm / gene_total_cpm, 3)
   ) %>%
   ungroup() %>%
-  select(transcript_id = isoform_id, avg_ratio)
+  select(transcript_id = isoform_id, avg_ratio, new_gene_id = reference_gene_id, new_gene_name = gene_name)
 
 filtered_gtf %<>% 
   left_join(new_attributes, by = c("transcript_id")) %>%
-  mutate(name = paste0(transcript_id, "|", avg_ratio))
+  mutate(name = paste0(transcript_id, "|", avg_ratio),
+         gene_id   = new_gene_id,
+         gene_name = new_gene_name) %>%
+  select(-new_gene_id, -new_gene_name)
 
 gr_updated = makeGRangesFromDataFrame(filtered_gtf, keep.extra.columns = TRUE)
 gtf_output = file.path(output_dir, paste0(basename, ".transcriptome.filtered.gtf"))

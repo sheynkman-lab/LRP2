@@ -1,6 +1,6 @@
 process SQANTI_QC {
     tag "$meta.id"
-    label 'process_long'
+    label 'process_high'
 
     conda "${moduleDir}/environment.yml"
     container 'docker://docker.io/anaconesalab/sqanti3:v6.0.1'

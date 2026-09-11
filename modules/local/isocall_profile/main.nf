@@ -3,7 +3,10 @@ process ISOCALL_PROFILE {
     label 'process_low'
 
     conda "${moduleDir}/environment.yml"
-    container "quay.io/pacbio/isocall:0.15.0_build1"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://jtllab/isocall:1.3.0-nextflow-fix' :
+        'jtllab/isocall:1.3.0-nextflow-fix' }"
+        
 
     input:
     tuple val(meta), path(aligned_bam)
@@ -20,6 +23,7 @@ process ISOCALL_PROFILE {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def sample_id = meta.sample_name ?: prefix
+    def io_threads = task.cpus ?: 1
     """
     exec > >(tee ${prefix}_S1_PACBIO_ISOCALL_M3_ISOCALL_PROFILE_log.txt) 2>&1
 
@@ -27,6 +31,7 @@ process ISOCALL_PROFILE {
         --reads $aligned_bam \\
         --sample ${sample_id} \\
         --output ${prefix}_profile.gz \\
+        --io-threads $io_threads \\
         $args
 
     cat <<-END_VERSIONS > versions.yml

@@ -29,4 +29,4 @@ Rscript /scratch/cwp5au/LRP2_lite/bin/04_protein_classification.R \
   --output_dir ${DATA_DIR} \
   --min_junctions_after_stop 0 \
   --protein_class_keep "FPM,NPC,NPE" \
-  --nmd_rescue_dist 25
+  --nmd_rescue_dist 50

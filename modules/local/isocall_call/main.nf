@@ -4,8 +4,8 @@ process ISOCALL_CALL {
 
     conda "${moduleDir}/environment.yml"
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'docker://quay.io/pacbio/isocall:0.15.0_build1' :
-        'quay.io/pacbio/isocall:0.15.0_build1' }"
+        'docker://jtllab/isocall:1.3.0-nextflow-fix' :
+        'jtllab/isocall:1.3.0-nextflow-fix' }"
 
     input:
     tuple val(meta), path(merged_profile)
@@ -25,8 +25,6 @@ process ISOCALL_CALL {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def threads = task.cpus ?: 1
-    def min_read_support = task.ext.min_read_support ?: params.min_read_support
-    def max_bundles_per_gene = task.ext.max_bundles_per_gene ?: params.max_bundles_per_gene
     """
     isocall call \\
         --threads $threads \\
@@ -35,8 +33,6 @@ process ISOCALL_CALL {
         --reference $reference_fasta \\
         --output-prefix ${prefix}.isocall \\
         --config $config_toml \\
-        --min-reads-per-isoform $min_read_support \\
-        --max-bundles-per-gene $max_bundles_per_gene \\
         $args
     
     mv ${prefix}.isocall.count_matrix.txt ${prefix}.isocall.count_matrix.csv

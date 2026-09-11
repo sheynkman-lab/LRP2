@@ -249,6 +249,11 @@ workflow LRP2 {
     // RNA-specific subworkflows (only execute if RNA samples are present AND not in multisample-only mode)
     //
     if (has_rna_samples_sync && !is_multisample_only) {
+        //
+        // SUBWORKFLOW: Run PacBio IsoCall analysis
+        //
+        // IsoCall requires config TOML and gzipped GTF reference for ISOCALL_PREP
+        ch_isocall_config = channel.value(file(params.isocall_config))
 
         // Declare channels for GTF and counts that will be used by TRANSCRIPTOME
         // These will be populated either from PACBIO_ISOCALL or from external files

@@ -189,7 +189,7 @@ nextflow run /path/to/LRP2 \
     --input samplesheet.csv \
     --outdir results \
     --dataset_name my_dataset \
-    --genome GRCh38.p14.v49 \
+    --genome GRCh38.p14.v50 \
     --protein_search fragpipe \
     --fragpipe_token "YOUR_TOKEN" \
     --hpc_queue your_queue \
@@ -264,7 +264,7 @@ If you have already generated a transcriptome and predicted proteome, you can ru
 nextflow run /path/to/LRP2 \
     --input samplesheet.csv \
     --outdir results \
-    --genome GRCh38.p14.v49 \
+    --genome GRCh38.p14.v50 \
     --S5_custom_protein_fasta S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/lrp2.predicted_proteome.best_ORF.fa \
     --S5_custom_cds_gtf S3_PREDICTED_PROTEOME/M2_FILTER_CPAT/lrp2.predicted_proteome.best_ORF.gtf \
     --S5_custom_counts S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrp2.transcriptome.all_hashids_with_cpm.txt \
@@ -328,7 +328,7 @@ Nextflow profiles control how the pipeline executes. Multiple profiles can be co
 
 The pipeline supports human and mouse data using GENCODE reference genomes across multiple versions:
 
-- **Human**: `GRCh38.p14.v49`, `GRCh38.p14.v48`, ..., `GRCh38.p14.v44`, `GRCh38.p13.v43`, ..., `GRCh37.p13.v19`
+- **Human**: `GRCh38.p14.v50`, `GRCh38.p14.v49`, `GRCh38.p14.v48`, ..., `GRCh38.p14.v44`, `GRCh38.p13.v43`, ..., `GRCh37.p13.v19`
 - **Mouse**: `GRCm39.vM38`, `GRCm39.vM37`, `GRCm39.vM36`, `GRCm39.vM35`, `GRCm39.vM34`
 
 The pipeline automatically downloads the appropriate FASTA and GTF files based on your `--genome` selection. Species is auto-detected from `--genome` and determines which CPAT model (human or mouse) is used for ORF prediction. See `conf/gencode_references.config` for the full list of supported versions.
@@ -354,7 +354,7 @@ nextflow run /path/to/LRP2 --help
 | `--input` | Path to samplesheet CSV (required) | — |
 | `--outdir` | Path to output directory (required) | — |
 | `--dataset_name` | Run identifier used for output prefixes | `merged` |
-| `--genome` | Reference genome version | `GRCh38.p14.v49` |
+| `--genome` | Reference genome version | `GRCh38.p14.v50` |
 
 ### HPC Scheduler Options
 
@@ -367,9 +367,10 @@ nextflow run /path/to/LRP2 --help
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `--min_read_support` | Minimum read support for transcripts | `3` |
 | `--isocall_config` | Path to custom Isocall configuration TOML file | `bin/isocall_config.toml` |
-  
+
+> **Note**: LRP2 currently uses Isocall 1.3.0. The configuration TOML schema is version-specific — parameters from other Isocall releases may be silently ignored.
+
 ### S2 Transcriptome
 
 | Parameter | Description | Default |
@@ -413,9 +414,9 @@ Each subworkflow outputs to numbered module directories. The final module in eac
 ```
 <outdir>/
 ├── S1_PACBIO_ISOCALL/                   
-│   ├── M1_ISOCALL_ALIGN/               
-│   ├── M2_ISOCALL_PROFILE/             
-│   ├── M3_ISOCALL_PREP/                 
+│   ├── M1_ISOCALL_PREP/               
+│   ├── M2_ISOCALL_ALIGN/             
+│   ├── M3_ISOCALL_PROFILE/                 
 │   ├── M4_ISOCALL_MERGE/                
 │   └── M5_ISOCALL_CALL/                 # GTF of transcript structures and count matrix
 ├── S2_TRANSCRIPTOME/                   
@@ -514,7 +515,7 @@ LRP2 builds on the original LRP framework:
 
 Please also cite the tools used by the pipeline:
 
-- **Isocall** (PacBio) — [github.com/PacificBiosciences/isocall](https://github.com/PacificBiosciences/isocall)
+- **Isocall 1.3.0** (PacBio) — [github.com/PacificBiosciences/isocall](https://github.com/PacificBiosciences/isocall)
   
 - **SQANTI3**
   > Pardo-Palacios, F. J., Arzalluz-Luque, A., Kondratova, L., et al. 2024. "SQANTI3: curation of long-read transcriptomes for accurate identification of known and novel isoforms." *Nature Methods* 21(5): 793–797. doi: [10.1038/s41592-024-02229-2](https://doi.org/10.1038/s41592-024-02229-2)
