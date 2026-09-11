@@ -10,7 +10,6 @@ include { GZIP as GZIP_GTF                            } from '../modules/local/g
 include { SANITIZE_PAR_IDS                            } from '../modules/local/sanitize_par_ids/main'
 include { SANITIZE_TRANSCRIPT_IDS as SANITIZE_TRANSCRIPT_IDS_S2_GTF   } from '../modules/local/sanitize_transcript_ids/main'
 include { SANITIZE_TRANSCRIPT_IDS as SANITIZE_TRANSCRIPT_IDS_S2_COUNTS } from '../modules/local/sanitize_transcript_ids/main'
-include { SANITIZE_SAMPLE_NAMES as SANITIZE_SAMPLE_NAMES_S2 } from '../modules/local/sanitize_sample_names/main'
 include { VALIDATE_TRANSCRIPT_IDS as VALIDATE_TRANSCRIPT_IDS_S2 } from '../modules/local/validate_transcript_ids/main'
 include { BUILD_PROTEOME_REFERENCE       } from '../modules/local/build_proteome_reference/main'
 include { PACBIO_ISOCALL                 } from '../subworkflows/local/pacbio_isocall'
@@ -302,13 +301,9 @@ workflow LRP2 {
             SANITIZE_TRANSCRIPT_IDS_S2_COUNTS(ch_count_matrix_input)
             ch_versions = ch_versions.mix(SANITIZE_TRANSCRIPT_IDS_S2_COUNTS.out.versions)
 
-            // Sanitize sample column names (underscores → dashes in column headers)
-            SANITIZE_SAMPLE_NAMES_S2(SANITIZE_TRANSCRIPT_IDS_S2_COUNTS.out.sanitized)
-            ch_versions = ch_versions.mix(SANITIZE_SAMPLE_NAMES_S2.out.versions)
-
             // Validate transcript ID overlap between sanitized GTF and sanitized counts
             VALIDATE_TRANSCRIPT_IDS_S2(
-                SANITIZE_TRANSCRIPT_IDS_S2_GTF.out.sanitized.join(SANITIZE_SAMPLE_NAMES_S2.out.sanitized_counts, by: 0)
+                SANITIZE_TRANSCRIPT_IDS_S2_GTF.out.sanitized.join(SANITIZE_TRANSCRIPT_IDS_S2_COUNTS.out.sanitized, by: 0)
             )
             ch_versions = ch_versions.mix(VALIDATE_TRANSCRIPT_IDS_S2.out.versions)
 
