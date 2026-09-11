@@ -417,24 +417,69 @@ def sanitizeSamplesheet(input_file) {
 //
 def validateInputParameters() {
     genomeExistsError()
+    validateReferenceParameters()
     validateSpeciesParameter()
 }
 
 //
-// Validate species parameter when using custom references
+// Validate reference parameter usage: --genome takes priority, cannot mix with --local_reference_*
+//
+def validateReferenceParameters() {
+    def has_genome = params.genome
+    def has_local_gtf = params.local_reference_gtf
+    def has_local_fasta = params.local_reference_fasta
+    def is_predefined_genome = params.genome && params.gencode_refs?.containsKey(params.genome)
+
+    // Detect if --genome was explicitly provided on command line (vs just being default value)
+    def genome_explicitly_provided = workflow.commandLine.contains('--genome')
+
+    // Only trigger this error if user explicitly provided --genome on command line
+    if (genome_explicitly_provided && (has_local_gtf || has_local_fasta)) {
+        def error_string = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" +
+            "  ERROR: You cannot use --genome simultaneously with --local_reference_gtf or --local_reference_fasta.\n" +
+            "  \n" +
+            "  Note that --genome automatically sets reference files.\n" +
+            "  \n" +
+            "  Please choose ONE approach:\n" +
+            "    1) Use --genome (recommended):\n" +
+            "       --genome GRCh38.p14.v50\n" +
+            "  \n" +
+            "    2) It is possible to set a custom reference via the --local_reference_gtf and --local_reference_fasta parameters.\n" +
+            "       However, please contact the maintainers for additional support before using custom reference files, as LRP2 has been extensively tested on GENCODE only.\n" +
+            "       You must set both parameters together.\n" +
+            "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        error(error_string)
+    }
+
+    // If using local references, must provide both gtf and fasta
+    if ((has_local_gtf || has_local_fasta) && !(has_local_gtf && has_local_fasta)) {
+        def error_string = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" +
+            "  ERROR: Both --local_reference_gtf and --local_reference_fasta must be provided for advanced usage. Please ensure you have contacted the maintainers for guidance prior to using these parameters!\n" +
+            "  You provided:\n" +
+            "    --local_reference_gtf: ${has_local_gtf ? params.local_reference_gtf : 'NOT PROVIDED'}\n" +
+            "    --local_reference_fasta: ${has_local_fasta ? params.local_reference_fasta : 'NOT PROVIDED'}\n" +
+            "  \n" +
+            "  You must provide both parameters together, or use --genome instead.\n" +
+            "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        error(error_string)
+    }
+}
+
+//
+// Validate species parameter when using custom local references
 //
 def validateSpeciesParameter() {
-    // If using custom gtf/fasta (not from gencode_refs), require manual species setting
+    // If using custom local references (not from gencode_refs), require manual species setting
     def is_predefined_genome = params.genome && params.gencode_refs?.containsKey(params.genome)
-    def using_custom_refs = (params.fasta || params.gtf) && !is_predefined_genome
+    def using_local_refs = (params.local_reference_fasta || params.local_reference_gtf) && !is_predefined_genome
     def has_rna_samples = params.input ? true : false  // validated later in samplesheet parsing
 
-    if (using_custom_refs && has_rna_samples && !params.species) {
+    if (using_local_refs && has_rna_samples && !params.species) {
         def error_string = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" +
-            "  ERROR: --species parameter is required when using custom fasta/gtf files.\n" +
+            "  ERROR: --species parameter is required when using local reference files.\n" +
             "  You are using custom reference files without specifying a predefined --genome.\n" +
             "  Please specify --species with either 'human' or 'mouse'.\n" +
-            "  Example: --fasta /path/to/genome.fa --gtf /path/to/annotation.gtf --species mouse\n" +
+            "  Example: --local_reference_fasta /path/to/genome.fa --local_reference_gtf /path/to/annotation.gtf --species mouse\n" +
             "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
         error(error_string)
     }
@@ -495,10 +540,10 @@ def getGenomeAttribute(attribute) {
 // 2) Skip validation if custom FASTA/GTF files are provided (genome name is auto-detected for naming only)
 //
 def genomeExistsError() {
-    // Check if custom references are being used
-    def using_custom_refs = params.fasta || params.gtf
-    // Only validate genome name if NOT using custom references
-    if (!using_custom_refs && params.genomes && params.genome && !params.genomes.containsKey(params.genome)) {
+    // Check if local custom references are being used
+    def using_local_refs = params.local_reference_fasta || params.local_reference_gtf
+    // Only validate genome name if NOT using local references
+    if (!using_local_refs && params.genomes && params.genome && !params.genomes.containsKey(params.genome)) {
         def error_string = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" +
             "  Genome '${params.genome}' not found in any config files provided to the pipeline.\n" +
             "  Currently, the available genome keys are:\n" +

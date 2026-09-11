@@ -25,8 +25,8 @@ include { logColours              } from './subworkflows/nf-core/utils_nfcore_pi
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-// NOTE: params.fasta and params.gtf are set in nextflow.config after gencode config is loaded
-// Users can override with --fasta and --gtf if needed
+// NOTE: Reference GTF and FASTA are auto-set from --genome via gencode config
+// Advanced users can use --local_reference_gtf and --local_reference_fasta (but NOT with --genome)
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
