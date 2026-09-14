@@ -63,10 +63,6 @@ option_list = list(
               help = "Path to GENCODE protein FASTA (pc_translations.fa)"),
   make_option(c("--gencode_gtf"), type = "character", default = NULL,
               help = "Path to GENCODE annotation GTF (basic.annotation.gtf)"),
-  make_option(c("--gencode_version"), type = "character", default = "46",
-              help = "GENCODE version for GTF download [default: 46]"),
-  make_option(c("--species"), type = "character", default = "human",
-              help = "Species: 'human' or 'mouse' [default: human]"),
   make_option(c("--outdir"), type = "character", default = ".",
               help = "Output directory [default: .]")
 )
@@ -88,10 +84,6 @@ if (opt$ms_search_software == "fragpipe" & is.null(opt$acquisition_type)) {
 }
 if (!is.null(opt$acquisition_type) && !opt$acquisition_type %in% c("DDA", "DIA")) {
   stop("--acquisition_type must be 'DDA' or 'DIA'")
-}
-
-if (!opt$species %in% c("human", "mouse")) {
-  stop("--species must be 'human' or 'mouse' to pull proper GENCODE gtf")
 }
 
 # optional custom fasta and gtf requirements if peptide mapping
@@ -497,32 +489,13 @@ if (nrow(gencode_peptides) > 0) {
     slice(1) %>%
     ungroup()
     
-  # Use provided GENCODE files, fall back to download
-  if (!is.null(opt$gencode_fasta) && !is.null(opt$gencode_gtf)) {
-    gencode_fa_local_path = opt$gencode_fasta
-    gencode_gtf_local_path = opt$gencode_gtf
-  } else {
-    if (opt$species == "human") {
-      gencode_base = paste0("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_", opt$gencode_version)
-      gencode_ver = paste0("v", opt$gencode_version)
-    } else {
-      gencode_base = paste0("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M", opt$gencode_version)
-      gencode_ver = paste0("vM", opt$gencode_version)
-    }
-    
-    gencode_fasta = file.path(gencode_base, paste0("gencode.", gencode_ver, ".pc_translations.fa.gz"))
-    gencode_gtf = file.path(gencode_base, paste0("gencode.", gencode_ver, ".basic.annotation.gtf.gz"))
-    
-    gencode_fa_local_path = file.path(opt$outdir, basename(gencode_fasta))
-    gencode_gtf_local_path = file.path(opt$outdir, basename(gencode_gtf))
-    
-    if (!file.exists(gencode_fa_local_path)) {
-      download.file(gencode_fasta, gencode_fa_local_path, mode = "wb")
-    }
-    if (!file.exists(gencode_gtf_local_path)) {
-      download.file(gencode_gtf, gencode_gtf_local_path, mode = "wb")
-    }
+  # Use provided GENCODE files
+  if (is.null(opt$gencode_fasta) || is.null(opt$gencode_gtf)) {
+    stop("Found ", nrow(gencode_peptides), " GENCODE-only peptides but --gencode_fasta / --gencode_gtf were not provided.")
   }
+  
+  gencode_fa_local_path  = opt$gencode_fasta
+  gencode_gtf_local_path = opt$gencode_gtf
   
   # Map GENCODE peptides
   gencode_bed = map_peptides_to_genome(unique_gencode_peptides, gencode_fa_local_path, gencode_gtf_local_path)

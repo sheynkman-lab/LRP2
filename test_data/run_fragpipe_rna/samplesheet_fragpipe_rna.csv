@@ -7,5 +7,5 @@ ENCFF694INI,test_data/raw_data/rna/ENCFF694INI.fastq.gz,K562,RNA,none
 ENCFF696GDL,test_data/raw_data/rna/ENCFF696GDL.fastq.gz,K562,RNA,none
 ENCFF763VZC,test_data/raw_data/rna/ENCFF763VZC.fastq.gz,K562,RNA,none
 ENCFF429VVB,test_data/raw_data/rna/ENCFF429VVB.fastq.gz,K562,RNA,none
-ENCFF634YSN,ftp://massive-ftp.ucsd.edu/v03/MSV000086944/raw/raw/20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr1.raw,K562,protein,DDA
-ENCFF634YSN,ftp://massive-ftp.ucsd.edu/v03/MSV000086944/raw/raw/20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr9.raw,K562,protein,DDA
+ENCFF634YSN,http://massive.ucsd.edu/ProteoSAFe/DownloadResultFile?file=f.MSV000086944/raw/raw/20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr1.raw,K562,protein,DDA
+ENCFF634YSN,http://massive.ucsd.edu/ProteoSAFe/DownloadResultFile?file=f.MSV000086944/raw/raw/20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr9.raw,K562,protein,DDA

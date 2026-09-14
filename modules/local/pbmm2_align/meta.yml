@@ -1,5 +1,5 @@
-name: isoseq_align
-description: IsoSeq - Align - Align consensus sequences to reference genome
+name: pbmm2_align
+description: pbmm2 - Align consensus sequences to reference genome
 keywords:
   - align
   - HiFi
@@ -9,7 +9,7 @@ keywords:
   - mapping
 tools:
   - pbmm2:
-      description: IsoSeq - Align - Align consensus sequences to reference genome using pbmm2
+      description: pbmm2 - Align consensus sequences to reference genome using pbmm2
       homepage: https://github.com/PacificBiosciences/pbmm2
       documentation: https://github.com/PacificBiosciences/pbmm2
       tool_dev_url: https://github.com/PacificBiosciences/pbmm2

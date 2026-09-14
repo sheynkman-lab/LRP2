@@ -1,0 +1,7 @@
+name: download_remote_file
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - curl=8.4.0

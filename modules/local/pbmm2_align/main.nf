@@ -1,4 +1,4 @@
-process ISOSEQ_ALIGN {
+process PBMM2_ALIGN {
     tag "$meta.id"
     label 'process_high'
 
@@ -12,7 +12,7 @@ process ISOSEQ_ALIGN {
     output:
     tuple val(meta), path("*.aligned.bam"), emit: bam
     tuple val(meta), path("*.aligned.bam.bai"), emit: bai
-    tuple val(meta), path("*_S1_PACBIO_ISOCALL_M2_ISOSEQ_ALIGN_log.txt"), emit: log
+    tuple val(meta), path("*_S1_PACBIO_ISOCALL_M2_PBMM2_ALIGN_log.txt"), emit: log
     path "versions.yml", emit: versions
 
     when:
@@ -21,10 +21,15 @@ process ISOSEQ_ALIGN {
     script:
     def args = task.ext.args ?: '--preset ISOSEQ --sort'
     def prefix = task.ext.prefix ?: "${meta.id}"
+    // Thread allocation priority: 1) command-line params, 2) process config, 3) calculated defaults (75%/25% split)
+    def align_threads = params.s1_alignment_threads ?: (task.ext.align_threads ?: Math.max(1, Math.round(task.cpus * 0.75) as int))
+    def sort_threads = params.s1_alignment_sorting_threads ?: (task.ext.sort_threads ?: Math.max(1, Math.round(task.cpus * 0.25) as int))
     """
-    exec > >(tee ${prefix}_S1_PACBIO_ISOCALL_M2_ISOSEQ_ALIGN_log.txt) 2>&1
+    exec > >(tee ${prefix}_S1_PACBIO_ISOCALL_M2_PBMM2_ALIGN_log.txt) 2>&1
 
     pbmm2 align \\
+        -j ${align_threads} \\
+        -J ${sort_threads} \\
         $args \\
         $reference_fasta \\
         $bam \\
@@ -41,7 +46,7 @@ process ISOSEQ_ALIGN {
     """
     touch ${prefix}.aligned.bam
     touch ${prefix}.aligned.bam.bai
-    touch ${prefix}_S1_PACBIO_ISOCALL_M2_ISOSEQ_ALIGN_log.txt
+    touch ${prefix}_S1_PACBIO_ISOCALL_M2_PBMM2_ALIGN_log.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

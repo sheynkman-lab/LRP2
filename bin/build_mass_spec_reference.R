@@ -3,11 +3,10 @@
 #' Build references for mass spec searching
 #' 
 #' Constructs a combined protein FASTA and reference table for proteogenomic
-#' database searching (e.g. Fragpipe). Supports three input modes:
+#' database searching (e.g. Fragpipe). Supports multiple input modes:
 #'
-#'   1. GENCODE only
-#'   2. LRP pipeline FASTA (+/- GENCODE)
-#'   3. Custom user FASTA (+/- GENCODE)
+#'   1. GENCODE protein FASTA only
+#'   2. LRP2-derived/custom protein FASTA (+/- GENCODE)
 #'
 #' When a count matrix is provided, LRP/custom transcripts are filtered to
 #' only those with CPM > 0 in the specified sample. GENCODE entries are
@@ -17,9 +16,6 @@
 #'   - {prefix}.proteomics.reference.fasta  Standardized headers: transcript_id|gene_id|pclass|status|reference_type
 #'   - {prefix}.proteomics.reference.tsv    Matching metadata table
 #'
-#' Usage:
-#'   Rscript build_mass_spec_reference.R --sample_name sample --lrp_fasta lrp_orfs.fasta --gencode_version 47 --counts counts.tsv --outdir results/
-#'   
 
 
 # =============================================================================
@@ -43,66 +39,49 @@ options(scipen = 999)
 # The logic is
 
 # No flags = downloads and uses GENCODE only
-# --lrp_fasta = LRP + GENCODE (concatenated)
 # --custom_fasta = custom + GENCODE (concatenated)
-# --lrp_fasta --no_gencode = LRP only
 # --custom_fasta --no_gencode = custom only
 
 
 option_list <- list(
-  make_option(c("--lrp_fasta"), type = "character", default = NULL,
-              help = "Path to lrp pipeline protein FASTA"),
   make_option(c("--custom_fasta"), type = "character", default = NULL,
-              help = "Path to user provided protein FASTA."),
+              help = "Path to user-provided protein FASTA (LRP pipeline output or custom)"),
   make_option(c("--gencode_fasta"), type = "character", default = NULL,
               help = "Path to GENCODE protein FASTA (will download if not provided)"),
-  make_option(c("--genome_name"), type = "character", default = NULL,
-              help = "Genome name (e.g., GRCh38.p14.v49) for file naming and GENCODE version extraction"),
   make_option(c("--no_gencode"), action = "store_true", default = FALSE,
               help = "Do not include GENCODE in the reference"),
   make_option(c("--sample_name"), type = "character", default = NULL,
               help = "Sample name for output file naming [required]"),
   make_option(c("--counts"), type = "character", default = NULL,
-              help = "Path to count matrix TSV (required when --lrp_fasta or --custom_fasta is provided)"),
+              help = "Path to count matrix TSV (used when --custom_fasta is provided)"),
   make_option(c("--outdir"), type = "character", default = ".",
               help = "Output directory [default: .]")
 )
 
 opt = parse_args(OptionParser(option_list = option_list))
 
-# Extract GENCODE version from genome_name (e.g., "GRCh38.p14.v49" -> "49")
-if (!is.null(opt$genome_name)) {
-  version_match = str_extract(opt$genome_name, "v(\\d+)$")
-  if (!is.na(version_match)) {
-    opt$gencode_version = str_replace(version_match, "^v", "")
-  } else {
-    opt$gencode_version = "49"  # fallback default
-    warning("Could not extract GENCODE version from genome_name '", opt$genome_name, "'. Using default version 46.")
-  }
-} else {
-  opt$gencode_version = "49"  # fallback default
-  opt$genome_name = paste0("GRCh38.p14.v", opt$gencode_version)
-}
-
 # =============================================================================
 # Validate inputs
 # =============================================================================
 
-#if (is.null(opt$counts)) stop("--counts is required")
 if (is.null(opt$sample_name)) stop("--sample_name is required")
-if (!is.null(opt$lrp_fasta) && !is.null(opt$custom_fasta)) {
-  stop("--lrp_fasta and --custom_fasta are mutually exclusive. Provide one or neither.")
-}
-if (is.null(opt$lrp_fasta) && is.null(opt$custom_fasta) && opt$no_gencode) {
-  stop("--no_gencode cannot be used without --lrp_fasta or --custom_fasta. There would be no reference.")
+
+if (is.null(opt$custom_fasta) && opt$no_gencode) {
+  stop("--no_gencode cannot be used without --custom_fasta. There would be no reference.")
 }
 
-has_fasta = !is.null(opt$lrp_fasta) || !is.null(opt$custom_fasta)
+has_fasta = !is.null(opt$custom_fasta)
+
 if (has_fasta && is.null(opt$counts)) {
   warning("--counts not provided. Sample specific filtering will be skipped.")
 }
+
 if (!is.null(opt$counts) && !has_fasta) {
-  warning("--counts provided but no --lrp_fasta or --custom_fasta. Count matrix will be ignored.")
+  warning("--counts provided but no --custom_fasta. Count matrix will be ignored.")
+}
+
+if (!opt$no_gencode && (is.null(opt$gencode_fasta) || !file.exists(opt$gencode_fasta))) {
+  stop("--gencode_fasta is required unless --no_gencode is set.")
 }
 
 # =============================================================================
@@ -127,60 +106,37 @@ fasta_to_tibble = function(path) {
 combined_ref = tibble()
 
 # GENCODE (included by default unless --no_gencode)
+gencode_label = NULL
+
 if (!opt$no_gencode) {
-
-  # Use provided GENCODE FASTA if available, otherwise download
-  if (!is.null(opt$gencode_fasta) && file.exists(opt$gencode_fasta)) {
-    cat("Using provided GENCODE protein FASTA:", opt$gencode_fasta, "\n")
-    gencode_path = opt$gencode_fasta
-  } else {
-    gencode_url  = paste0("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_", opt$gencode_version, "/gencode.v", opt$gencode_version, ".pc_translations.fa.gz")
-    gencode_path = file.path(opt$outdir, basename(gencode_url))
-
-    if (!file.exists(gencode_path)) {
-      cat("Downloading GENCODE v", opt$gencode_version, " protein FASTA...\n")
-      download.file(gencode_url, gencode_path, mode = "wb")
-    }
-  }
-
+  
+  cat("Using GENCODE protein FASTA:", opt$gencode_fasta, "\n")
+  
+  # Label for output naming, taken from the FASTA actually used
+  gencode_label = str_extract(basename(opt$gencode_fasta), "vM?\\d+")
+  if (is.na(gencode_label)) gencode_label = "gencode"
+  
   # Header: ENSP|ENST|ENSG|OTTHUMG|OTTHUMT|TXNAME|GENE|LENGTH
-  gencode_raw = fasta_to_tibble(gencode_path)
+  gencode_raw = fasta_to_tibble(opt$gencode_fasta)
   gencode_ref = gencode_raw %>%
-    separate_wider_delim(header, 
+    separate_wider_delim(header,
                          delim = "|",
-                         names = c(NA, "transcript_id", "gene_id", NA, NA, NA, NA, NA), 
+                         names = c(NA, "transcript_id", "gene_id", NA, NA, NA, NA, NA),
                          cols_remove = FALSE) %>%
-    mutate(pclass = "FSM", status = "gencode", reference_type = "gencode") %>%
+    mutate(pclass = NA_character_, status = NA_character_, reference_type = "gencode") %>%
     select(header, transcript_id, gene_id, pclass, status, reference_type, sequence)
   
   combined_ref = bind_rows(combined_ref, gencode_ref)
 }
 
-# LRP pipeline FASTA
-if (!is.null(opt$lrp_fasta)) {
-  
-  # Header: transcript_id|gene_id|gene_name|pclass|status
-  lrp_raw = fasta_to_tibble(opt$lrp_fasta)
-  lrp_ref = lrp_raw %>%
-    separate_wider_delim(header, 
-                         delim = "|",
-                         names = c("transcript_id", "gene_id", NA, "pclass", "status"),
-                         cols_remove = FALSE) %>%
-    mutate(reference_type = "lrp") %>%
-    select(header, transcript_id, gene_id, pclass, status, reference_type, sequence)
-  
-  combined_ref = bind_rows(combined_ref, lrp_ref)
-  
-}
-
-# Custom user FASTA
+# This chunk auto-detects custom versus LRP2 FASTA and creates the header accordingly
 if (!is.null(opt$custom_fasta)) {
   custom_raw = fasta_to_tibble(opt$custom_fasta)
   
   # Validate: headers must contain at least one | separating transcript_id and gene_id
   bad_headers = custom_raw %>% filter(!str_detect(header, "\\|"))
   if (nrow(bad_headers) > 0) {
-    stop("Custom FASTA headers must contain transcript_id and gene_id separated by '|'. ",
+    stop("Input FASTA headers must contain transcript_id and gene_id separated by '|'. ",
          nrow(bad_headers), " headers lack a '|' delimiter. First example: ", bad_headers$header[1])
   }
   
@@ -188,18 +144,30 @@ if (!is.null(opt$custom_fasta)) {
   transcript_ids = str_extract(custom_raw$header, "^[^|]+")
   dupes = transcript_ids[duplicated(transcript_ids)]
   if (length(dupes) > 0) {
-    stop("Custom FASTA contains ", length(dupes), " duplicate transcript IDs. Check that header is transcript_id | gene_id")
+    stop("Input FASTA contains ", length(dupes), " duplicate transcript IDs. Check that header is transcript_id | gene_id")
   }
   
-  custom_ref = custom_raw %>%
+  parsed = custom_raw %>%
     separate_wider_delim(header, delim = "|",
-                         names = c("transcript_id", "gene_id"),
-                         too_many = "drop", cols_remove = FALSE) %>%
-    mutate(
-      pclass         = NA_character_,
-      status         = "custom",
-      reference_type = "custom"
-    ) %>%
+                         names = c("transcript_id", "gene_id", "gene_name", "pclass", "status"),
+                         too_few = "align_start", too_many = "drop",
+                         cols_remove = FALSE)
+  
+  # LRP2 IDs are gene_name::isoform_id; FPM is an LRP-specific pclass
+  is_lrp = all(str_detect(parsed$transcript_id, fixed("::"))) &
+    any(parsed$pclass == "FPM", na.rm = TRUE)
+  
+  if (is_lrp) {
+    cat("FASTA source: lrp (transcript IDs contain '::' and FPM found in pclass)\n")
+    cat("  Retaining pclass and status from header\n")
+  } else {
+    cat("FASTA source: custom\n")
+    cat("  Only transcript_id and gene_id will be used; pclass and status set to NA\n")
+    parsed %<>% mutate(pclass = NA_character_, status = NA_character_)
+  }
+  
+  custom_ref = parsed %>%
+    mutate(reference_type = if_else(is_lrp, "lrp", "custom")) %>%
     select(header, transcript_id, gene_id, pclass, status, reference_type, sequence)
   
   combined_ref = bind_rows(combined_ref, custom_ref)
@@ -215,7 +183,7 @@ if (has_fasta && !is.null(opt$counts)) {
 
   # Select transcript_id (column 1) and CPM column matching sample name
   cpm_cols = names(counts)[str_detect(names(counts), fixed(opt$sample_name)) &
-                             str_detect(names(counts), fixed("cpm"))]
+                             str_detect(names(counts), regex("cpm", ignore_case = TRUE))]
 
   # If no matching CPM column, remove LRP/custom entries and use GENCODE only
   if (length(cpm_cols) == 0) {
@@ -258,6 +226,11 @@ if (has_fasta && !is.null(opt$counts)) {
   }
 }
 
+if (nrow(combined_ref) == 0) {
+  stop("Reference is empty. Check that --sample_name matches a CPM column in --counts, ",
+       "or omit --no_gencode.")
+}
+
 # =============================================================================
 # Write out reference fasta and matching table
 # =============================================================================
@@ -269,7 +242,7 @@ has_custom_in_ref = any(combined_ref$reference_type == "custom")
 
 if (has_lrp_in_ref)    prefix_parts = c(prefix_parts, "lrp")
 if (has_custom_in_ref) prefix_parts = c(prefix_parts, "custom")
-if (!opt$no_gencode)   prefix_parts = c(prefix_parts, opt$genome_name)
+if (!opt$no_gencode)   prefix_parts = c(prefix_parts, gencode_label)
 
 out_prefix = paste(prefix_parts, collapse = ".")
 

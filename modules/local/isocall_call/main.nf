@@ -3,7 +3,9 @@ process ISOCALL_CALL {
     label 'process_low'
 
     conda "${moduleDir}/environment.yml"
-    container "quay.io/pacbio/isocall:0.15.0_build1"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://jtllab/isocall:1.3.0-nextflow-fix' :
+        'jtllab/isocall:1.3.0-nextflow-fix' }"
 
     input:
     tuple val(meta), path(merged_profile)
@@ -13,8 +15,7 @@ process ISOCALL_CALL {
 
     output:
     tuple val(meta), path("*.isocall.isoforms.gtf.gz"), emit: gtf
-    tuple val(meta), path("*.isocall.count_matrix.txt"), emit: count_matrix
-    tuple val(meta), path("*_S1_PACBIO_ISOCALL_M5_ISOCALL_CALL_log.txt"), emit: log
+    tuple val(meta), path("*.isocall.count_matrix.csv"), emit: count_matrix
     path "versions.yml", emit: versions
 
     when:
@@ -24,11 +25,7 @@ process ISOCALL_CALL {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def threads = task.cpus ?: 1
-    def min_read_support = task.ext.min_read_support ?: params.min_read_support
-    def max_bundles_per_gene = task.ext.max_bundles_per_gene ?: params.max_bundles_per_gene
     """
-    exec > >(tee ${prefix}_S1_PACBIO_ISOCALL_M5_ISOCALL_CALL_log.txt) 2>&1
-
     isocall call \\
         --threads $threads \\
         --merged-profile $merged_profile \\
@@ -36,10 +33,10 @@ process ISOCALL_CALL {
         --reference $reference_fasta \\
         --output-prefix ${prefix}.isocall \\
         --config $config_toml \\
-        --min-reads-per-isoform $min_read_support \\
-        --max-bundles-per-gene $max_bundles_per_gene \\
         $args
-
+    
+    mv ${prefix}.isocall.count_matrix.txt ${prefix}.isocall.count_matrix.csv
+    
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         isocall: \$( isocall --version 2>&1 | sed 's/isocall //g' )
@@ -50,8 +47,7 @@ process ISOCALL_CALL {
     def prefix = task.ext.prefix ?: "${meta.id}"
     """
     touch ${prefix}.isocall.isoforms.gtf.gz
-    touch ${prefix}.isocall.count_matrix.txt
-    touch ${prefix}_S1_PACBIO_ISOCALL_M5_ISOCALL_CALL_log.txt
+    touch ${prefix}.isocall.count_matrix.csv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

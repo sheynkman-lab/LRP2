@@ -1,14 +1,14 @@
 nextflow_process {
 
-    name "Test Process ISOSEQ_ALIGN"
+    name "Test Process PBMM2_ALIGN"
     script "../main.nf"
     config "./nextflow.config"
-    process "ISOSEQ_ALIGN"
+    process "PBMM2_ALIGN"
 
     tag "modules"
     tag "modules_local"
     tag "isoseq"
-    tag "isoseq_align"
+    tag "pbmm2_align"
 
     test("PacBio isoseq align - clustered BAM alignment test") {
 

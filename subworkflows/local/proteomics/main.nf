@@ -3,6 +3,7 @@
     IMPORT MODULES / SUBWORKFLOWS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+include { DOWNLOAD_REMOTE_FILE   } from '../../../modules/local/download_remote_file/main'
 include { MSCONVERT_MZML         } from '../../../modules/local/msconvert_mzml/main'
 include { METAMORPHEUS           } from '../../../modules/local/metamorpheus/main'
 include { FRAGPIPE               } from '../../../modules/local/fragpipe/main'
@@ -36,7 +37,6 @@ workflow PROTEOMICS {
     lr_orf_fasta                // path: Custom/LRP ORF FASTA (only for samples with matched RNA sample)
     gencode_gtf_for_novel       // path: GENCODE annotation GTF (for novel peptides BED mapping)
     gencode_fasta_for_novel     // path: GENCODE protein FASTA (for novel peptides BED mapping)
-    genome                      // val: Genome reference name (e.g., 'GRCh38.p14.v49')
 
     main:
     ch_versions = channel.empty()
@@ -49,10 +49,33 @@ workflow PROTEOMICS {
         .unique()
 
     //
+    // MODULE: Download remote files in samplesheet if present!
+    //
+    // Separate remote URLs from local files using metadata flag
+    ch_ms_files
+        .branch { meta, file ->
+            remote: meta.containsKey('is_remote') && meta.is_remote
+                return [meta, file]  // file is URL string
+            local: true
+                return [meta, file]  // file is path
+        }
+        .set { ch_ms_files_branched }
+
+    // Download remote files using curl (file is passed as URL value)
+    DOWNLOAD_REMOTE_FILE(
+        ch_ms_files_branched.remote
+    )
+    ch_versions = ch_versions.mix(DOWNLOAD_REMOTE_FILE.out.versions)
+
+    // Combine downloaded files with local files
+    ch_ms_files_local = DOWNLOAD_REMOTE_FILE.out.file
+        .mix(ch_ms_files_branched.local)
+
+    //
     // MODULE: Convert any protein sample files to .mzML format if needed
     //
     // Separate files that are already mzML from those that need conversion
-    ch_ms_files
+    ch_ms_files_local
         .branch { meta, file ->
             mzml: file.name.endsWith('.mzML') || file.name.endsWith('.mzml')
                 return [meta, file]
@@ -158,21 +181,23 @@ workflow PROTEOMICS {
         // Step 3: Run FragPipe
         // Prepare custom workflow file path or use null for auto-download
         def custom_workflow_file = fragpipe_workflow ? file(fragpipe_workflow) : file('NO_FILE')
+        def dia_workflow_file = file("${projectDir}/assets/DIA_SpecLib_Quant.workflow")
+        def lfq_workflow_file = file("${projectDir}/assets/LFQ-MBR.workflow")
 
         FRAGPIPE(
             ch_fragpipe_grouped,
             FRAGPIPE_AUTHENTICATE.out.msfragger_jar,
             FRAGPIPE_AUTHENTICATE.out.ionquant_jar,
             FRAGPIPE_AUTHENTICATE.out.diatracer_jar,
-            custom_workflow_file
+            custom_workflow_file,
+            dia_workflow_file,
+            lfq_workflow_file
         )
         ch_versions = ch_versions.mix(FRAGPIPE.out.versions)
         ch_psm_table = FRAGPIPE.out.psm_table
         ch_search_results = FRAGPIPE.out.results
 
         // Step 4: Run NOVEL_PEPTIDES on FragPipe results
-        // Extract GENCODE version from genome parameter (e.g., 'GRCh38.p14.v49' -> '49')
-        def gencode_version = genome ? genome.tokenize('.')[-1].replaceAll(/[^0-9]/, '') : '49'
 
         // Merge DIA and DDA peptide files: since at least one will be present we make sure we get one of the actual files from FragPipe work directory, as fix for novel peptides stalling for larger datasets
         ch_fragpipe_peptide_files = FRAGPIPE.out.combined_peptide_tsv
@@ -198,8 +223,7 @@ workflow PROTEOMICS {
 
         NOVEL_PEPTIDES(
             ch_novel_peptides_input,
-            novel_peptides_script,
-            gencode_version
+            novel_peptides_script
         )
         ch_versions = ch_versions.mix(NOVEL_PEPTIDES.out.versions)
         ch_novel_peptides = NOVEL_PEPTIDES.out.novel_peptides

@@ -4,9 +4,10 @@
     "title": "sheynkmanlab/lrp2 pipeline parameters",
     "description": "Long-read proteogenomics pipeline for PacBio Iso-Seq data",
     "type": "object",
+    "additionalProperties": true,
     "$defs": {
         "input_output_options": {
-            "title": "Input/output options",
+            "title": "Input/Output Options",
             "type": "object",
             "fa_icon": "fas fa-terminal",
             "description": "Define where the pipeline should find input data and save output data.",
@@ -19,7 +20,7 @@
                     "type": "string",
                     "format": "file-path",
                     "exists": true,
-                    "schema": "assets/schema_input_bam.json",
+                    "schema": "assets/schema_input.json",
                     "mimetype": "text/csv",
                     "pattern": "^\\S+\\.csv$",
                     "description": "Path to comma-separated file containing information about the samples in the experiment.",
@@ -49,16 +50,31 @@
             }
         },
         "reference_genome_options": {
-            "title": "Reference genome options",
+            "title": "Genome Reference Options",
             "type": "object",
             "fa_icon": "fas fa-dna",
             "description": "Reference genome related files and options required for the workflow.",
             "properties": {
                 "genome": {
                     "type": "string",
-                    "description": "Name of iGenomes reference.",
+                    "default": "GRCh38.p14.v50",
+                    "description": "Name of genome reference. This automatically populates the paths for the reference FASTA and GTF files if using GENCODE references.",
                     "fa_icon": "fas fa-book",
-                    "help_text": "If using a reference genome configured in the pipeline using iGenomes, use this parameter to give the ID for the reference. This is then used to build the full paths for all required reference genome files e.g. `--genome GRCh38`. \n\nSee the [nf-core website docs](https://nf-co.re/usage/reference_genomes) for more details."
+                    "help_text": "Use this parameter to specify a GENCODE reference by ID, which builds the full paths for the reference FASTA, GTF, and protein FASTA, e.g. `--genome GRCh38.p14.v50`. Available IDs are defined in `conf/gencode_references.config`. Defaults to `GRCh38.p14.v50` if not specified. To use custom references instead, provide `--fasta` and `--gtf` directly along with `--species`."
+                },
+                "gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to custom reference GTF file (optional).",
+                    "help_text": "Path to the GTF file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to reference genome FASTA file (optional).",
+                    "help_text": "Path to the genome FASTA file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
+                    "fa_icon": "far fa-file-code"
                 },
                 "igenomes_ignore": {
                     "type": "boolean",
@@ -126,25 +142,11 @@
             }
         },
         "isoseq_collapse_options": {
-            "title": "PacBio IsoCall options",
+            "title": "S1 PacBio IsoCall Options",
             "type": "object",
             "fa_icon": "fas fa-dna",
             "description": "Options for the PacBio IsoCall transcript calling module.",
             "properties": {
-                "min_read_support": {
-                    "type": "integer",
-                    "default": 3,
-                    "description": "Minimum read support required for calling novel transcripts.",
-                    "help_text": "Transcripts must be supported by at least this many reads to be called.",
-                    "fa_icon": "fas fa-layer-group"
-                },
-                "max_bundles_per_gene": {
-                    "type": "integer",
-                    "default": 1000,
-                    "description": "Maximum bundles to use per gene during read sampling.",
-                    "help_text": "Limits the number of read bundles processed per gene to improve performance.",
-                    "fa_icon": "fas fa-boxes"
-                },
                 "isocall_config": {
                     "type": "string",
                     "format": "file-path",
@@ -152,39 +154,27 @@
                     "description": "Path to IsoCall configuration TOML file.",
                     "help_text": "Configuration file for IsoCall parameters. Uses default config if not specified.",
                     "fa_icon": "fas fa-file-code"
+                },
+                "s1_alignment_threads": {
+                    "type": ["integer", "null"],
+                    "description": "Number of alignment threads for pbmm2 (-j parameter).",
+                    "help_text": "Specifies the number of threads for alignment in pbmm2. If not specified, defaults to 75% of available CPUs allocated to the process.",
+                    "fa_icon": "fas fa-microchip"
+                },
+                "s1_alignment_sorting_threads": {
+                    "type": ["integer", "null"],
+                    "description": "Number of sorting threads for pbmm2 (-J parameter).",
+                    "help_text": "Specifies the number of threads for BAM sorting in pbmm2. If not specified, defaults to 25% of available CPUs allocated to the process.",
+                    "fa_icon": "fas fa-microchip"
                 }
             }
         },
         "sqanti_transcript_options": {
-            "title": "SQANTI3 transcript QC and filtering options",
+            "title": "S2 Transcriptome Options",
             "type": "object",
             "fa_icon": "fas fa-filter",
             "description": "Options for the SQANTI3 QC and filtering modules.",
             "properties": {
-                "gtf": {
-                    "type": "string",
-                    "format": "file-path",
-                    "exists": true,
-                    "description": "Path to reference GTF file.",
-                    "help_text": "Path to the GTF file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
-                    "fa_icon": "far fa-file-code"
-                },
-                "fasta": {
-                    "type": "string",
-                    "format": "file-path",
-                    "exists": true,
-                    "description": "Path to reference genome FASTA file.",
-                    "help_text": "Path to the genome FASTA file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
-                    "fa_icon": "far fa-file-code"
-                },
-                "sample_metadata": {
-                    "type": "string",
-                    "format": "file-path",
-                    "exists": true,
-                    "description": "Path to sample metadata CSV file.",
-                    "help_text": "Sample metadata file used for SQANTI3 filtering.",
-                    "fa_icon": "fas fa-file-csv"
-                },
                 "generate_hashids_script": {
                     "type": "string",
                     "format": "file-path",
@@ -192,7 +182,8 @@
                     "description": "Path to hash ID generation R script.",
                     "help_text": "R script used to generate hash IDs for transcripts.",
                     "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/00_generate_hashids.R"
+                    "default": "/home/julia/Documents/LRP2_lite/bin/00_generate_hashids.R",
+                    "hidden": true
                 },
                 "filter_script": {
                     "type": "string",
@@ -201,7 +192,8 @@
                     "description": "Path to SQANTI filtering R script.",
                     "help_text": "R script used to filter SQANTI3 QC output.",
                     "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/02_filter_sqanti_transcripts.R"
+                    "default": "/home/julia/Documents/LRP2_lite/bin/02_filter_sqanti_transcripts.R",
+                    "hidden": true
                 },
                 "hashlib_script": {
                     "type": "string",
@@ -210,7 +202,8 @@
                     "description": "Path to hashlib ID generator Python script.",
                     "help_text": "Python script used to generate hash IDs for transcripts.",
                     "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/hashlib_id_generator.py"
+                    "default": "/home/julia/Documents/LRP2_lite/bin/hashlib_id_generator.py",
+                    "hidden": true
                 },
                 "sqanti_path": {
                     "type": "string",
@@ -218,7 +211,8 @@
                     "default": "/SQANTI3/src/utilities/cupcake/",
                     "description": "Path to SQANTI3 installation directory.",
                     "help_text": "Path to the SQANTI3 cupcake utilities directory.",
-                    "fa_icon": "fas fa-folder"
+                    "fa_icon": "fas fa-folder",
+                    "hidden": true
                 },
                 "protein_coding_filter": {
                     "type": "boolean",
@@ -327,7 +321,7 @@
             }
         },
         "predicted_proteome_options": {
-            "title": "Predicted proteome options",
+            "title": "S3 Predicted Proteome Options",
             "type": "object",
             "fa_icon": "fas fa-dna",
             "description": "Options for CPAT ORF calling and protein classification.",
@@ -377,6 +371,12 @@
                     "fa_icon": "far fa-file-code",
                     "default": "/home/julia/Documents/LRP2_lite/assets/external_data/Mouse_logitModel.RData"
                 },
+                "cpat_coding_threshold": {
+                    "type": "number",
+                    "description": "CPAT coding probability threshold.",
+                    "help_text": "Coding probability threshold for CPAT. Auto-set based on species if not specified (human=0.364, mouse=0.44).",
+                    "fa_icon": "fas fa-balance-scale"
+                },
                 "min_orf": {
                     "type": "integer",
                     "default": 75,
@@ -396,7 +396,8 @@
                     "description": "Path to CPAT filtering R script.",
                     "help_text": "R script used to filter CPAT output and call best ORFs.",
                     "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/03_filter_cpat.R"
+                    "default": "/home/julia/Documents/LRP2_lite/bin/03_filter_cpat.R",
+                    "hidden": true
                 },
                 "sqanti_protein_script": {
                     "type": "string",
@@ -405,7 +406,8 @@
                     "description": "Path to SQANTI protein classification Python script.",
                     "help_text": "Python script used for SQANTI3 protein classification.",
                     "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/04_sqanti3_protein.py"
+                    "default": "/home/julia/Documents/LRP2_lite/bin/04_sqanti3_protein.py",
+                    "hidden": true
                 },
                 "protein_class_script": {
                     "type": "string",
@@ -414,7 +416,8 @@
                     "description": "Path to protein classification R script.",
                     "help_text": "R script used for 5'UTR and protein classification.",
                     "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/04_protein_classification.R"
+                    "default": "/home/julia/Documents/LRP2_lite/bin/04_protein_classification.R",
+                    "hidden": true
                 },
                 "protein_class_keep": {
                     "type": "string",
@@ -431,8 +434,119 @@
                 }
             }
         },
+        "differential_analysis_options": {
+            "title": "S4 Multisample Analysis Options",
+            "type": "object",
+            "fa_icon": "fas fa-chart-line",
+            "description": "Options for multi-sample differential expression and splicing analysis.",
+            "properties": {
+                "min_samples_per_intron": {
+                    "type": "integer",
+                    "default": 2,
+                    "description": "Minimum number of samples per intron for leafcutter differential splicing.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "min_samples_per_group": {
+                    "type": "integer",
+                    "default": 1,
+                    "description": "Minimum number of samples per group for leafcutter differential splicing.",
+                    "fa_icon": "fas fa-users"
+                },
+                "min_usage_ratio": {
+                    "type": "number",
+                    "default": 0.01,
+                    "description": "Minimum junction usage ratio for minicutter filtering.",
+                    "fa_icon": "fas fa-percent"
+                },
+                "lr_leafcutter_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to long-read leafcutter R script.",
+                    "help_text": "R script used for long-read leafcutter clustering analysis.",
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
+                },
+                "leafcutter_ds_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to leafcutter differential splicing Python script.",
+                    "help_text": "Python script used for leafcutter differential splicing analysis (leafcutter_ds.py).",
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
+                },
+                "multisample_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to multi-sample analysis R script.",
+                    "help_text": "R script used for differential expression and usage analysis with edgeR and DRIMSeq.",
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
+                },
+                "leafcutter_threads": {
+                    "type": "integer",
+                    "default": 12,
+                    "description": "Number of threads for leafcutter differential splicing.",
+                    "help_text": "Specify the number of threads to use for leafcutter differential splicing analysis. If not specified, defaults to using the number of CPUs allocated to the process (12 for process_high).",
+                    "fa_icon": "fas fa-microchip"
+                },
+                "drimseq_min_gene_expr": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Minimum gene-level expression for DRIMSeq filtering.",
+                    "help_text": "Genes with total counts below this threshold will be filtered out before differential usage analysis.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "drimseq_min_isoform_prop": {
+                    "type": "number",
+                    "default": 0.05,
+                    "description": "Minimum isoform/feature proportion for DRIMSeq filtering.",
+                    "help_text": "Isoforms/features with proportion below this threshold will be filtered out before differential usage analysis.",
+                    "fa_icon": "fas fa-percentage"
+                }
+            }
+        },
+        "multisample_only_inputs": {
+            "title": "Multisample Analysis Only Mode",
+            "type": "object",
+            "fa_icon": "fas fa-play-circle",
+            "description": "Parameters for running only multisample analysis with pre-computed inputs from a previous LRP2 run.",
+            "help_text": "Use these parameters to re-run only the multisample analysis subworkflow using outputs from a previous full pipeline run. All four file parameters must be provided together to enable this mode. The --input samplesheet parameter is not required in this mode.",
+            "properties": {
+                "transcripts_gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Pre-computed filtered GTF file from TRANSCRIPTOME subworkflow.",
+                    "help_text": "Path to the filtered GTF file (typically named *_corrected_filtered.gtf) from a previous LRP2 run. This file is output by the FILTER_TRANSCRIPTOME module in the TRANSCRIPTOME subworkflow.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "transcript_counts": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Pre-computed transcript count matrix from TRANSCRIPTOME subworkflow.",
+                    "help_text": "Path to the transcript count matrix file (typically named *_hashids_with_cpm_filtered.txt) from a previous LRP2 run. This file contains CPM-normalized transcript counts.",
+                    "fa_icon": "far fa-file-alt"
+                },
+                "orf_counts": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Pre-computed ORF count matrix from PREDICTED_PROTEOME subworkflow.",
+                    "help_text": "Path to the ORF count matrix file (typically named *.predicted.proteome.high_confidence_ORF_cpm.txt) from a previous LRP2 run. This file contains CPM-normalized ORF counts.",
+                    "fa_icon": "far fa-file-alt"
+                },
+                "multisample_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "RNA sample metadata CSV file for multisample analysis.",
+                    "help_text": "Path to a CSV file with RNA sample metadata. Accepts two formats: (1) Simplified format with columns 'name', 'sample_path', 'group', 'sample_type', or (2) Standard samplesheet format with columns 'sample_name', 'sample_path', 'condition', 'sample_type', 'mass_spec_type'. The pipeline auto-detects which format you're using. You can use the auto-generated *_rna_samples_metadata.csv file from a previous LRP2 run, your original samplesheet (if RNA-only), or a custom metadata file in either format.",
+                    "fa_icon": "fas fa-file-csv"
+                }
+            }
+        },
         "proteomics_options": {
-            "title": "Proteomics options",
+            "title": "S5 Proteomics Options",
             "type": "object",
             "fa_icon": "fas fa-microscope",
             "description": "Options for mass spectrometry proteomics analysis.",
@@ -457,6 +571,28 @@
                     "help_text": "When enabled, only LRP-predicted or custom protein sequences will be used for proteomics searches, excluding GENCODE reference proteins.",
                     "fa_icon": "fas fa-ban"
                 },
+                "S5_custom_protein_fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to a protein FASTA for the proteomics search database.",
+                    "help_text": "Protein FASTA used to build the search database. Accepts LRP2 pipeline output (headers: transcript_id|gene_id|gene_name|pclass|status) or any custom FASTA (headers: transcript_id|gene_id at minimum); the source is auto-detected. Use this for proteomics-only runs, or to override the FASTA generated upstream.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "S5_custom_cds_gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Path to a GTF with CDS entries, paired with S5_custom_protein_fasta.",
+                    "help_text": "GTF containing CDS entries, used to map peptides to genomic coordinates for the novel peptide BED output. Transcript IDs must match those in S5_custom_protein_fasta.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "S5_custom_counts": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to a transcript count matrix for filtering the proteomics search database.",
+                    "help_text": "Non-GENCODE transcripts with CPM > 0 are retained; GENCODE entries are always kept in full. Column 1 must contain transcript IDs matching S5_custom_protein_fasta, and the CPM column name must contain the protein sample_name from the samplesheet. Only used for proteomics-only runs; on a full run the count matrix is generated by the pipeline.",
+                    "fa_icon": "far fa-file-code"
+                },
                 "protein_search": {
                     "type": "string",
                     "default": "metamorpheus",
@@ -480,29 +616,33 @@
                     "type": "string",
                     "description": "User's first name for FragPipe registration (optional for interactive mode).",
                     "help_text": "Required for non-interactive FragPipe setup. Leave empty for interactive mode.",
-                    "fa_icon": "fas fa-user"
+                    "fa_icon": "fas fa-user",
+                    "hidden": true
                 },
                 "fragpipe_last_name": {
                     "type": "string",
                     "description": "User's last name for FragPipe registration (optional for interactive mode).",
                     "help_text": "Required for non-interactive FragPipe setup. Leave empty for interactive mode.",
-                    "fa_icon": "fas fa-user"
+                    "fa_icon": "fas fa-user",
+                    "hidden": true
                 },
                 "fragpipe_email": {
                     "type": "string",
                     "description": "Email address for FragPipe registration (optional for interactive mode).",
                     "help_text": "Required for non-interactive FragPipe setup. Leave empty for interactive mode.",
                     "fa_icon": "fas fa-envelope",
-                    "pattern": "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$"
+                    "pattern": "^([a-zA-Z0-9_\\-\\.]+)@([a-zA-Z0-9_\\-\\.]+)\\.([a-zA-Z]{2,5})$",
+                    "hidden": true
                 },
                 "fragpipe_institution": {
                     "type": "string",
                     "description": "Institution/organization for FragPipe registration (optional for interactive mode).",
                     "help_text": "Required for non-interactive FragPipe setup. Leave empty for interactive mode.",
-                    "fa_icon": "fas fa-university"
+                    "fa_icon": "fas fa-university",
+                    "hidden": true
                 },
                 "fragpipe_token": {
-                    "type": "string",
+                    "type": ["string", "integer"],
                     "description": "6-digit verification token for FragPipe (optional for interactive mode).",
                     "help_text": "Required for non-interactive FragPipe setup. You'll receive this via email after registration. Leave empty for interactive mode.",
                     "fa_icon": "fas fa-key",
@@ -512,7 +652,8 @@
                     "type": "boolean",
                     "description": "Accept FragPipe license terms (required for non-interactive mode).",
                     "help_text": "Set to true to accept FragPipe license terms for non-interactive setup.",
-                    "fa_icon": "fas fa-file-contract"
+                    "fa_icon": "fas fa-file-contract",
+                    "hidden": true
                 },
                 "fragpipe_workflow": {
                     "type": "string",
@@ -521,12 +662,45 @@
                     "help_text": "Custom .workflow file for FragPipe. If not provided, default workflows will be auto-downloaded (LFQ-MBR for DDA, DIA_SpecLib_Quant for DIA).",
                     "fa_icon": "fas fa-file"
                 },
+                "fragpipe_threads": {
+                    "type": "integer",
+                    "description": "Number of threads for FragPipe.",
+                    "help_text": "Number of threads for FragPipe analysis. If not specified, defaults to using task.cpus from process label.",
+                    "fa_icon": "fas fa-microchip"
+                },
                 "fragpipe_decoy_tag": {
                     "type": "string",
                     "default": "rev_",
                     "description": "Decoy tag prefix for protein database.",
                     "help_text": "Prefix used to identify decoy sequences in the protein database.",
                     "fa_icon": "fas fa-tag"
+                }
+            }
+        },
+        "hpc_cluster_options": {
+            "title": "HPC cluster options",
+            "type": "object",
+            "fa_icon": "fas fa-server",
+            "description": "Options for HPC cluster execution.",
+            "help_text": "These parameters can override default executor settings in slurm.config or lsf.config.",
+            "properties": {
+                "hpc_executor": {
+                    "type": "string",
+                    "description": "Override executor type (e.g., 'slurm', 'lsf', 'local').",
+                    "help_text": "Specify the executor to use for job submission on HPC clusters.",
+                    "fa_icon": "fas fa-cogs"
+                },
+                "hpc_queue": {
+                    "type": "string",
+                    "description": "Override queue/partition name for job submission.",
+                    "help_text": "Specify the queue or partition to use for job submission on HPC clusters.",
+                    "fa_icon": "fas fa-list"
+                },
+                "hpc_cluster_options": {
+                    "type": "string",
+                    "description": "Override cluster-specific options (e.g., '--account=myaccount').",
+                    "help_text": "Additional cluster-specific options to pass to the job scheduler.",
+                    "fa_icon": "fas fa-sliders-h"
                 }
             }
         },
@@ -645,6 +819,12 @@
         },
         {
             "$ref": "#/$defs/differential_analysis_options"
+        },
+        {
+            "$ref": "#/$defs/multisample_only_inputs"
+        },
+        {
+            "$ref": "#/$defs/hpc_cluster_options"
         },
         {
             "$ref": "#/$defs/institutional_config_options"

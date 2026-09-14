@@ -35,8 +35,19 @@ workflow MULTISAMPLE_ANALYSIS {
     def metadata_content = metadata_file.text
     def lines = metadata_content.split('\n')
     def header_parts = lines[0].split(',')
+
+    // Support both 'group' and 'condition' column names
     def group_idx = header_parts.findIndexOf { it.trim() == 'group' }
+    if (group_idx == -1) {
+        group_idx = header_parts.findIndexOf { it.trim() == 'condition' }
+    }
+
+    // Support both 'name' and 'sample_name' column names
     def name_idx = header_parts.findIndexOf { it.trim() == 'name' }
+    if (name_idx == -1) {
+        name_idx = header_parts.findIndexOf { it.trim() == 'sample_name' }
+    }
+
     def samples_per_condition = [:].withDefault { [] }
     lines.drop(1).each { line ->
         if (line.trim()) {

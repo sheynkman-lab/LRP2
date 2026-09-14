@@ -20,16 +20,6 @@
  * Based on FragNFlow implementation: https://github.com/ronalabrcns/FragNFlow
  */
 
-//***************
-//****COLORS*****
-//***************
-RED = "\u001B[31m"
-GREEN = "\u001B[32m"
-YELLOW = "\u001B[33m"
-CYAN = "\u001B[36m"
-RESET = "\u001B[0m"
-//***************
-
 process FRAGPIPE_AUTHENTICATE {
     tag "FragPipe setup"
     label 'process_single'

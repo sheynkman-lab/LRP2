@@ -200,7 +200,7 @@ cat("\nGenerated hash IDs for ", nrow(hashids), " transcripts\n")
 # Step 2: Read SQANTI classification and reference GTF
 # =============================================================================
 
-cat("\nSTEP 2: Reading SQANTI classification and GENCODE reference")
+cat("\nSTEP 2: Reading SQANTI classification and GENCODE reference, resolving composite gene labels")
 
 sqanti = read_tsv(class_file, show_col_types = FALSE) %>%
   filter(!is.na(associated_gene), !str_starts(associated_gene, "novelGene"))
@@ -211,17 +211,37 @@ reference_df = as.data.frame(reference)
 
 reference_gene = reference_df %>%
   filter(type == "transcript") %>%
-  select(associated_gene = gene_id,
+  select(ref_gene = gene_id,
          gene_name = any_of(c("gene_name", "gene")),
          gene_type = any_of(c("gene_type", "gene_biotype"))) %>%
   distinct()
 
 reference_transcript = reference_df %>%
   filter(type == "transcript") %>%
-  select(associated_gene = gene_id,
-         associated_transcript = transcript_id,
+  select(ref_gene = gene_id,
+         ref_transcript = transcript_id,
          any_of("transcript_name")) %>%
   distinct()
+
+# Resolve multi-gene (ENSG_A_ENSG_B) mapping based on associated transcript for FSM and ISM
+# NIC/NNC keep SQANTI's call
+n_composite = sum(str_detect(sqanti$associated_gene, "_"))
+
+sqanti %<>% 
+  select(original_transcript_id = isoform, associated_gene, associated_transcript, structural_category) %>%
+  left_join(reference_transcript, by = c("associated_transcript" = "ref_transcript")) %>%
+  mutate(associated_gene = coalesce(ref_gene, associated_gene)) %>%
+  select(-ref_gene) %>%
+  left_join(reference_gene, by = c("associated_gene" = "ref_gene"))
+
+n_remaining = sum(str_detect(sqanti$associated_gene, "_"))
+remaining_by_cat = sqanti %>%
+  filter(str_detect(associated_gene, "_")) %>%
+  count(structural_category)
+
+cat("\nResolved ", n_composite - n_remaining, " of ", n_composite, " composite gene labels\n")
+cat("  Remaining: ", paste(remaining_by_cat$structural_category, remaining_by_cat$n,
+                           sep = "=", collapse = ", "), "\n")
 
 # =============================================================================
 # STEP 3: Build mapping table with new pipeline transcript IDs
@@ -231,21 +251,15 @@ cat("\nSTEP 3: Building pipeline transcript IDs")
 
 # Combine hash IDs with SQANTI classification and gene names
 mapping = hashids %>%
-  dplyr::rename(original_transcript_id = transcript_id) %>%
-  inner_join(sqanti %>% select(original_transcript_id = isoform,
-                               associated_gene,
-                               associated_transcript,
-                               structural_category),
-             by = "original_transcript_id") %>%
-  left_join(reference_gene, by = "associated_gene") %>%
-  left_join(reference_transcript, by = c("associated_gene", "associated_transcript"))
+  dplyr::select(original_transcript_id = transcript_id, hash_id) %>%
+  inner_join(sqanti, by = "original_transcript_id")
+
+cat("\nMapped ", nrow(mapping), " of ", nrow(hashids), " hashed transcripts to SQANTI classification entries\n")
 
 # Gene label: prefer gene_name, fall back to gene_id
+# Junction hash (without chr and strand)
 mapping %<>%
-  mutate(gene_label = if_else(!is.na(gene_name) & gene_name != "", gene_name, associated_gene))
-
-# Junction hash (without chr and strand) for novel transcript IDs
-mapping %<>%
+  mutate(gene_label = if_else(!is.na(gene_name) & gene_name != "", gene_name, associated_gene)) %>%
   mutate(junction_hash = extract_junction_hash(hash_id))
 
 # New transcript ID:
@@ -265,7 +279,7 @@ mapping %<>%
 # STEP 4: Check for redundant isoform IDs
 # =============================================================================
 
-cat("\nSTEP 4: Checking for isoform ID redundancy")
+cat("\nSTEP 4: Checking for isoform ID redundancy\n")
 
 # Extract chromosome from hash_id for chrX/Y redundancy
 mapping %<>% mutate(chrom = str_extract(hash_id, "^[^_]+"))
@@ -292,7 +306,7 @@ if (nrow(dupe_ids) > 0) {
   if (nrow(chr_dupes) > 0) {
     n_chr = n_distinct(chr_dupes$isoform_id)
     cat("Chr gene redundancy e.g., chrX/chrY: ", n_chr, " isoform IDs on multiple chromosomes (",
-            nrow(chr_dupes), " total rows). Appending chromosome to gene label.")
+            nrow(chr_dupes), " total rows). Appending chromosome to gene label.\n")
     
     chr_fix = chr_dupes %>%
       mutate(isoform_id = paste0(gene_label, ".", chrom, "::", junction_hash))
@@ -308,7 +322,7 @@ if (nrow(dupe_ids) > 0) {
   if (nrow(other_dupes) > 0) {
     n_other = n_distinct(other_dupes$isoform_id)
     cat("TSS/TES redundancy: ", n_other, " isoform IDs with same junctions in the same gene, different ends (",
-            nrow(other_dupes), " total rows). Appending ::1, ::2, etc.")
+            nrow(other_dupes), " total rows). Appending ::1, ::2, etc.\n")
     
     other_fix = other_dupes %>%
       group_by(isoform_id) %>%
@@ -323,7 +337,7 @@ if (nrow(dupe_ids) > 0) {
   }
   
 } else {
-  cat("No isoform ID redundancy detected")
+  cat("No isoform ID redundancy detected\n")
 }
 
 # =============================================================================
@@ -332,6 +346,7 @@ if (nrow(dupe_ids) > 0) {
 
 cat("\nSTEP 5: Writing mapping file\n")
 
+# Strips transcript id and name labels for ISMs
 output_mapping = mapping %>%
   mutate(
     reference_transcript_id = if_else(structural_category == "full-splice_match",

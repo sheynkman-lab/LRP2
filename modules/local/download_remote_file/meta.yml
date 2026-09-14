@@ -1,0 +1,51 @@
+name: download_remote_file
+description: Download remote files from HTTP/FTP URLs using wget or curl
+keywords:
+  - download
+  - remote
+  - http
+  - ftp
+  - url
+  - wget
+  - curl
+tools:
+  - wget:
+      description: GNU Wget - a free software package for retrieving files using HTTP, HTTPS, FTP and FTPS
+      homepage: https://www.gnu.org/software/wget/
+      documentation: https://www.gnu.org/software/wget/manual/wget.html
+      tool_dev_url: https://git.savannah.gnu.org/cgit/wget.git
+      licence: ["GPL-3.0-or-later"]
+  - curl:
+      description: Command line tool and library for transferring data with URLs
+      homepage: https://curl.se/
+      documentation: https://curl.se/docs/
+      tool_dev_url: https://github.com/curl/curl
+      licence: ["curl"]
+input:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test', is_remote:true ]
+  - url:
+      type: string
+      description: Remote URL to download (HTTP, HTTPS, or FTP). Supports standard URLs and MASSIVE-style URLs with query parameters (e.g., ?file=)
+      pattern: "^(https?://|ftp://)"
+output:
+  - meta:
+      type: map
+      description: |
+        Groovy Map containing sample information
+        e.g. [ id:'test' ]
+  - versions:
+      type: file
+      description: File containing software versions
+      pattern: "versions.yml"
+  - file:
+      type: file
+      description: Downloaded file with filename extracted from URL path or query parameter
+      pattern: "*"
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

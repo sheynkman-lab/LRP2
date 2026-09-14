@@ -11,6 +11,8 @@ process FRAGPIPE {
     path ionquant_jar
     path diatracer_jar
     path custom_workflow
+    path dia_workflow
+    path lfq_workflow
 
     output:
     tuple val(meta), path("*.tsv"), emit: psm_table, optional: true
@@ -114,42 +116,32 @@ process FRAGPIPE {
         echo "Using custom workflow: ${custom_workflow}"
         cp ${custom_workflow} workflow.workflow
     else
-        echo "Downloading default ${data_type} workflow (${workflow_name})..."
-
-        # Determine workflow URL
+        echo "Using default ${data_type} workflow (${workflow_name})..."
         if [ "${data_type}" = "DIA" ]; then
-            WORKFLOW_URL="https://raw.githubusercontent.com/Nesvilab/FragPipe/develop/workflows/DIA_SpecLib_Quant.workflow"
+            WORKFLOW_FILE="${dia_workflow}"
         else
-            WORKFLOW_URL="https://raw.githubusercontent.com/Nesvilab/FragPipe/develop/workflows/LFQ-MBR.workflow"
+            WORKFLOW_FILE="${lfq_workflow}"
         fi
 
-        # Download workflow (try multiple methods)I
-        if command -v wget &> /dev/null; then
-            wget -q -O workflow.workflow "\$WORKFLOW_URL"
-        elif command -v curl &> /dev/null; then
-            curl -sL -o workflow.workflow "\$WORKFLOW_URL"
-        elif command -v python3 &> /dev/null; then
-            python3 -c "import urllib.request; urllib.request.urlretrieve('\$WORKFLOW_URL', 'workflow.workflow')"
-        else
-            echo "ERROR: No download tool found (wget, curl, or python)"
+        if [ ! -f "\$WORKFLOW_FILE" ]; then
+            echo "ERROR: Workflow file not found: \$WORKFLOW_FILE"
             exit 1
         fi
+
+        cp "\$WORKFLOW_FILE" workflow.workflow
 
         if [ ! -f workflow.workflow ] || [ ! -s workflow.workflow ]; then
-            echo "ERROR: Failed to download workflow file"
+            echo "ERROR: Failed to copy workflow file"
             exit 1
         fi
 
-        echo "Workflow downloaded: ${workflow_name}.workflow"
+        echo "Workflow loaded: ${workflow_name}.workflow"
     fi
 
     # Update workflow with database path and decoy tag
     WORK_DIR="\$(pwd)"
-    
-    # Ensure workflow file ends with a newline (some upstream versions omit it)
-    sed -i -e '\$a\\' workflow.workflow
-    echo "database.db-path=\$WORK_DIR/database_with_decoys.fasta" >> workflow.workflow
-    echo "database.decoy-tag=${decoy_tag}" >> workflow.workflow
+    printf "\ndatabase.db-path=%s\n" "\$WORK_DIR/database_with_decoys.fasta" >> workflow.workflow
+    printf "database.decoy-tag=%s\n" "${decoy_tag}" >> workflow.workflow
 
     echo ""
 
@@ -193,7 +185,7 @@ process FRAGPIPE {
     fi
 
     echo "FragPipe executable: \$FRAGPIPE_CMD"
-    echo "RAM: ${task.memory.toGiga()} GB"
+    echo "RAM: ${(task.memory.toGiga() * 0.7) as Integer} GB (70% of ${task.memory.toGiga()} GB allocated)"
     echo "Threads: ${threads}"
     echo ""
     echo "Starting FragPipe headless execution..."
@@ -207,7 +199,7 @@ process FRAGPIPE {
         --manifest \$WORK_DIR/manifest.fp-manifest \\
         --workdir \$WORK_DIR/results \\
         --config-tools-folder \$WORK_DIR/fragpipe_tools \\
-        --ram ${task.memory.toGiga()} \\
+        --ram ${(task.memory.toGiga() * 0.7) as Integer} \\
         --threads ${threads} \\
         $args \\
         2>&1 | tee fragpipe_execution.log
@@ -368,11 +360,11 @@ process FRAGPIPE {
     echo "=========================================================================="
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        fragpipe: \$(\$FRAGPIPE_CMD --version 2>&1 | grep -oP 'FragPipe \\K[0-9.]+' || echo "24.0")
-        msfragger: \$(basename ${msfragger_jar} | grep -oP 'MSFragger-\\K[0-9.]+' || echo "unknown")
-        ionquant: \$(basename ${ionquant_jar} | grep -oP 'IonQuant-\\K[0-9.]+' || echo "unknown")
-    END_VERSIONS
+	"${task.process}":
+	    fragpipe: \$(\$FRAGPIPE_CMD --version 2>&1 | grep -oP 'FragPipe \\K[0-9.]+' || echo "24.0")
+	    msfragger: \$(basename ${msfragger_jar} | grep -oP 'MSFragger-\\K[0-9.]+' || echo "unknown")
+	    ionquant: \$(basename ${ionquant_jar} | grep -oP 'IonQuant-\\K[0-9.]+' || echo "unknown")
+	END_VERSIONS
     """
 
     stub:
@@ -385,10 +377,10 @@ process FRAGPIPE {
     touch ${prefix}_S5_PROTEOMICS_M3_FRAGPIPE_log.txt
 
     cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        fragpipe: 24.0
-        msfragger: 4.1
-        ionquant: 1.10.12
-    END_VERSIONS
+	"${task.process}":
+	    fragpipe: 24.0
+	    msfragger: 4.1
+	    ionquant: 1.10.12
+	END_VERSIONS
     """
 }
