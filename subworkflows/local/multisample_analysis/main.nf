@@ -3,8 +3,8 @@
     IMPORT MODULES / SUBWORKFLOWS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { LEAFCUTTER_LONGREAD    } from '../../modules/local/leafcutter_longread/main'
-include { DIFFERENTIAL_EXPRESSION   } from '../../modules/local/differential_expression/main'
+include { LEAFCUTTER_LONGREAD    } from '../../../modules/local/leafcutter_longread/main'
+include { DIFFERENTIAL_EXPRESSION   } from '../../../modules/local/differential_expression/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -3,9 +3,9 @@
     IMPORT MODULES / SUBWORKFLOWS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { SQANTI_QC              } from '../../modules/local/sqanti_qc/main'
-include { GENERATE_HASHIDS       } from '../../modules/local/generate_hashids/main'
-include { FILTER_TRANSCRIPTOME   } from '../../modules/local/filter_transcriptome/main'
+include { SQANTI_QC              } from '../../../modules/local/sqanti_qc/main'
+include { GENERATE_HASHIDS       } from '../../../modules/local/generate_hashids/main'
+include { FILTER_TRANSCRIPTOME   } from '../../../modules/local/filter_transcriptome/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

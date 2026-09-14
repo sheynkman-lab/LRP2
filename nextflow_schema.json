@@ -11,7 +11,10 @@
             "type": "object",
             "fa_icon": "fas fa-terminal",
             "description": "Define where the pipeline should find input data and save output data.",
-            "required": ["outdir"],
+            "required": [
+                "input",
+                "outdir"
+            ],
             "properties": {
                 "input": {
                     "type": "string",
@@ -147,7 +150,7 @@
                 "isocall_config": {
                     "type": "string",
                     "format": "file-path",
-                    "default": "${projectDir}/bin/isocall_config.toml",
+                    "default": "/home/julia/Documents/LRP2_lite/bin/isocall_config.toml",
                     "description": "Path to IsoCall configuration TOML file.",
                     "help_text": "Configuration file for IsoCall parameters. Uses default config if not specified.",
                     "fa_icon": "fas fa-file-code"
@@ -179,6 +182,7 @@
                     "description": "Path to hash ID generation R script.",
                     "help_text": "R script used to generate hash IDs for transcripts.",
                     "fa_icon": "far fa-file-code",
+                    "default": "/home/julia/Documents/LRP2_lite/bin/00_generate_hashids.R",
                     "hidden": true
                 },
                 "filter_script": {
@@ -188,6 +192,7 @@
                     "description": "Path to SQANTI filtering R script.",
                     "help_text": "R script used to filter SQANTI3 QC output.",
                     "fa_icon": "far fa-file-code",
+                    "default": "/home/julia/Documents/LRP2_lite/bin/02_filter_sqanti_transcripts.R",
                     "hidden": true
                 },
                 "hashlib_script": {
@@ -197,12 +202,13 @@
                     "description": "Path to hashlib ID generator Python script.",
                     "help_text": "Python script used to generate hash IDs for transcripts.",
                     "fa_icon": "far fa-file-code",
+                    "default": "/home/julia/Documents/LRP2_lite/bin/hashlib_id_generator.py",
                     "hidden": true
                 },
                 "sqanti_path": {
                     "type": "string",
                     "format": "directory-path",
-                    "default": "/project/sheynkman/programs/SQANTI3-5.5/src/utilities/cupcake/",
+                    "default": "/SQANTI3/src/utilities/cupcake/",
                     "description": "Path to SQANTI3 installation directory.",
                     "help_text": "Path to the SQANTI3 cupcake utilities directory.",
                     "fa_icon": "fas fa-folder",
@@ -234,9 +240,83 @@
                 },
                 "transcript_class_keep": {
                     "type": "string",
-                    "default": "FSM,NIC,NNC",
+                    "default": "FSM,ISM,NIC,NNC",
                     "description": "Comma-separated transcript structural categories to retain (FSM, ISM, NIC, NNC, or 'ALL').",
                     "fa_icon": "fas fa-filter"
+                }
+            }
+        },
+        "differential_analysis_options": {
+            "title": "Differential analysis options",
+            "type": "object",
+            "fa_icon": "fas fa-chart-line",
+            "description": "Options for multi-sample differential expression and splicing analysis.",
+            "properties": {
+                "min_samples_per_intron": {
+                    "type": "integer",
+                    "default": 2,
+                    "description": "Minimum number of samples per intron for leafcutter differential splicing.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "min_samples_per_group": {
+                    "type": "integer",
+                    "default": 2,
+                    "description": "Minimum number of samples per group for leafcutter differential splicing.",
+                    "fa_icon": "fas fa-users"
+                },
+                "min_usage_ratio": {
+                    "type": "number",
+                    "default": 0.01,
+                    "description": "Minimum junction usage ratio for minicutter filtering.",
+                    "fa_icon": "fas fa-percent"
+                },
+                "lr_leafcutter_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to long-read leafcutter R script.",
+                    "help_text": "R script used for long-read leafcutter clustering analysis.",
+                    "fa_icon": "far fa-file-code",
+                    "default": "/home/julia/Documents/LRP2_lite/bin/05_lr_leafcutter.R"
+                },
+                "leafcutter_ds_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to leafcutter differential splicing Python script.",
+                    "help_text": "Python script used for leafcutter differential splicing analysis (leafcutter_ds.py).",
+                    "fa_icon": "far fa-file-code",
+                    "default": "/home/julia/Documents/LRP2_lite/bin/leafcutter_ds.py"
+                },
+                "multisample_script": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Path to multi-sample analysis R script.",
+                    "help_text": "R script used for differential expression and usage analysis with edgeR and DRIMSeq.",
+                    "fa_icon": "far fa-file-code",
+                    "default": "/home/julia/Documents/LRP2_lite/bin/05_multisample_analysis.R"
+                },
+                "leafcutter_threads": {
+                    "type": "integer",
+                    "default": 12,
+                    "description": "Number of threads for leafcutter differential splicing.",
+                    "help_text": "Specify the number of threads to use for leafcutter differential splicing analysis. If not specified, defaults to using the number of CPUs allocated to the process (12 for process_high).",
+                    "fa_icon": "fas fa-microchip"
+                },
+                "drimseq_min_gene_expr": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Minimum gene-level expression for DRIMSeq filtering.",
+                    "help_text": "Genes with total counts below this threshold will be filtered out before differential usage analysis.",
+                    "fa_icon": "fas fa-filter"
+                },
+                "drimseq_min_isoform_prop": {
+                    "type": "number",
+                    "default": 0.05,
+                    "description": "Minimum isoform/feature proportion for DRIMSeq filtering.",
+                    "help_text": "Isoforms/features with proportion below this threshold will be filtered out before differential usage analysis.",
+                    "fa_icon": "fas fa-percentage"
                 }
             }
         },
@@ -248,10 +328,12 @@
             "properties": {
                 "species": {
                     "type": "string",
-                    "default": "human",
                     "description": "Species for CPAT model selection (human or mouse).",
                     "fa_icon": "fas fa-fish",
-                    "enum": ["human", "mouse"]
+                    "enum": [
+                        "human",
+                        "mouse"
+                    ]
                 },
                 "human_hexamer": {
                     "type": "string",
@@ -259,7 +341,8 @@
                     "exists": true,
                     "description": "Path to human hexamer table for CPAT.",
                     "help_text": "Hexamer table used by CPAT for ORF prediction in human samples.",
-                    "fa_icon": "far fa-file-code"
+                    "fa_icon": "far fa-file-code",
+                    "default": "/home/julia/Documents/LRP2_lite/assets/external_data/Human_Hexamer.tsv"
                 },
                 "human_logit_model": {
                     "type": "string",
@@ -267,7 +350,8 @@
                     "exists": true,
                     "description": "Path to human logit model for CPAT.",
                     "help_text": "Logit model used by CPAT for ORF prediction in human samples.",
-                    "fa_icon": "far fa-file-code"
+                    "fa_icon": "far fa-file-code",
+                    "default": "/home/julia/Documents/LRP2_lite/assets/external_data/Human_logitModel.RData"
                 },
                 "mouse_hexamer": {
                     "type": "string",
@@ -275,7 +359,8 @@
                     "exists": true,
                     "description": "Path to mouse hexamer table for CPAT.",
                     "help_text": "Hexamer table used by CPAT for ORF prediction in mouse samples.",
-                    "fa_icon": "far fa-file-code"
+                    "fa_icon": "far fa-file-code",
+                    "default": "/home/julia/Documents/LRP2_lite/assets/external_data/Mouse_Hexamer.tsv"
                 },
                 "mouse_logit_model": {
                     "type": "string",
@@ -283,7 +368,8 @@
                     "exists": true,
                     "description": "Path to mouse logit model for CPAT.",
                     "help_text": "Logit model used by CPAT for ORF prediction in mouse samples.",
-                    "fa_icon": "far fa-file-code"
+                    "fa_icon": "far fa-file-code",
+                    "default": "/home/julia/Documents/LRP2_lite/assets/external_data/Mouse_logitModel.RData"
                 },
                 "cpat_coding_threshold": {
                     "type": "number",
@@ -310,6 +396,7 @@
                     "description": "Path to CPAT filtering R script.",
                     "help_text": "R script used to filter CPAT output and call best ORFs.",
                     "fa_icon": "far fa-file-code",
+                    "default": "/home/julia/Documents/LRP2_lite/bin/03_filter_cpat.R",
                     "hidden": true
                 },
                 "sqanti_protein_script": {
@@ -319,6 +406,7 @@
                     "description": "Path to SQANTI protein classification Python script.",
                     "help_text": "Python script used for SQANTI3 protein classification.",
                     "fa_icon": "far fa-file-code",
+                    "default": "/home/julia/Documents/LRP2_lite/bin/04_sqanti3_protein.py",
                     "hidden": true
                 },
                 "protein_class_script": {
@@ -328,11 +416,12 @@
                     "description": "Path to protein classification R script.",
                     "help_text": "R script used for 5'UTR and protein classification.",
                     "fa_icon": "far fa-file-code",
+                    "default": "/home/julia/Documents/LRP2_lite/bin/04_protein_classification.R",
                     "hidden": true
                 },
                 "protein_class_keep": {
                     "type": "string",
-                    "default": "FPM,IPM,NPC,NPE",
+                    "default": "FPM,NPC,NPE",
                     "description": "Comma-separated list of protein classifications to keep.",
                     "help_text": "Protein classification categories to retain (e.g., FPM,IPM,NPC,NPE).",
                     "fa_icon": "fas fa-filter"
@@ -476,13 +565,6 @@
                     "help_text": "When enabled, applies vendor peak picking algorithm during conversion from raw to mzML format.",
                     "fa_icon": "fas fa-chart-line"
                 },
-                "protein_fasta": {
-                    "type": "string",
-                    "format": "file-path",
-                    "description": "Path to reference protein FASTA file.",
-                    "help_text": "Reference protein database for proteomics searches. If not provided and a GENCODE genome is specified, will automatically use the protein FASTA from the GENCODE genome configuration.",
-                    "fa_icon": "far fa-file-code"
-                },
                 "no_gencode": {
                     "type": "boolean",
                     "description": "Exclude GENCODE reference from proteome database.",
@@ -513,18 +595,22 @@
                 },
                 "protein_search": {
                     "type": "string",
-                    "default": "fragpipe",
+                    "default": "metamorpheus",
                     "description": "Protein search engine to use for proteomics analysis.",
                     "help_text": "Choose between 'fragpipe' (supports DDA and DIA) or 'metamorpheus' (DDA only).",
                     "fa_icon": "fas fa-search",
-                    "enum": ["fragpipe", "metamorpheus"]
+                    "enum": [
+                        "fragpipe",
+                        "metamorpheus"
+                    ]
                 },
                 "fragpipe_tools_dir": {
                     "type": "string",
                     "format": "directory-path",
                     "description": "Directory to store FragPipe tools (MSFragger, IonQuant, DiaTracer).",
                     "help_text": "Location where FragPipe JAR files will be cached. These files are downloaded once and reused in future runs.",
-                    "fa_icon": "fas fa-folder"
+                    "fa_icon": "fas fa-folder",
+                    "default": "/home/julia/Documents/LRP2_lite/fragpipe_tools"
                 },
                 "fragpipe_first_name": {
                     "type": "string",
@@ -564,7 +650,6 @@
                 },
                 "fragpipe_license_accept": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Accept FragPipe license terms (required for non-interactive mode).",
                     "help_text": "Set to true to accept FragPipe license terms for non-interactive setup.",
                     "fa_icon": "fas fa-file-contract",
@@ -638,7 +723,14 @@
                     "description": "Method used to save pipeline results to output directory.",
                     "help_text": "The Nextflow `publishDir` option specifies which intermediate files should be saved to the output directory. This option tells the pipeline what method should be used to move these files. See [Nextflow docs](https://www.nextflow.io/docs/latest/process.html#publishdir) for details.",
                     "fa_icon": "fas fa-copy",
-                    "enum": ["symlink", "rellink", "link", "copy", "copyNoFollow", "move"],
+                    "enum": [
+                        "symlink",
+                        "rellink",
+                        "link",
+                        "copy",
+                        "copyNoFollow",
+                        "move"
+                    ],
                     "hidden": true
                 },
                 "email_on_fail": {
@@ -655,14 +747,6 @@
                     "fa_icon": "fas fa-remove-format",
                     "hidden": true
                 },
-                "max_multiqc_email_size": {
-                    "type": "string",
-                    "description": "File size limit when attaching MultiQC reports to summary emails.",
-                    "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$",
-                    "default": "25.MB",
-                    "fa_icon": "fas fa-file-upload",
-                    "hidden": true
-                },
                 "monochrome_logs": {
                     "type": "boolean",
                     "description": "Do not use coloured log outputs.",
@@ -675,24 +759,6 @@
                     "fa_icon": "fas fa-people-group",
                     "help_text": "Incoming hook URL for messaging service. Currently, MS Teams and Slack are supported.",
                     "hidden": true
-                },
-                "multiqc_config": {
-                    "type": "string",
-                    "format": "file-path",
-                    "description": "Custom config file to supply to MultiQC.",
-                    "fa_icon": "fas fa-cog",
-                    "hidden": true
-                },
-                "multiqc_logo": {
-                    "type": "string",
-                    "description": "Custom logo file to supply to MultiQC. File name must also be set in the MultiQC config file",
-                    "fa_icon": "fas fa-image",
-                    "hidden": true
-                },
-                "multiqc_methods_description": {
-                    "type": "string",
-                    "description": "Custom MultiQC yaml file containing HTML including a methods description.",
-                    "fa_icon": "fas fa-cog"
                 },
                 "validate_params": {
                     "type": "boolean",
@@ -715,7 +781,10 @@
                     "hidden": true
                 },
                 "help": {
-                    "type": ["boolean", "string"],
+                    "type": [
+                        "boolean",
+                        "string"
+                    ],
                     "description": "Display the help message."
                 },
                 "help_full": {
@@ -763,5 +832,34 @@
         {
             "$ref": "#/$defs/generic_options"
         }
-    ]
+    ],
+    "properties": {
+        "cpat_coding_threshold": {
+            "type": "string"
+        },
+        "lrp_protein_fasta": {
+            "type": "string"
+        },
+        "lrp_gtf": {
+            "type": "string"
+        },
+        "custom_protein_fasta": {
+            "type": "string"
+        },
+        "custom_gtf": {
+            "type": "string"
+        },
+        "fragpipe_threads": {
+            "type": "string"
+        },
+        "hpc_executor": {
+            "type": "string"
+        },
+        "hpc_queue": {
+            "type": "string"
+        },
+        "hpc_cluster_options": {
+            "type": "string"
+        }
+    }
 }
