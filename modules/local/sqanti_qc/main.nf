@@ -14,12 +14,7 @@ process SQANTI_QC {
     tuple val(meta), path("*.transcriptome.SQANTI_classification.txt"), emit: classification
     tuple val(meta), path("*.transcriptome.gtf"), emit: corrected_gtf
     tuple val(meta), path("*.transcriptome.fasta"), emit: corrected_fasta
-//    tuple val(meta), path("*.transcriptome.corrected.genePred"), emit: corrected_genepred
-//    tuple val(meta), path("*.transcriptome.corrected.gtf.cds.gff"), emit: corrected_cds_gff
-//    tuple val(meta), path("*.transcriptome.isoforms.gtf"), emit: isoforms_gtf
     tuple val(meta), path("*.transcriptome.junctions.txt"), emit: junctions
-//    tuple val(meta), path("*.transcriptome.params.txt"), emit: params
-//    tuple val(meta), path("refAnnotation.*.genePred"), emit: refannotation_genepred
     path "versions.yml", emit: versions
 
     when:
@@ -59,10 +54,10 @@ process SQANTI_QC {
     
     # Fix single-sample column naming to use "FL.{sample_id}", which is consistent with formatting used for multi-sample runs
     TAB=\$'\\t'
-    NUM_COLS=\$(head -1 $flnc_count | awk -F',' '{print NF}')
+    NUM_COLS=\$(head -1 $flnc_count | awk -F'[,\t]' '{print NF}')
     if [ "\$NUM_COLS" -eq 2 ]; then
         if head -1 ${prefix}.transcriptome_classification.txt | grep -qE "\${TAB}FL\${TAB}|\${TAB}FL\\.\${TAB}"; then
-            SAMPLE_NAME=\$(head -1 $flnc_count | awk -F',' '{print \$2}')
+            SAMPLE_NAME=\$(head -1 $flnc_count | awk -F'[,\t]' '{print \$2}')
             awk -v sample="\${SAMPLE_NAME}" 'NR==1 {gsub(/\\tFL\\t|\\tFL\\.\\t/, "\\tFL."sample"\\t")} {print}' \\
                 ${prefix}.transcriptome_classification.txt > ${prefix}.transcriptome_classification.tmp.txt
             mv ${prefix}.transcriptome_classification.tmp.txt ${prefix}.transcriptome_classification.txt
