@@ -527,7 +527,7 @@ This pipeline is released under the MIT License.
 
 If you use LRP2 in your work, please cite:
 
-> Schertzer MD, Lewandowski JT, et al. LRP2: A proteogenomics pipeline for long-read informed protein isoform analysis and discovery. *Manuscript in preparation.*
+> Schertzer, M. D., Lewandowski, J. T., et al. 2026. "LRP2: A proteogenomics pipeline for long-read informed protein isoform analysis and discovery." *bioRxiv*. doi: [10.64898/2026.05.27.728216](https://doi.org/10.64898/2026.05.27.728216)
 
 LRP2 builds on the original LRP framework:
 
@@ -538,6 +538,7 @@ LRP2 builds on the original LRP framework:
 Please also cite the tools used by the pipeline:
 
 - **Isocall 1.3.0** (PacBio) — [github.com/PacificBiosciences/isocall](https://github.com/PacificBiosciences/isocall)
+  > Dolzhenko, E., Schertzer, M., Gossart, R., Mokveld, T., Belyeu, J., Varabyou, A., et al. 2026. "Isocall enables scalable transcript identification from long-read RNA-sequencing data." *bioRxiv*. doi: [10.64898/2026.09.08.749180](https://doi.org/10.64898/2026.09.08.749180)
   
 - **SQANTI3**
   > Pardo-Palacios, F. J., Arzalluz-Luque, A., Kondratova, L., et al. 2024. "SQANTI3: curation of long-read transcriptomes for accurate identification of known and novel isoforms." *Nature Methods* 21(5): 793–797. doi: [10.1038/s41592-024-02229-2](https://doi.org/10.1038/s41592-024-02229-2)
