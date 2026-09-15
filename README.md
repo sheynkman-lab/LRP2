@@ -19,7 +19,7 @@ The LRP2 Nextflow pipeline consists of five subworkflows:
 | 2. Transcriptome | Classify transcripts with SQANTI3, filter artifacts, assign deterministic hash-based isoform IDs |
 | 3. Predicted proteome | Predict ORFs with CPAT, classify proteins with SQANTI protein |
 | 4. Multi-sample analysis | Differential expression and usage (edgeR, DRIMSeq), differential splicing (LR LeafCutter, preliminary implementation) |
-| 5. Proteomics | Build custom reference database, convert raw MS files, search with FragPipe or MetaMorpheus, map peptides to isoforms |
+| 5. Proteomics | Build custom reference database, convert raw MS files, search with FragPipe, map peptides to isoforms |
  
 ## Quick Start
 
@@ -201,24 +201,62 @@ Submit with:
 ```bash
 sbatch run_lrp2.sh
 ```
-> **Note**: Customize the above template for your HPC. This includes `#SBATCH` directives (partition, account) and module names (nextflow, apptainer), and the `--hpc_queue` and `--hpc_cluster_options` pipeline parameters. For LSF, replace `#SBATCH` directives with `#BSUB` equivalents and use `-profile singularity,lsf`. For other schedulers, see [Support and customization](#support-and-customization).
+> [!INFO]
+> You should customize the above template for your HPC. This includes `#SBATCH` directives (partition, account), module names (nextflow, apptainer), and the `--hpc_queue` and `--hpc_cluster_options` pipeline parameters. For LSF, replace `#SBATCH` directives with `#BSUB` equivalents and use `-profile singularity,lsf`. For other schedulers, see [Support and customization](#support-and-customization).
 >
 > **Resource allocation** works on two levels:
-> - **The driver job** (`#SBATCH` directives in the shell script): modest resources are sufficient — Nextflow itself only orchestrates submissions and doesn't run the heavy work.
+> - **The driver job** (`#SBATCH` directives in the shell script): modest resources are sufficient. Nextflow itself only orchestrates submissions and doesn't run the heavy work.
 > - **Individual pipeline tasks** (CPUs, memory, time per process): handled automatically by LRP2's internal configuration. You do **not** need to specify these on the command line. To customize, edit `conf/base.config`.
 >
 > Include `--fragpipe_token` only if running the proteomics subworkflow (see [Run the RNA + DDA proteomics test dataset](#run-the-rna--dda-proteomics-test-dataset) for obtaining a token). Differential analysis runs automatically when two or more conditions are present in the samplesheet.
 
-### Re-running S4 Multisample Analysis Only
+### Entry at S2 Transcriptome with non-Pacbio Data
 
-If you have already completed a full LRP2 run and  want to re-run just the differential analysis modules (S4 MULTISAMPLE ANALYSIS) with different parameters, you can use **multisample-only mode** by passing a samplesheet through ``--multisample_metadata``, as well as paths to three required input transcript and ORF-level output files from a previous run, as shown:
+If you have **Oxford Nanopore (ONT)** or other non-PacBio long-read data and have already quantified transcripts using an external tool such as **Bambu**, **FLAIR**, **IsoQuant**, etc, you can enter the pipeline at **S2 TRANSCRIPTOME** by providing paths to your external GTF and count matrix file in addition to your input samplesheet. This allows LRP2 to skip from **S1 PACBIO ISOCALL** directly to **S2 TRANSCRIPTOME**. 
+
+**Required parameters:**
+
+- `--S2_custom_gtf`: Path to your transcript GTF file (output from Bambu, FLAIR, IsoQuant, etc.)
+- `--S2_custom_counts`: Path to your transcript count matrix (TSV format)
+
+**Example command:**
 
 ```bash
 nextflow run /path/to/LRP2 \
-    --multisample_metadata samplesheet.csv \
-    --transcripts_gtf results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged.transcriptome.filtered.gtf \
-    --transcript_counts results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/merged.transcriptome.filtered_hashids_with_cpm.txt \
-    --orf_counts results/S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/merged.predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt \
+    --input samplesheet.csv \
+    --S2_custom_gtf bambu_annotations.gtf \
+    --S2_custom_counts bambu_counts.tsv \
+    --genome GRCh38.p14.v50 \
+    --outdir results \
+    -profile singularity,slurm
+```
+
+> [!INFO] Critical Requirements
+
+>  1. Transcript IDs **must match exactly** between your provided GTF and count matrix. If they do not, LRP2 will exit with logging identifying mismatched transcript IDs.  
+>  2. Your provided counts matrix **must be tab-delimited**.
+>  3. Your provided counts matrix **first column must be named `transcript_id` containing transcript identifiers**, while **subsequent columns have sample names** matching the `sample_name` values in your samplesheet. All values must correspond to raw counts. If your counts matrix contains any other columns, they should be removed as a preprocessing step before input into the pipeline. 
+>  4. Transcript_ids in your GTF and count matrix should not contain underscores. All underscores will be replaced with `-` automatically in the pipeline execution. 
+
+### S4 Multisample Analysis Only Run
+
+If you have already completed a full LRP2 run and  want to re-run just the differential analysis modules (S4 MULTISAMPLE ANALYSIS) with different parameters or sample groupings, you can use **multisample-only mode** by passing a samplesheet through ``--S4_multisample_metadata``, as well as paths to three required input transcript and ORF-level output files from a previous run, as shown:
+
+**Required parameters:**
+
+- `--S4_multisample_metadata`
+- `--S4_custom_gtf`
+- `--S4_custom_counts`
+- `--S4_custom_orf_counts`
+
+**Example command:**
+
+```bash
+nextflow run /path/to/LRP2 \
+    --S4_multisample_metadata samplesheet.csv \
+    --S4_custom_gtf results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/transcriptome.filtered.gtf \
+    --S4_custom_counts results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/transcriptome.filtered_hashids_with_cpm.txt \
+    --S4_custom_orf_counts results/S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt \
     --outdir results_reanalysis \
     --min_samples_per_intron 1 \
     --min_usage_ratio 0.05 \
@@ -226,20 +264,27 @@ nextflow run /path/to/LRP2 \
 ```
 This mode skips S1-S3 (PacBio Isocall, Transcriptome, Predicted Proteome) and runs only S4 (Multisample Analysis), which is useful for saving time and compute if you are interested in testing different statistical thresholds, filtering parameters, or subgroupings of your samples with multisample analysis.
 
-Your metadata CSV passed to ``--multisample_metadata`` **must** have columns named ``sample_name``, ``sample_path``, ``condition`` or ``group``, and ``sample_type``.  Note that the standard samplesheet format will work for ``--multisample_metadata``. However, if you are rerunning this for the same data with only different condition group labels for samples or minor parameter value changes, we recommend creating a unique samplesheet for each one and choosing a corresponding name for your output results directory to help keep your results organized and straightforward to differentiate between. 
+Your metadata CSV passed to ``--S4_multisample_metadata`` **must** have columns named ``sample_name``, ``sample_path``, ``condition`` or ``group``, and ``sample_type``.  Note that the standard samplesheet format will work for ``--S4_multisample_metadata``. 
 
-### S5 Proteomics-only Mode
+### S5 Proteomics-only Run
 
 If you have already generated a transcriptome and predicted proteome, you can run just the proteomics subworkflow (S5) by providing a samplesheet containing only protein samples along with the reference files from your previous run:
+
+**Required parameters:**
+
+- `--S5_custom_protein_fasta`
+- `--S5_custom_cds_gtf`
+
+**Example command:**
 
 ```bash
 nextflow run /path/to/LRP2 \
     --input samplesheet.csv \
     --outdir results \
     --genome GRCh38.p14.v50 \
-    --S5_custom_protein_fasta S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/lrp2.predicted_proteome.best_ORF.fa \
-    --S5_custom_cds_gtf S3_PREDICTED_PROTEOME/M2_FILTER_CPAT/lrp2.predicted_proteome.best_ORF.gtf \
-    --S5_custom_counts S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrp2.transcriptome.all_hashids_with_cpm.txt \
+    --S5_custom_protein_fasta S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/predicted_proteome.best_ORF.fa \
+    --S5_custom_cds_gtf S3_PREDICTED_PROTEOME/M2_FILTER_CPAT/predicted_proteome.best_ORF.gtf \
+    --S5_custom_counts S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/transcriptome.all_hashids_with_cpm.txt \
     --protein_search fragpipe \
     --fragpipe_token "YOUR_TOKEN" \
     -profile singularity,slurm
@@ -307,6 +352,9 @@ The pipeline automatically downloads the appropriate FASTA and GTF files based o
 
 Support for RefSeq / igenomes and custom references is under active development.
 
+> [!INFO]
+>  For GENCODE references v25 - v43, the pipeline automatically sanitizes Pseudoautosomal Region (PAR) gene IDs by converting `_PAR_Y` to `-PAR-Y` in the reference GTF (and any GTF and counts matrix from the user for entry from S2 TRANSCRIPTOME, if provided) to ensure formatting compatibility. 
+
 ## Parameters
 
 For a complete list of parameters:
@@ -322,7 +370,7 @@ nextflow run /path/to/LRP2 --help
 |-----------|-------------|---------|
 | `--input` | Path to samplesheet CSV (required) | — |
 | `--outdir` | Path to output directory (required) | — |
-| `--dataset_name` | Run identifier used for output prefixes | `merged` |
+| `--dataset_name` | Run identifier used for output prefixes | `lrp2` |
 | `--genome` | Reference genome version | `GRCh38.p14.v50` |
 
 ### HPC Scheduler Options
@@ -348,6 +396,8 @@ nextflow run /path/to/LRP2 --help
 | `--internal_priming_filter` | Remove internal priming artifacts | `true` |
 | `--template_switching_filter` | Remove template switching artifacts | `true` |
 | `--transcript_class_keep` | Structural categories to retain (FSM, ISM, NIC, NNC, ALL) | `FSM,ISM,NIC,NNC` |
+| `--S2_custom_gtf` | Entry at S2 for non-PacBio data. Transcript GTF from an external tool (Bambu, FLAIR, IsoQuant, etc.), used in place of S1 output. Transcript IDs must match `--S2_custom_counts`. | — |
+| `--S2_custom_counts` | Entry at S2 for non-PacBio data. Tab-delimited transcript count matrix with `transcript_id` as the first column and sample names matching the samplesheet in subsequent columns. | — |
 
 ### S3 Predicted Proteome
 
@@ -364,6 +414,10 @@ nextflow run /path/to/LRP2 --help
 | `--min_samples_per_intron` | Minimum samples per intron for leafcutter | `2` |
 | `--min_samples_per_group` | Minimum samples per group for leafcutter | `1` |
 | `--min_usage_ratio` | Minimum junction usage ratio for filtering | `0.01` |
+| `--S4_multisample_metadata` | Multisample Analysis-only runs, entry at S4. Samplesheet defining sample groupings for differential analysis. Requires columns `sample_name`, `sample_path`, `condition` or `group`, and `sample_type`. The standard samplesheet format is accepted. | — |
+| `--S4_custom_gtf` | Multisample Analysis-only runs, entry at S4. Filtered transcriptome GTF from a previous run (S2 M3 output). | — |
+| `--S4_custom_counts` | Multisample Analysis-only runs, entry at S4. Filtered transcriptome count matrix with hash IDs from a previous run (S2 M3 output). | — |
+| `--S4_custom_orf_counts` | Multisample Analysis-only runs, entry at S4. High confidence ORF count matrix with hash IDs from a previous run (S3 M4 output). | — |
   
 ### S5 Proteomics
 
@@ -372,9 +426,9 @@ nextflow run /path/to/LRP2 --help
 | `--protein_search` | Search engine: `fragpipe` (required) | - |
 | `--fragpipe_token` | Single-use academic license token for FragPipe (required if `--protein_search fragpipe`). See [Run the RNA + DDA proteomics test dataset](#run-the-rna--dda-proteomics-test-dataset) for how to obtain one. | — |
 | `--fragpipe_workflow` | Path to a custom FragPipe workflow file specifying search parameters (modifications, enzymes, etc.) | default is selected by `mass_spec_type` |'
-| `--S5_custom_protein_fasta` | Proteomics-only runs. Protein FASTA to build the search database from. Accepts LRP2 output (headers: `transcript_id\|gene_id\|gene_name\|pclass\|status`) or any custom FASTA (`transcript_id\|gene_id` at minimum); the source is auto-detected. | — |
-| `--S5_custom_cds_gtf` | Proteomics-only runs. GTF with CDS entries paired with `--S5_custom_protein_fasta`, used to map peptides to genomic coordinates. Transcript IDs must match the FASTA. | — |
-| `--S5_custom_counts` | Proteomics-only runs. Transcript count matrix used to filter the search database to expressed transcripts. | — |
+| `--S5_custom_protein_fasta` | Proteomics-only runs, entry at S5. Protein FASTA to build the search database from. Accepts LRP2 output (headers: `transcript_id\|gene_id\|gene_name\|pclass\|status`) or any custom FASTA (`transcript_id\|gene_id` at minimum); the source is auto-detected. | — |
+| `--S5_custom_cds_gtf` | Proteomics-only runs, entry at S5. GTF with CDS entries paired with `--S5_custom_protein_fasta`, used to map peptides to genomic coordinates. Transcript IDs must match the FASTA. | — |
+| `--S5_custom_counts` | Proteomics-only runs, entry at S5 (optional). Transcript count matrix used to filter the search database to expressed transcripts. | — |
 
 ## Pipeline Output
 
@@ -415,7 +469,7 @@ Each subworkflow outputs to numbered module directories. The final module in eac
 │       │   └── *_DTU_transcript_DRIMSeq_summary.txt
 │       └── differential_ORF_usage/
 │           └── *_DU_ORF_DRIMSeq_summary.txt
-├── S5_PROTEOMICS/                       # (optional)
+├── S5_PROTEOMICS/                    
 │   ├── M1_BUILD_PROTEOME_REFERENCE/
 │   ├── M2_MSCONVERT_MZML/
 │   ├── M3_FRAGPIPE/
@@ -430,14 +484,16 @@ For detailed information about output files, please refer to the [output documen
 
 ## Credits
 
-### Development Team
+LRP2 builds on the original LRP pipeline (Miller et al. 2022), developed in the Sheynkman Lab. We thank everyone who contributed to that work, which laid the foundation for this version.
 
-The LRP2 pipeline was developed through a collaboration by the Sheynkman Lab and Knowles Lab:
+### Development Team for LRP2
 
 - **Megan D. Schertzer**, Sheynkman Lab - Lead developer
 - **Julia T. Lewandowski**, Knowles Lab - Lead developer
 
-We thank the following people for their extensive assistance in the development of this pipeline: 
+- **David A. Knowles**, Development of LR LeafCutter and project support / funding 
+- **Gloria Sheynkman**, Development/conceptualization of LRP and project support / funding
+
 - **Emily F. Watts**, Sheynkman Lab - Contributions to LRP and conception of multi-sample analysis subworkflow.
 - **Madison M. Mehlferber**, Sheynkman Lab - Contributor to the original LRP pipeline. Continued pipeline testing and feedback.
 - **Will Rosenow**, Sheynkman Lab - Pipeline testing and feedback.
@@ -446,9 +502,6 @@ We thank the following people for their extensive assistance in the development 
 - **Elizabeth Tseng**, Pacific Biosciences - Development of Isocall. 
 - **Egor Dolzhenko**, Pacific Biosciences - Lead Developer of Isocall. 
 
-We especially thank the PIs that contributed to this project: 
-- **David A. Knowles**, Development of LR LeafCutter and project support / funding 
-- **Gloria Sheynkman**, Development/conceptualization of LRP and project support / funding
 
 ## Support and Customization
 

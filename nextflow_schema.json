@@ -57,21 +57,23 @@
                     "default": "GRCh38.p14.v50",
                     "description": "Name of genome reference. This automatically populates the paths for the reference FASTA and GTF files if using GENCODE references.",
                     "fa_icon": "fas fa-book",
-                    "help_text": "Use this parameter to specify a GENCODE reference by ID, which builds the full paths for the reference FASTA, GTF, and protein FASTA, e.g. `--genome GRCh38.p14.v50`. Available IDs are defined in `conf/gencode_references.config`. Defaults to `GRCh38.p14.v50` if not specified. To use custom references instead, provide `--fasta` and `--gtf` directly along with `--species`."
+                    "help_text": "Use this parameter to specify a GENCODE reference by ID, which builds the full paths for the reference FASTA, GTF, and protein FASTA, e.g. `--genome GRCh38.p14.v50`. Available IDs are defined in `conf/gencode_references.config`. Defaults to `GRCh38.p14.v50` if not specified. For custom references, please contact us."
                 },
-                "gtf": {
+                "local_reference_gtf": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "Path to custom reference GTF file (optional).",
-                    "help_text": "Path to the GTF file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
-                    "fa_icon": "far fa-file-code"
+                    "description": "Path to local reference GTF file (advanced users only, do not use with --genome).",
+                    "help_text": "Advanced parameter for custom references. Must be used with --local_reference_fasta and --species. Cannot be used with --genome. For custom reference support, please contact us.",
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
                 },
-                "fasta": {
+                "local_reference_fasta": {
                     "type": "string",
                     "format": "file-path",
-                    "description": "Path to reference genome FASTA file (optional).",
-                    "help_text": "Path to the genome FASTA file matching your reference genome. If not provided, will be automatically set from iGenomes configuration using the genome parameter.",
-                    "fa_icon": "far fa-file-code"
+                    "description": "Path to local reference FASTA file (advanced users only, do not use with --genome).",
+                    "help_text": "Advanced parameter for custom references. Must be used with --local_reference_gtf and --species. Cannot be used with --genome. For custom reference support, please contact us.",
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
                 },
                 "igenomes_ignore": {
                     "type": "boolean",
@@ -419,6 +421,29 @@
                 }
             }
         },
+        "skip_isocall_inputs": {
+            "title": "Skip IsoCall Mode (Non-PacBio Data)",
+            "type": "object",
+            "fa_icon": "fas fa-forward",
+            "description": "Parameters for providing external isoform calls (e.g., from ONT data) to skip the PACBIO_ISOCALL subworkflow.",
+            "help_text": "Use these parameters to provide pre-computed isoform GTF and count matrix from external sources (e.g., ONT with StringTie, Bambu, FLAMES, etc.). When both S2_custom_gtf and S2_custom_counts are provided, the pipeline will skip PACBIO_ISOCALL and start from the TRANSCRIPTOME subworkflow. The --input samplesheet parameter is still required as it contains metadata needed for downstream analysis.",
+            "properties": {
+                "S2_custom_gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Pre-computed GTF file with called isoforms (from any isoform caller).",
+                    "help_text": "Path to a GTF file containing called transcript isoforms from any long-read isoform caller (e.g., PacBio IsoCall, ONT Bambu, ONT FLAMES, StringTie, etc.). Can be gzipped (.gtf.gz) or uncompressed (.gtf). Transcript IDs should follow the format: ENSEMBL_ID for annotated transcripts, or ENSEMBL_ID.{suffix} for novel transcripts.",
+                    "fa_icon": "far fa-file-code"
+                },
+                "S2_custom_counts": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Pre-computed count matrix (transcript counts per sample).",
+                    "help_text": "Path to a count matrix file with transcript IDs in the first column and sample counts in subsequent columns. Sample column names must match the 'sample_name' values in your samplesheet. Supports CSV or TSV format.",
+                    "fa_icon": "far fa-file-alt"
+                }
+            }
+        },
         "multisample_only_inputs": {
             "title": "Multisample Analysis Only Mode",
             "type": "object",
@@ -426,28 +451,28 @@
             "description": "Parameters for running only multisample analysis with pre-computed inputs from a previous LRP2 run.",
             "help_text": "Use these parameters to re-run only the multisample analysis subworkflow using outputs from a previous full pipeline run. All four file parameters must be provided together to enable this mode. The --input samplesheet parameter is not required in this mode.",
             "properties": {
-                "transcripts_gtf": {
+                "S4_custom_gtf": {
                     "type": "string",
                     "format": "file-path",
                     "description": "Pre-computed filtered GTF file from TRANSCRIPTOME subworkflow.",
                     "help_text": "Path to the filtered GTF file (typically named *_corrected_filtered.gtf) from a previous LRP2 run. This file is output by the FILTER_TRANSCRIPTOME module in the TRANSCRIPTOME subworkflow.",
                     "fa_icon": "far fa-file-code"
                 },
-                "transcript_counts": {
+                "S4_custom_counts": {
                     "type": "string",
                     "format": "file-path",
                     "description": "Pre-computed transcript count matrix from TRANSCRIPTOME subworkflow.",
                     "help_text": "Path to the transcript count matrix file (typically named *_hashids_with_cpm_filtered.txt) from a previous LRP2 run. This file contains CPM-normalized transcript counts.",
                     "fa_icon": "far fa-file-alt"
                 },
-                "orf_counts": {
+                "S4_custom_orf_counts": {
                     "type": "string",
                     "format": "file-path",
                     "description": "Pre-computed ORF count matrix from PREDICTED_PROTEOME subworkflow.",
                     "help_text": "Path to the ORF count matrix file (typically named *.predicted.proteome.high_confidence_ORF_cpm.txt) from a previous LRP2 run. This file contains CPM-normalized ORF counts.",
                     "fa_icon": "far fa-file-alt"
                 },
-                "multisample_metadata": {
+                "S4_multisample_metadata": {
                     "type": "string",
                     "format": "file-path",
                     "description": "RNA sample metadata CSV file for multisample analysis.",
@@ -750,6 +775,9 @@
         },
         {
             "$ref": "#/$defs/differential_analysis_options"
+        },
+        {
+            "$ref": "#/$defs/skip_isocall_inputs"
         },
         {
             "$ref": "#/$defs/multisample_only_inputs"
