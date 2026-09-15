@@ -1,0 +1,854 @@
+name: Integration Tests
+on:
+  push:
+    branches:
+      - '**'
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "**/*.png"
+      - "**/*.svg"
+      - "**/*.jpg"
+      - "**/*.jpeg"
+      - "CITATION.cff"
+      - ".gitignore"
+  workflow_dispatch:
+
+# Cancel if a newer run is started
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NXF_ANSI_LOG: false
+  NXF_SINGULARITY_CACHEDIR: ${{ github.workspace }}/.singularity
+  NXF_SINGULARITY_LIBRARYDIR: ${{ github.workspace }}/.singularity
+
+jobs:
+  # Stage 1: Full pipeline tests with test_rna and test_dda profiles
+  full-pipeline-test:
+    name: "Full Pipeline: ${{ matrix.test_profile }} | ${{ matrix.container_engine }} | NXF ${{ matrix.NXF_VER }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test_profile: [test_rna, test_dda]
+        container_engine: [docker, singularity]
+        NXF_VER:
+          - "25.04.0"
+
+    steps:
+      - name: Clean Workspace
+        run: |
+          echo "Cleaning workspace..."
+          sudo rm -rf ./* || true
+          sudo rm -rf ./.??* || true
+          df -h
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: ${{ matrix.NXF_VER }}
+
+      - name: Set up Docker Buildx
+        if: matrix.container_engine == 'docker'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker images
+        if: matrix.container_engine == 'docker'
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-docker-${{ matrix.test_profile }}-${{ hashFiles('**/nextflow.config', '**/modules.config') }}
+          restore-keys: |
+            ${{ runner.os }}-docker-${{ matrix.test_profile }}-
+            ${{ runner.os }}-docker-
+
+      - name: Set up Singularity
+        if: matrix.container_engine == 'singularity'
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.1.9
+
+      - name: Cache Singularity images
+        if: matrix.container_engine == 'singularity'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NXF_SINGULARITY_CACHEDIR }}
+          key: ${{ runner.os }}-singularity-${{ matrix.test_profile }}-${{ hashFiles('**/nextflow.config', '**/modules.config') }}
+          restore-keys: |
+            ${{ runner.os }}-singularity-${{ matrix.test_profile }}-
+            ${{ runner.os }}-singularity-
+
+      - name: Cache Nextflow assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.nextflow/assets
+            .nextflow
+          key: ${{ runner.os }}-nextflow-assets-${{ hashFiles('**/nextflow.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nextflow-assets-
+
+      - name: Display resource information
+        run: |
+          echo "=========================================="
+          echo "System Resources"
+          echo "=========================================="
+          echo "CPU Info:"
+          nproc
+          lscpu | grep -E '^Thread|^Core|^Socket|^CPU\('
+          echo ""
+          echo "Memory Info:"
+          free -h
+          echo ""
+          echo "Disk Space:"
+          df -h
+          echo ""
+          echo "Docker Info:"
+          if command -v docker &> /dev/null; then
+            docker --version
+          fi
+          echo ""
+          echo "Singularity/Apptainer Info:"
+          if command -v apptainer &> /dev/null; then
+            apptainer --version
+          fi
+          echo ""
+          echo "Nextflow Version:"
+          nextflow -version
+
+      - name: Run full pipeline test - ${{ matrix.test_profile }} with ${{ matrix.container_engine }}
+        id: run_test
+        run: |
+          echo "=========================================="
+          echo "Running: ${{ matrix.test_profile }} with ${{ matrix.container_engine }}"
+          echo "=========================================="
+          echo "Start time: $(date)"
+          echo ""
+
+          # Create output directory
+          OUTDIR="test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}"
+          mkdir -p ${OUTDIR}
+
+          # Run the pipeline
+          nextflow run ${GITHUB_WORKSPACE} \
+            -profile ${{ matrix.test_profile }},${{ matrix.container_engine }} \
+            --outdir ${OUTDIR} \
+            -resume \
+            -ansi-log false
+
+          EXIT_CODE=$?
+
+          echo ""
+          echo "End time: $(date)"
+          echo "Exit code: ${EXIT_CODE}"
+
+          if [ ${EXIT_CODE} -eq 0 ]; then
+            echo "::notice::Full pipeline test PASSED: ${{ matrix.test_profile }} with ${{ matrix.container_engine }}"
+            echo "## Test Passed: ${{ matrix.test_profile }} | ${{ matrix.container_engine }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Nextflow Version:** ${{ matrix.NXF_VER }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Completed:** $(date)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::error::Full pipeline test FAILED: ${{ matrix.test_profile }} with ${{ matrix.container_engine }}"
+            echo "## Test Failed: ${{ matrix.test_profile }} | ${{ matrix.container_engine }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Nextflow Version:** ${{ matrix.NXF_VER }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Failed:** $(date)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please check the workflow logs and artifacts for details." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          exit ${EXIT_CODE}
+
+      - name: Upload pipeline outputs as artifacts
+        if: success() && matrix.container_engine == 'docker'
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-pipeline-outputs-${{ matrix.test_profile }}
+          path: |
+            test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}/
+          retention-days: 7
+
+      - name: Upload pipeline logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-full-pipeline-${{ matrix.test_profile }}-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
+          path: |
+            .nextflow.log
+            test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}/pipeline_info/
+            work/*/.command.log
+            work/*/.command.err
+          retention-days: 7
+
+      - name: Upload execution reports on success
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-full-pipeline-${{ matrix.test_profile }}-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
+          path: |
+            test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}/pipeline_info/execution_report*.html
+            test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}/pipeline_info/execution_timeline*.html
+            test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}/multiqc/multiqc_report.html
+          retention-days: 14
+
+      - name: Clean up work directory
+        if: always()
+        run: |
+          echo "Cleaning up work directory to free space..."
+          sudo rm -rf work || true
+          df -h
+
+  # Stage 2: Entry point tests (S2, S4, S5) - run in parallel after Stage 1
+  entry-point-s2-test:
+    name: "S2 Entry Point: ${{ matrix.container_engine }} | NXF ${{ matrix.NXF_VER }}"
+    needs: [full-pipeline-test]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        container_engine: [docker, singularity]
+        NXF_VER:
+          - "25.04.0"
+
+    steps:
+      - name: Clean Workspace
+        run: |
+          echo "Cleaning workspace..."
+          sudo rm -rf ./* || true
+          sudo rm -rf ./.??* || true
+          df -h
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: ${{ matrix.NXF_VER }}
+
+      - name: Set up Docker Buildx
+        if: matrix.container_engine == 'docker'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker images
+        if: matrix.container_engine == 'docker'
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-docker-s2-${{ hashFiles('**/nextflow.config', '**/modules.config') }}
+          restore-keys: |
+            ${{ runner.os }}-docker-s2-
+            ${{ runner.os }}-docker-
+
+      - name: Set up Singularity
+        if: matrix.container_engine == 'singularity'
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.1.9
+
+      - name: Cache Singularity images
+        if: matrix.container_engine == 'singularity'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NXF_SINGULARITY_CACHEDIR }}
+          key: ${{ runner.os }}-singularity-s2-${{ hashFiles('**/nextflow.config', '**/modules.config') }}
+          restore-keys: |
+            ${{ runner.os }}-singularity-s2-
+            ${{ runner.os }}-singularity-
+
+      - name: Cache Nextflow assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.nextflow/assets
+            .nextflow
+          key: ${{ runner.os }}-nextflow-assets-${{ hashFiles('**/nextflow.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nextflow-assets-
+
+      - name: Download test_rna outputs from Stage 1
+        uses: actions/download-artifact@v4
+        with:
+          name: full-pipeline-outputs-test_rna
+          path: stage1_outputs/
+
+      - name: Run S2 entry point test with ${{ matrix.container_engine }}
+        id: run_s2_test
+        run: |
+          echo "=========================================="
+          echo "Running: S2 Entry Point Test with ${{ matrix.container_engine }}"
+          echo "=========================================="
+          echo "Start time: $(date)"
+          echo ""
+
+          # Locate S1 outputs from Stage 1
+          S1_OUTPUT_DIR="stage1_outputs/S1_PACBIO_ISOCALL/M5_ISOCALL_CALL"
+
+          # Find the GTF and counts files
+          S2_GTF=$(find ${S1_OUTPUT_DIR} -name "*.gtf" | head -n 1)
+          S2_COUNTS=$(find ${S1_OUTPUT_DIR} -name "*_counts.tsv" | head -n 1)
+
+          if [ -z "$S2_GTF" ] || [ -z "$S2_COUNTS" ]; then
+            echo "::error::Required S1 outputs not found in ${S1_OUTPUT_DIR}"
+            echo "GTF: $S2_GTF"
+            echo "COUNTS: $S2_COUNTS"
+            ls -R ${S1_OUTPUT_DIR}
+            exit 1
+          fi
+
+          echo "Using S2 GTF: $S2_GTF"
+          echo "Using S2 COUNTS: $S2_COUNTS"
+          echo ""
+
+          # Create output directory
+          OUTDIR="test_results_s2_entry_${{ matrix.container_engine }}"
+          mkdir -p ${OUTDIR}
+
+          # Run the pipeline with S2 entry point
+          nextflow run ${GITHUB_WORKSPACE} \
+            --input test_data/run_rna_only/samplesheet_rna_only.csv \
+            --S2_custom_gtf ${S2_GTF} \
+            --S2_custom_counts ${S2_COUNTS} \
+            --genome GRCh38.p14.v49 \
+            --outdir ${OUTDIR} \
+            --dataset_name lrptest_s2 \
+            -profile ${{ matrix.container_engine }} \
+            -resume \
+            -ansi-log false
+
+          EXIT_CODE=$?
+
+          echo ""
+          echo "End time: $(date)"
+          echo "Exit code: ${EXIT_CODE}"
+
+          if [ ${EXIT_CODE} -eq 0 ]; then
+            echo "::notice::S2 entry point test PASSED with ${{ matrix.container_engine }}"
+            echo "## Test Passed: S2 Entry Point | ${{ matrix.container_engine }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Nextflow Version:** ${{ matrix.NXF_VER }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Completed:** $(date)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::error::S2 entry point test FAILED with ${{ matrix.container_engine }}"
+            echo "## Test Failed: S2 Entry Point | ${{ matrix.container_engine }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Nextflow Version:** ${{ matrix.NXF_VER }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Failed:** $(date)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please check the workflow logs and artifacts for details." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          exit ${EXIT_CODE}
+
+      - name: Upload pipeline logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-s2-entry-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
+          path: |
+            .nextflow.log
+            test_results_s2_entry_${{ matrix.container_engine }}/pipeline_info/
+            work/*/.command.log
+            work/*/.command.err
+          retention-days: 7
+
+      - name: Upload execution reports on success
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-s2-entry-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
+          path: |
+            test_results_s2_entry_${{ matrix.container_engine }}/pipeline_info/execution_report*.html
+            test_results_s2_entry_${{ matrix.container_engine }}/pipeline_info/execution_timeline*.html
+          retention-days: 14
+
+      - name: Clean up work directory
+        if: always()
+        run: |
+          echo "Cleaning up work directory to free space..."
+          sudo rm -rf work || true
+          sudo rm -rf stage1_outputs || true
+          df -h
+
+  entry-point-s4-test:
+    name: "S4 Entry Point: ${{ matrix.container_engine }} | NXF ${{ matrix.NXF_VER }}"
+    needs: [full-pipeline-test]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        container_engine: [docker, singularity]
+        NXF_VER:
+          - "25.04.0"
+
+    steps:
+      - name: Clean Workspace
+        run: |
+          echo "Cleaning workspace..."
+          sudo rm -rf ./* || true
+          sudo rm -rf ./.??* || true
+          df -h
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: ${{ matrix.NXF_VER }}
+
+      - name: Set up Docker Buildx
+        if: matrix.container_engine == 'docker'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker images
+        if: matrix.container_engine == 'docker'
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-docker-s4-${{ hashFiles('**/nextflow.config', '**/modules.config') }}
+          restore-keys: |
+            ${{ runner.os }}-docker-s4-
+            ${{ runner.os }}-docker-
+
+      - name: Set up Singularity
+        if: matrix.container_engine == 'singularity'
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.1.9
+
+      - name: Cache Singularity images
+        if: matrix.container_engine == 'singularity'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NXF_SINGULARITY_CACHEDIR }}
+          key: ${{ runner.os }}-singularity-s4-${{ hashFiles('**/nextflow.config', '**/modules.config') }}
+          restore-keys: |
+            ${{ runner.os }}-singularity-s4-
+            ${{ runner.os }}-singularity-
+
+      - name: Cache Nextflow assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.nextflow/assets
+            .nextflow
+          key: ${{ runner.os }}-nextflow-assets-${{ hashFiles('**/nextflow.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nextflow-assets-
+
+      - name: Download test_rna outputs from Stage 1
+        uses: actions/download-artifact@v4
+        with:
+          name: full-pipeline-outputs-test_rna
+          path: stage1_outputs/
+
+      - name: Run S4 entry point test with ${{ matrix.container_engine }}
+        id: run_s4_test
+        run: |
+          echo "=========================================="
+          echo "Running: S4 Entry Point Test with ${{ matrix.container_engine }}"
+          echo "=========================================="
+          echo "Start time: $(date)"
+          echo ""
+
+          # Locate S2 and S3 outputs from Stage 1
+          S2_M3_DIR="stage1_outputs/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME"
+          S3_M4_DIR="stage1_outputs/S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION"
+
+          # Find the required files
+          S4_GTF=$(find ${S2_M3_DIR} -name "*.filtered.gtf" | head -n 1)
+          S4_COUNTS=$(find ${S2_M3_DIR} -name "*filtered_hashids_with_cpm.txt" | head -n 1)
+          S4_ORF_COUNTS=$(find ${S3_M4_DIR} -name "*collapsed_high_confidence_ORF_hashids_with_cpm.txt" | head -n 1)
+
+          if [ -z "$S4_GTF" ] || [ -z "$S4_COUNTS" ] || [ -z "$S4_ORF_COUNTS" ]; then
+            echo "::error::Required S2/S3 outputs not found"
+            echo "GTF: $S4_GTF (searching in ${S2_M3_DIR})"
+            echo "COUNTS: $S4_COUNTS (searching in ${S2_M3_DIR})"
+            echo "ORF_COUNTS: $S4_ORF_COUNTS (searching in ${S3_M4_DIR})"
+            echo "Available files in S2_M3:"
+            ls -R ${S2_M3_DIR} || echo "Directory not found"
+            echo "Available files in S3_M4:"
+            ls -R ${S3_M4_DIR} || echo "Directory not found"
+            exit 1
+          fi
+
+          echo "Using S4 GTF: $S4_GTF"
+          echo "Using S4 COUNTS: $S4_COUNTS"
+          echo "Using S4 ORF COUNTS: $S4_ORF_COUNTS"
+          echo ""
+
+          # Create output directory
+          OUTDIR="test_results_s4_entry_${{ matrix.container_engine }}"
+          mkdir -p ${OUTDIR}
+
+          # Run the pipeline with S4 entry point
+          nextflow run ${GITHUB_WORKSPACE} \
+            --S4_multisample_metadata test_data/run_rna_only/samplesheet_rna_only.csv \
+            --S4_custom_gtf ${S4_GTF} \
+            --S4_custom_counts ${S4_COUNTS} \
+            --S4_custom_orf_counts ${S4_ORF_COUNTS} \
+            --outdir ${OUTDIR} \
+            --dataset_name lrptest_s4 \
+            -profile ${{ matrix.container_engine }} \
+            -resume \
+            -ansi-log false
+
+          EXIT_CODE=$?
+
+          echo ""
+          echo "End time: $(date)"
+          echo "Exit code: ${EXIT_CODE}"
+
+          if [ ${EXIT_CODE} -eq 0 ]; then
+            echo "::notice::S4 entry point test PASSED with ${{ matrix.container_engine }}"
+            echo "## Test Passed: S4 Entry Point | ${{ matrix.container_engine }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Nextflow Version:** ${{ matrix.NXF_VER }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Completed:** $(date)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::error::S4 entry point test FAILED with ${{ matrix.container_engine }}"
+            echo "## Test Failed: S4 Entry Point | ${{ matrix.container_engine }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Nextflow Version:** ${{ matrix.NXF_VER }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Failed:** $(date)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please check the workflow logs and artifacts for details." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          exit ${EXIT_CODE}
+
+      - name: Upload pipeline logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-s4-entry-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
+          path: |
+            .nextflow.log
+            test_results_s4_entry_${{ matrix.container_engine }}/pipeline_info/
+            work/*/.command.log
+            work/*/.command.err
+          retention-days: 7
+
+      - name: Upload execution reports on success
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-s4-entry-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
+          path: |
+            test_results_s4_entry_${{ matrix.container_engine }}/pipeline_info/execution_report*.html
+            test_results_s4_entry_${{ matrix.container_engine }}/pipeline_info/execution_timeline*.html
+          retention-days: 14
+
+      - name: Clean up work directory
+        if: always()
+        run: |
+          echo "Cleaning up work directory to free space..."
+          sudo rm -rf work || true
+          sudo rm -rf stage1_outputs || true
+          df -h
+
+  entry-point-s5-test:
+    name: "S5 Entry Point: ${{ matrix.container_engine }} | NXF ${{ matrix.NXF_VER }}"
+    needs: [full-pipeline-test]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        container_engine: [docker, singularity]
+        NXF_VER:
+          - "25.04.0"
+
+    steps:
+      - name: Clean Workspace
+        run: |
+          echo "Cleaning workspace..."
+          sudo rm -rf ./* || true
+          sudo rm -rf ./.??* || true
+          df -h
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: ${{ matrix.NXF_VER }}
+
+      - name: Set up Docker Buildx
+        if: matrix.container_engine == 'docker'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker images
+        if: matrix.container_engine == 'docker'
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-docker-s5-${{ hashFiles('**/nextflow.config', '**/modules.config') }}
+          restore-keys: |
+            ${{ runner.os }}-docker-s5-
+            ${{ runner.os }}-docker-
+
+      - name: Set up Singularity
+        if: matrix.container_engine == 'singularity'
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.1.9
+
+      - name: Cache Singularity images
+        if: matrix.container_engine == 'singularity'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NXF_SINGULARITY_CACHEDIR }}
+          key: ${{ runner.os }}-singularity-s5-${{ hashFiles('**/nextflow.config', '**/modules.config') }}
+          restore-keys: |
+            ${{ runner.os }}-singularity-s5-
+            ${{ runner.os }}-singularity-
+
+      - name: Cache Nextflow assets
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.nextflow/assets
+            .nextflow
+          key: ${{ runner.os }}-nextflow-assets-${{ hashFiles('**/nextflow.config') }}
+          restore-keys: |
+            ${{ runner.os }}-nextflow-assets-
+
+      - name: Download test_dda outputs from Stage 1
+        uses: actions/download-artifact@v4
+        with:
+          name: full-pipeline-outputs-test_dda
+          path: stage1_outputs/
+
+      - name: Create protein-only samplesheet
+        run: |
+          # Extract only protein samples from the test_dda samplesheet
+          echo "sample_name,sample_path,condition,sample_type,mass_spec_type" > samplesheet_protein_only.csv
+          grep ",protein," test_data/run_fragpipe_rna/samplesheet_fragpipe_rna.csv >> samplesheet_protein_only.csv || true
+
+          echo "Created protein-only samplesheet:"
+          cat samplesheet_protein_only.csv
+
+      - name: Run S5 entry point test with ${{ matrix.container_engine }}
+        id: run_s5_test
+        run: |
+          echo "=========================================="
+          echo "Running: S5 Entry Point Test with ${{ matrix.container_engine }}"
+          echo "=========================================="
+          echo "Start time: $(date)"
+          echo ""
+
+          # Locate S2 and S3 outputs from Stage 1
+          S2_M3_DIR="stage1_outputs/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME"
+          S3_M2_DIR="stage1_outputs/S3_PREDICTED_PROTEOME/M2_FILTER_CPAT"
+          S3_M4_DIR="stage1_outputs/S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION"
+
+          # Find the required files
+          S5_PROTEIN_FASTA=$(find ${S3_M4_DIR} -name "*best_ORF.fa" | head -n 1)
+          S5_CDS_GTF=$(find ${S3_M2_DIR} -name "*best_ORF.gtf" | head -n 1)
+          S5_COUNTS=$(find ${S2_M3_DIR} -name "*all_hashids_with_cpm.txt" | head -n 1)
+
+          if [ -z "$S5_PROTEIN_FASTA" ] || [ -z "$S5_CDS_GTF" ]; then
+            echo "::error::Required S3 outputs not found"
+            echo "PROTEIN_FASTA: $S5_PROTEIN_FASTA (searching in ${S3_M4_DIR})"
+            echo "CDS_GTF: $S5_CDS_GTF (searching in ${S3_M2_DIR})"
+            echo "COUNTS: $S5_COUNTS (searching in ${S2_M3_DIR})"
+            echo "Available files in S3_M4:"
+            ls -R ${S3_M4_DIR} || echo "Directory not found"
+            echo "Available files in S3_M2:"
+            ls -R ${S3_M2_DIR} || echo "Directory not found"
+            echo "Available files in S2_M3:"
+            ls -R ${S2_M3_DIR} || echo "Directory not found"
+            exit 1
+          fi
+
+          echo "Using S5 PROTEIN FASTA: $S5_PROTEIN_FASTA"
+          echo "Using S5 CDS GTF: $S5_CDS_GTF"
+          echo "Using S5 COUNTS: $S5_COUNTS"
+          echo ""
+
+          # Create output directory
+          OUTDIR="test_results_s5_entry_${{ matrix.container_engine }}"
+          mkdir -p ${OUTDIR}
+
+          # Run the pipeline with S5 entry point
+          nextflow run ${GITHUB_WORKSPACE} \
+            --input samplesheet_protein_only.csv \
+            --S5_custom_protein_fasta ${S5_PROTEIN_FASTA} \
+            --S5_custom_cds_gtf ${S5_CDS_GTF} \
+            --S5_custom_counts ${S5_COUNTS} \
+            --genome GRCh38.p14.v49 \
+            --outdir ${OUTDIR} \
+            --dataset_name lrptest_s5 \
+            --protein_search fragpipe \
+            --fragpipe_license_accept true \
+            -profile ${{ matrix.container_engine }} \
+            -resume \
+            -ansi-log false
+
+          EXIT_CODE=$?
+
+          echo ""
+          echo "End time: $(date)"
+          echo "Exit code: ${EXIT_CODE}"
+
+          if [ ${EXIT_CODE} -eq 0 ]; then
+            echo "::notice::S5 entry point test PASSED with ${{ matrix.container_engine }}"
+            echo "## Test Passed: S5 Entry Point | ${{ matrix.container_engine }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Nextflow Version:** ${{ matrix.NXF_VER }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Completed:** $(date)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::error::S5 entry point test FAILED with ${{ matrix.container_engine }}"
+            echo "## Test Failed: S5 Entry Point | ${{ matrix.container_engine }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Nextflow Version:** ${{ matrix.NXF_VER }}" >> $GITHUB_STEP_SUMMARY
+            echo "**Failed:** $(date)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please check the workflow logs and artifacts for details." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          exit ${EXIT_CODE}
+
+      - name: Upload pipeline logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-s5-entry-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
+          path: |
+            .nextflow.log
+            test_results_s5_entry_${{ matrix.container_engine }}/pipeline_info/
+            work/*/.command.log
+            work/*/.command.err
+          retention-days: 7
+
+      - name: Upload execution reports on success
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-s5-entry-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
+          path: |
+            test_results_s5_entry_${{ matrix.container_engine }}/pipeline_info/execution_report*.html
+            test_results_s5_entry_${{ matrix.container_engine }}/pipeline_info/execution_timeline*.html
+          retention-days: 14
+
+      - name: Clean up work directory
+        if: always()
+        run: |
+          echo "Cleaning up work directory to free space..."
+          sudo rm -rf work || true
+          sudo rm -rf stage1_outputs || true
+          df -h
+
+  # Final confirmation job - checks all tests passed
+  confirm-pass:
+    name: All Integration Tests Passed
+    needs: [full-pipeline-test, entry-point-s2-test, entry-point-s4-test, entry-point-s5-test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check test results
+        run: |
+          echo "=========================================="
+          echo "Integration Test Results Summary"
+          echo "=========================================="
+          echo ""
+          echo "Checking results from all test jobs..."
+          echo ""
+
+          # Check if any jobs failed
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "One or more integration tests FAILED"
+            echo ""
+            echo "## Integration Tests Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "One or more test configurations failed. Please check the individual job logs above." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Failed Job Results:**" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            echo '${{ toJSON(needs.*.result) }}' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Check if any jobs were cancelled
+          if [[ "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "One or more integration tests were CANCELLED"
+            echo ""
+            echo "## Integration Tests Cancelled" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # All tests passed
+          if [[ "${{ contains(needs.*.result, 'success') }}" == "true" ]]; then
+            echo "All integration tests PASSED!"
+            echo ""
+            echo "## All Integration Tests Passed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "All test configurations completed successfully:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Stage 1: Full Pipeline Tests**" >> $GITHUB_STEP_SUMMARY
+            echo "- test_rna with docker" >> $GITHUB_STEP_SUMMARY
+            echo "- test_rna with singularity" >> $GITHUB_STEP_SUMMARY
+            echo "- test_dda with docker" >> $GITHUB_STEP_SUMMARY
+            echo "- test_dda with singularity" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Stage 2: Entry Point Tests**" >> $GITHUB_STEP_SUMMARY
+            echo "- S2 entry point with docker" >> $GITHUB_STEP_SUMMARY
+            echo "- S2 entry point with singularity" >> $GITHUB_STEP_SUMMARY
+            echo "- S4 entry point with docker" >> $GITHUB_STEP_SUMMARY
+            echo "- S4 entry point with singularity" >> $GITHUB_STEP_SUMMARY
+            echo "- S5 entry point with docker" >> $GITHUB_STEP_SUMMARY
+            echo "- S5 entry point with singularity" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Tested with Nextflow:** 25.04.0" >> $GITHUB_STEP_SUMMARY
+            echo "**Completed:** $(date -u)" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+      - name: Debug output
+        if: always()
+        run: |
+          echo "::group::Debug Information"
+          echo "All job results:"
+          echo '${{ toJSON(needs) }}'
+          echo "::endgroup::"
