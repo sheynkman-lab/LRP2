@@ -155,7 +155,7 @@ workflow LRP2 {
             .map { _has_rna -> [[ id: 'gtf' ], gtf_file] }
 
         if (is_gtf_gzipped && gtf_file) {
-            // GTF is already gzipped - decompress for TRANSCRIPTOME and keep original for PACBIO_ISOCALL
+            // GTF is already gzipped - decompress, sanitize if needed, then re-gzip for PACBIO_ISOCALL
             GUNZIP_GTF(ch_gtf_input_conditional)
 
             // Conditionally sanitize PAR gene IDs: known _PAR_Y pattern exists for transcripts in GENCODE v25-43, but user could also provide their own GTF with this
@@ -172,9 +172,9 @@ workflow LRP2 {
                             false
                         } catch (RuntimeException e) {
                             if (e.message == 'PAR_Y_FOUND') {
-                                true  
+                                true
                             } else {
-                                throw e  
+                                throw e
                             }
                         }
                     }()
@@ -184,14 +184,18 @@ workflow LRP2 {
 
             // Run sanitization only on files that need it
             SANITIZE_PAR_IDS(ch_gtf_branched.needs_sanitization)
-            ch_gtf = ch_gtf_branched.no_sanitization
-                .mix(SANITIZE_PAR_IDS.out.sanitized_gtf)
-                .map { _meta, file -> file }
 
-            // For gzipped GTF, create channel from filtered input (will be empty if no RNA samples)
-            ch_gtf_gz = ch_gtf_input_conditional.map { _meta, file -> file }
+            // Store sanitized GTF with metadata for re-gzipping
+            ch_gtf_with_meta = ch_gtf_branched.no_sanitization
+                .mix(SANITIZE_PAR_IDS.out.sanitized_gtf)
+
+            ch_gtf = ch_gtf_with_meta.map { _meta, file -> file }
+
+            // Re-gzip the sanitized GTF for PACBIO_ISOCALL
+            GZIP_GTF(ch_gtf_with_meta)
+            ch_gtf_gz = GZIP_GTF.out.gzip.map { _meta, file -> file }
         } else if (gtf_file) {
-            // GTF is not gzipped - use as-is for TRANSCRIPTOME and compress for PACBIO_ISOCALL
+            // GTF is not gzipped - sanitize if needed, then gzip for PACBIO_ISOCALL
             ch_gtf_for_check = ch_has_rna_samples
                 .filter { has_rna -> has_rna }
                 .map { _has_rna -> [[ id: 'gtf' ], gtf_file] }
@@ -207,11 +211,15 @@ workflow LRP2 {
 
             // Run sanitization only on files that need it
             SANITIZE_PAR_IDS(ch_gtf_branched.needs_sanitization)
-            ch_gtf = ch_gtf_branched.no_sanitization
-                .mix(SANITIZE_PAR_IDS.out.sanitized_gtf)
-                .map { _meta, file -> file }
 
-            GZIP_GTF(ch_gtf_input_conditional)
+            // Store sanitized GTF with metadata for gzipping
+            ch_gtf_with_meta = ch_gtf_branched.no_sanitization
+                .mix(SANITIZE_PAR_IDS.out.sanitized_gtf)
+
+            ch_gtf = ch_gtf_with_meta.map { _meta, file -> file }
+
+            // Gzip the sanitized GTF for PACBIO_ISOCALL
+            GZIP_GTF(ch_gtf_with_meta)
             ch_gtf_gz = GZIP_GTF.out.gzip.map { _meta, file -> file }
         } else {
             // No GTF file provided
