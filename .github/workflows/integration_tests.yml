@@ -13,6 +13,11 @@ on:
       - "CITATION.cff"
       - ".gitignore"
   workflow_dispatch:
+    inputs:
+      fragpipe_token:
+        description: 'FragPipe authentication token (6-digit code from email, required for initial test_dda cache setup)'
+        required: false
+        type: string
 
 # Cancel if a newer run is started
 concurrency:
@@ -81,6 +86,13 @@ jobs:
         with:
           apptainer-version: 1.1.9
 
+      - name: Create Singularity cache directory
+        if: matrix.container_engine == 'singularity'
+        run: |
+          mkdir -p ${{ env.NXF_SINGULARITY_CACHEDIR }}
+          echo "Created Singularity cache directory: ${{ env.NXF_SINGULARITY_CACHEDIR }}"
+          ls -la ${{ env.NXF_SINGULARITY_CACHEDIR }}
+
       - name: Cache Singularity images
         if: matrix.container_engine == 'singularity'
         uses: actions/cache@v4
@@ -90,6 +102,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-singularity-${{ matrix.test_profile }}-
             ${{ runner.os }}-singularity-
+
+      - name: Cache FragPipe tools
+        if: matrix.test_profile == 'test_dda'
+        id: cache-fragpipe
+        uses: actions/cache@v4
+        with:
+          path: fragpipe_tools/
+          key: ${{ runner.os }}-fragpipe-tools-v1
+          restore-keys: |
+            ${{ runner.os }}-fragpipe-tools-
 
       - name: Cache Nextflow assets
         uses: actions/cache@v4
@@ -129,7 +151,29 @@ jobs:
           echo "Nextflow Version:"
           nextflow -version
 
+      - name: Check FragPipe requirements
+        if: matrix.test_profile == 'test_dda'
+        id: check_fragpipe
+        run: |
+          CACHE_HIT="${{ steps.cache-fragpipe.outputs.cache-hit }}"
+          TOKEN_PROVIDED="${{ github.event.inputs.fragpipe_token != '' }}"
+
+          echo "FragPipe cache hit: ${CACHE_HIT}"
+          echo "FragPipe token provided: ${TOKEN_PROVIDED}"
+
+          if [[ "${CACHE_HIT}" == "true" ]]; then
+            echo "FragPipe tools found in cache - will use cached version"
+            echo "skip_test=false" >> $GITHUB_OUTPUT
+          elif [[ "${TOKEN_PROVIDED}" == "true" ]]; then
+            echo "FragPipe token provided - will authenticate and cache tools"
+            echo "skip_test=false" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::No FragPipe cache and no token provided - skipping test_dda test"
+            echo "skip_test=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run full pipeline test - ${{ matrix.test_profile }} with ${{ matrix.container_engine }}
+        if: matrix.test_profile == 'test_rna' || (matrix.test_profile == 'test_dda' && steps.check_fragpipe.outputs.skip_test != 'true')
         id: run_test
         run: |
           echo "=========================================="
@@ -142,12 +186,26 @@ jobs:
           OUTDIR="test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}"
           mkdir -p ${OUTDIR}
 
-          # Run the pipeline
-          nextflow run ${GITHUB_WORKSPACE} \
+          # Build the nextflow command
+          CMD="nextflow run ${GITHUB_WORKSPACE} \
             -profile ${{ matrix.test_profile }},${{ matrix.container_engine }} \
             --outdir ${OUTDIR} \
             -resume \
-            -ansi-log false
+            -ansi-log false"
+
+          # Add FragPipe parameters for test_dda profile
+          if [[ "${{ matrix.test_profile }}" == "test_dda" ]]; then
+            CMD="${CMD} --fragpipe_license_accept true"
+            if [[ -n "${{ github.event.inputs.fragpipe_token }}" ]]; then
+              CMD="${CMD} --fragpipe_token ${{ github.event.inputs.fragpipe_token }}"
+              echo "Using provided FragPipe token"
+            else
+              echo "Using cached FragPipe tools (no token needed)"
+            fi
+          fi
+
+          # Run the pipeline
+          eval ${CMD}
 
           EXIT_CODE=$?
 
@@ -172,6 +230,28 @@ jobs:
           fi
 
           exit ${EXIT_CODE}
+
+      - name: Save FragPipe tools to cache
+        if: success() && matrix.test_profile == 'test_dda' && steps.cache-fragpipe.outputs.cache-hit != 'true'
+        run: |
+          if [ -d "fragpipe_tools" ]; then
+            echo "FragPipe tools directory exists, will be cached for future runs"
+            ls -lh fragpipe_tools/
+          else
+            echo "::warning::FragPipe tools directory not found - cache may not work for future runs"
+          fi
+
+      - name: Report skipped test
+        if: matrix.test_profile == 'test_dda' && steps.check_fragpipe.outputs.skip_test == 'true'
+        run: |
+          echo "::notice::test_dda test skipped - no FragPipe token provided and no cache available"
+          echo "## Test Skipped: test_dda | ${{ matrix.container_engine }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "This test was skipped because:" >> $GITHUB_STEP_SUMMARY
+          echo "- No FragPipe authentication token was provided" >> $GITHUB_STEP_SUMMARY
+          echo "- No cached FragPipe tools were found" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To run this test, manually trigger the workflow and provide a FragPipe token." >> $GITHUB_STEP_SUMMARY
 
       - name: Upload pipeline outputs as artifacts
         if: success() && matrix.container_engine == 'docker'
@@ -267,6 +347,12 @@ jobs:
         uses: eWaterCycle/setup-apptainer@v2
         with:
           apptainer-version: 1.1.9
+
+      - name: Create Singularity cache directory
+        if: matrix.container_engine == 'singularity'
+        run: |
+          mkdir -p ${{ env.NXF_SINGULARITY_CACHEDIR }}
+          echo "Created Singularity cache directory: ${{ env.NXF_SINGULARITY_CACHEDIR }}"
 
       - name: Cache Singularity images
         if: matrix.container_engine == 'singularity'
@@ -446,6 +532,12 @@ jobs:
         uses: eWaterCycle/setup-apptainer@v2
         with:
           apptainer-version: 1.1.9
+
+      - name: Create Singularity cache directory
+        if: matrix.container_engine == 'singularity'
+        run: |
+          mkdir -p ${{ env.NXF_SINGULARITY_CACHEDIR }}
+          echo "Created Singularity cache directory: ${{ env.NXF_SINGULARITY_CACHEDIR }}"
 
       - name: Cache Singularity images
         if: matrix.container_engine == 'singularity'
@@ -632,6 +724,12 @@ jobs:
         uses: eWaterCycle/setup-apptainer@v2
         with:
           apptainer-version: 1.1.9
+
+      - name: Create Singularity cache directory
+        if: matrix.container_engine == 'singularity'
+        run: |
+          mkdir -p ${{ env.NXF_SINGULARITY_CACHEDIR }}
+          echo "Created Singularity cache directory: ${{ env.NXF_SINGULARITY_CACHEDIR }}"
 
       - name: Cache Singularity images
         if: matrix.container_engine == 'singularity'
