@@ -86,23 +86,28 @@ jobs:
         with:
           apptainer-version: 1.1.9
 
-      - name: Configure Apptainer for GitHub Actions
+      - name: Configure Apptainer and Nextflow for GitHub Actions
         if: matrix.container_engine == 'singularity'
         run: |
-          # Configure Apptainer to run in unprivileged mode for GitHub Actions
-          mkdir -p ~/.apptainer
-          cat > ~/.apptainer/apptainer.conf <<EOF
-          # Allow setuid programs to run in containers (GitHub Actions compatible)
-          allow setuid = no
-          # Use user namespaces instead of setuid
-          allow net users = yes
-          allow net groups = yes
+          # Verify Apptainer is installed
+          apptainer --version
+
+          # Create Nextflow config for Apptainer/Singularity with GitHub Actions compatibility
+          cat > /tmp/github_actions_singularity.config <<'EOF'
+          singularity {
+            enabled = true
+            autoMounts = true
+            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+          }
+          apptainer {
+            enabled = true
+            autoMounts = true
+            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+          }
           EOF
 
-          # Verify Apptainer is configured correctly
-          apptainer --version
-          echo "Apptainer configuration:"
-          cat ~/.apptainer/apptainer.conf || echo "Config file not found (will use defaults)"
+          echo "Created Nextflow Singularity config for GitHub Actions:"
+          cat /tmp/github_actions_singularity.config
 
       - name: Create Singularity cache directory
         if: matrix.container_engine == 'singularity'
@@ -228,6 +233,11 @@ jobs:
             --outdir ${OUTDIR} \
             -resume \
             -ansi-log false"
+
+          # Add GitHub Actions Singularity config if using singularity
+          if [[ "${{ matrix.container_engine }}" == "singularity" ]]; then
+            CMD="${CMD} -c /tmp/github_actions_singularity.config"
+          fi
 
           # Add FragPipe parameters for test_dda profile
           if [[ "${{ matrix.test_profile }}" == "test_dda" ]]; then
@@ -386,16 +396,23 @@ jobs:
         with:
           apptainer-version: 1.1.9
 
-      - name: Configure Apptainer for GitHub Actions
+      - name: Configure Apptainer and Nextflow for GitHub Actions
         if: matrix.container_engine == 'singularity'
         run: |
-          mkdir -p ~/.apptainer
-          cat > ~/.apptainer/apptainer.conf <<EOF
-          allow setuid = no
-          allow net users = yes
-          allow net groups = yes
-          EOF
           apptainer --version
+          cat > /tmp/github_actions_singularity.config <<'EOF'
+          singularity {
+            enabled = true
+            autoMounts = true
+            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+          }
+          apptainer {
+            enabled = true
+            autoMounts = true
+            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+          }
+          EOF
+          cat /tmp/github_actions_singularity.config
 
       - name: Create Singularity cache directory
         if: matrix.container_engine == 'singularity'
@@ -461,8 +478,8 @@ jobs:
           OUTDIR="test_results_s2_entry_${{ matrix.container_engine }}"
           mkdir -p ${OUTDIR}
 
-          # Run the pipeline with S2 entry point
-          nextflow run ${GITHUB_WORKSPACE} \
+          # Build the nextflow command
+          CMD="nextflow run ${GITHUB_WORKSPACE} \
             --input test_data/run_rna_only/samplesheet_rna_only.csv \
             --S2_custom_gtf ${S2_GTF} \
             --S2_custom_counts ${S2_COUNTS} \
@@ -471,7 +488,15 @@ jobs:
             --dataset_name lrptest_s2 \
             -profile ${{ matrix.container_engine }} \
             -resume \
-            -ansi-log false
+            -ansi-log false"
+
+          # Add GitHub Actions Singularity config if using singularity
+          if [[ "${{ matrix.container_engine }}" == "singularity" ]]; then
+            CMD="${CMD} -c /tmp/github_actions_singularity.config"
+          fi
+
+          # Run the pipeline
+          eval ${CMD}
 
           EXIT_CODE=$?
 
@@ -582,16 +607,23 @@ jobs:
         with:
           apptainer-version: 1.1.9
 
-      - name: Configure Apptainer for GitHub Actions
+      - name: Configure Apptainer and Nextflow for GitHub Actions
         if: matrix.container_engine == 'singularity'
         run: |
-          mkdir -p ~/.apptainer
-          cat > ~/.apptainer/apptainer.conf <<EOF
-          allow setuid = no
-          allow net users = yes
-          allow net groups = yes
-          EOF
           apptainer --version
+          cat > /tmp/github_actions_singularity.config <<'EOF'
+          singularity {
+            enabled = true
+            autoMounts = true
+            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+          }
+          apptainer {
+            enabled = true
+            autoMounts = true
+            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+          }
+          EOF
+          cat /tmp/github_actions_singularity.config
 
       - name: Create Singularity cache directory
         if: matrix.container_engine == 'singularity'
@@ -664,8 +696,8 @@ jobs:
           OUTDIR="test_results_s4_entry_${{ matrix.container_engine }}"
           mkdir -p ${OUTDIR}
 
-          # Run the pipeline with S4 entry point
-          nextflow run ${GITHUB_WORKSPACE} \
+          # Build the nextflow command
+          CMD="nextflow run ${GITHUB_WORKSPACE} \
             --S4_multisample_metadata test_data/run_rna_only/samplesheet_rna_only.csv \
             --S4_custom_gtf ${S4_GTF} \
             --S4_custom_counts ${S4_COUNTS} \
@@ -674,7 +706,15 @@ jobs:
             --dataset_name lrptest_s4 \
             -profile ${{ matrix.container_engine }} \
             -resume \
-            -ansi-log false
+            -ansi-log false"
+
+          # Add GitHub Actions Singularity config if using singularity
+          if [[ "${{ matrix.container_engine }}" == "singularity" ]]; then
+            CMD="${CMD} -c /tmp/github_actions_singularity.config"
+          fi
+
+          # Run the pipeline
+          eval ${CMD}
 
           EXIT_CODE=$?
 
@@ -785,16 +825,23 @@ jobs:
         with:
           apptainer-version: 1.1.9
 
-      - name: Configure Apptainer for GitHub Actions
+      - name: Configure Apptainer and Nextflow for GitHub Actions
         if: matrix.container_engine == 'singularity'
         run: |
-          mkdir -p ~/.apptainer
-          cat > ~/.apptainer/apptainer.conf <<EOF
-          allow setuid = no
-          allow net users = yes
-          allow net groups = yes
-          EOF
           apptainer --version
+          cat > /tmp/github_actions_singularity.config <<'EOF'
+          singularity {
+            enabled = true
+            autoMounts = true
+            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+          }
+          apptainer {
+            enabled = true
+            autoMounts = true
+            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+          }
+          EOF
+          cat /tmp/github_actions_singularity.config
 
       - name: Create Singularity cache directory
         if: matrix.container_engine == 'singularity'
@@ -879,8 +926,8 @@ jobs:
           OUTDIR="test_results_s5_entry_${{ matrix.container_engine }}"
           mkdir -p ${OUTDIR}
 
-          # Run the pipeline with S5 entry point
-          nextflow run ${GITHUB_WORKSPACE} \
+          # Build the nextflow command
+          CMD="nextflow run ${GITHUB_WORKSPACE} \
             --input samplesheet_protein_only.csv \
             --S5_custom_protein_fasta ${S5_PROTEIN_FASTA} \
             --S5_custom_cds_gtf ${S5_CDS_GTF} \
@@ -892,7 +939,15 @@ jobs:
             --fragpipe_license_accept true \
             -profile ${{ matrix.container_engine }} \
             -resume \
-            -ansi-log false
+            -ansi-log false"
+
+          # Add GitHub Actions Singularity config if using singularity
+          if [[ "${{ matrix.container_engine }}" == "singularity" ]]; then
+            CMD="${CMD} -c /tmp/github_actions_singularity.config"
+          fi
+
+          # Run the pipeline
+          eval ${CMD}
 
           EXIT_CODE=$?
 
