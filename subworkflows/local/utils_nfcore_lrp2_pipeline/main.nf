@@ -11,7 +11,6 @@
 include { UTILS_NFSCHEMA_PLUGIN     } from '../../nf-core/utils_nfschema_plugin'
 include { paramsSummaryMap          } from 'plugin/nf-schema'
 include { samplesheetToList         } from 'plugin/nf-schema'
-include { paramsHelp                } from 'plugin/nf-schema'
 include { completionEmail           } from '../../nf-core/utils_nfcore_pipeline'
 include { completionSummary         } from '../../nf-core/utils_nfcore_pipeline'
 include { imNotification            } from '../../nf-core/utils_nfcore_pipeline'
@@ -474,13 +473,20 @@ def genomeExistsError() {
 // Generate methods description for MultiQC
 //
 def toolCitationText() {
-    // TODO nf-core: Optionally add in-text citation tools to this list.
-    // Can use ternary operators to dynamically construct based conditions, e.g. params["run_xyz"] ? "Tool (Foo et al. 2023)" : "",
-    // Uncomment function in methodsDescriptionText to render in MultiQC report
+    // Pipeline tools with citations
     def citation_text = [
-            "Tools used in the workflow included:",
-            "FastQC (Andrews 2010),",
-            "MultiQC (Ewels et al. 2016)",
+            "Tools used in the workflow include:",
+            "Isocall (Dolzhenko et al. 2026),",
+            "SQANTI3 (Pardo-Palacios et al. 2024),",
+            "CPAT (Wang et al. 2013),",
+            "SQANTI Protein (Miller et al. 2022),",
+            "edgeR (Robinson et al. 2010),",
+            "DRIMSeq (Nowicka & Robinson 2016),",
+            "LeafCutter (Li et al. 2018),",
+            "FragPipe/MSFragger (Kong et al. 2017),",
+            "IonQuant (Yu et al. 2021),",
+            "MSFragger-DIA (Yu et al. 2023),",
+            "and GENCODE (Frankish et al. 2023)",
             "."
         ].join(' ').trim()
 
@@ -488,12 +494,19 @@ def toolCitationText() {
 }
 
 def toolBibliographyText() {
-    // TODO nf-core: Optionally add bibliographic entries to this list.
-    // Can use ternary operators to dynamically construct based conditions, e.g. params["run_xyz"] ? "<li>Author (2023) Pub name, Journal, DOI</li>" : "",
-    // Uncomment function in methodsDescriptionText to render in MultiQC report
+    // Full bibliographic entries for pipeline tools
     def reference_text = [
-            "<li>Andrews S, (2010) FastQC, URL: https://www.bioinformatics.babraham.ac.uk/projects/fastqc/).</li>",
-            "<li>Ewels, P., Magnusson, M., Lundin, S., & Käller, M. (2016). MultiQC: summarize analysis results for multiple tools and samples in a single report. Bioinformatics , 32(19), 3047–3048. doi: /10.1093/bioinformatics/btw354</li>"
+            "<li>Dolzhenko, E., Schertzer, M., Gossart, R., Mokveld, T., Belyeu, J., Varabyou, A., et al. 2026. Isocall enables scalable transcript identification from long-read RNA-sequencing data. bioRxiv. doi: 10.64898/2026.09.08.749180</li>",
+            "<li>Pardo-Palacios, F. J., Arzalluz-Luque, A., Kondratova, L., et al. 2024. SQANTI3: curation of long-read transcriptomes for accurate identification of known and novel isoforms. Nature Methods 21(5): 793–797. doi: 10.1038/s41592-024-02229-2</li>",
+            "<li>Wang, L., et al. 2013. CPAT: Coding-Potential Assessment Tool using an alignment-free logistic regression model. Nucleic Acids Research 41(6): e74. doi: 10.1093/nar/gkt006</li>",
+            "<li>Miller, R. M., Jordan, B. T., Mehlferber, M. M., et al. 2022. Enhanced protein isoform characterization through long-read proteogenomics. Genome Biology 23(1): 69. doi: 10.1186/s13059-022-02624-y</li>",
+            "<li>Robinson, M. D., McCarthy, D. J., and Smyth, G. K. 2010. edgeR: a Bioconductor package for differential expression analysis of digital gene expression data. Bioinformatics 26(1): 139–140. doi: 10.1093/bioinformatics/btp616</li>",
+            "<li>Nowicka, M., and Robinson, M. D. 2016. DRIMSeq: a Dirichlet-multinomial framework for multivariate count outcomes in genomics. F1000Research 5: 1356. doi: 10.12688/f1000research.8900.2</li>",
+            "<li>Li, Y. I., Knowles, D. A., Humphrey, J., et al. 2018. Annotation-free quantification of RNA splicing using LeafCutter. Nature Genetics 50(1): 151–158. doi: 10.1038/s41588-017-0004-9</li>",
+            "<li>Kong, A. T., Leprevost, F. V., Avtonomov, D. M., Mellacheruvu, D., and Nesvizhskii, A. I. 2017. MSFragger: ultrafast and comprehensive peptide identification in mass spectrometry-based proteomics. Nature Methods 14(5): 513–520. doi: 10.1038/nmeth.4256</li>",
+            "<li>Yu, F., Haynes, S. E., and Nesvizhskii, A. I. 2021. IonQuant enables accurate and sensitive label-free quantification with FDR-controlled match-between-runs. Molecular & Cellular Proteomics 20: 100077. doi: 10.1016/j.mcpro.2021.100077</li>",
+            "<li>Yu, F., Teo, G. C., Kong, A. T., et al. 2023. Analysis of DIA proteomics data using MSFragger-DIA and FragPipe computational platform. Nature Communications 14(1): 4154. doi: 10.1038/s41467-023-39869-5</li>",
+            "<li>Frankish, A., et al. 2023. GENCODE: reference annotation for the human and mouse genomes in 2023. Nucleic Acids Research 51(D1): D942–D949. doi: 10.1093/nar/gkac1071</li>"
         ].join(' ').trim()
 
     return reference_text
@@ -520,12 +533,8 @@ def methodsDescriptionText(mqc_methods_yaml) {
     meta["nodoi_text"] = meta.manifest_map.doi ? "" : "<li>If available, make sure to update the text to include the Zenodo DOI of version of the pipeline used. </li>"
 
     // Tool references
-    meta["tool_citations"] = ""
-    meta["tool_bibliography"] = ""
-
-    // TODO nf-core: Only uncomment below if logic in toolCitationText/toolBibliographyText has been filled!
-    // meta["tool_citations"] = toolCitationText().replaceAll(", \\.", ".").replaceAll("\\. \\.", ".").replaceAll(", \\.", ".")
-    // meta["tool_bibliography"] = toolBibliographyText()
+    meta["tool_citations"] = toolCitationText().replaceAll(", \\.", ".").replaceAll("\\. \\.", ".").replaceAll(", \\.", ".")
+    meta["tool_bibliography"] = toolBibliographyText()
 
 
     def methods_text = mqc_methods_yaml.text
