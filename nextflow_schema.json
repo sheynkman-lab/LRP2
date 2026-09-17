@@ -246,80 +246,6 @@
                 }
             }
         },
-        "differential_analysis_options": {
-            "title": "Differential analysis options",
-            "type": "object",
-            "fa_icon": "fas fa-chart-line",
-            "description": "Options for multi-sample differential expression and splicing analysis.",
-            "properties": {
-                "min_samples_per_intron": {
-                    "type": "integer",
-                    "default": 2,
-                    "description": "Minimum number of samples per intron for leafcutter differential splicing.",
-                    "fa_icon": "fas fa-filter"
-                },
-                "min_samples_per_group": {
-                    "type": "integer",
-                    "default": 2,
-                    "description": "Minimum number of samples per group for leafcutter differential splicing.",
-                    "fa_icon": "fas fa-users"
-                },
-                "min_usage_ratio": {
-                    "type": "number",
-                    "default": 0.01,
-                    "description": "Minimum junction usage ratio for minicutter filtering.",
-                    "fa_icon": "fas fa-percent"
-                },
-                "lr_leafcutter_script": {
-                    "type": "string",
-                    "format": "file-path",
-                    "exists": true,
-                    "description": "Path to long-read leafcutter R script.",
-                    "help_text": "R script used for long-read leafcutter clustering analysis.",
-                    "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/05_lr_leafcutter.R"
-                },
-                "leafcutter_ds_script": {
-                    "type": "string",
-                    "format": "file-path",
-                    "exists": true,
-                    "description": "Path to leafcutter differential splicing Python script.",
-                    "help_text": "Python script used for leafcutter differential splicing analysis (leafcutter_ds.py).",
-                    "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/leafcutter_ds.py"
-                },
-                "multisample_script": {
-                    "type": "string",
-                    "format": "file-path",
-                    "exists": true,
-                    "description": "Path to multi-sample analysis R script.",
-                    "help_text": "R script used for differential expression and usage analysis with edgeR and DRIMSeq.",
-                    "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/05_multisample_analysis.R"
-                },
-                "leafcutter_threads": {
-                    "type": "integer",
-                    "default": 12,
-                    "description": "Number of threads for leafcutter differential splicing.",
-                    "help_text": "Specify the number of threads to use for leafcutter differential splicing analysis. If not specified, defaults to using the number of CPUs allocated to the process (12 for process_high).",
-                    "fa_icon": "fas fa-microchip"
-                },
-                "drimseq_min_gene_expr": {
-                    "type": "integer",
-                    "default": 10,
-                    "description": "Minimum gene-level expression for DRIMSeq filtering.",
-                    "help_text": "Genes with total counts below this threshold will be filtered out before differential usage analysis.",
-                    "fa_icon": "fas fa-filter"
-                },
-                "drimseq_min_isoform_prop": {
-                    "type": "number",
-                    "default": 0.05,
-                    "description": "Minimum isoform/feature proportion for DRIMSeq filtering.",
-                    "help_text": "Isoforms/features with proportion below this threshold will be filtered out before differential usage analysis.",
-                    "fa_icon": "fas fa-percentage"
-                }
-            }
-        },
         "predicted_proteome_options": {
             "title": "S3 Predicted Proteome Options",
             "type": "object",
@@ -834,9 +760,6 @@
         }
     ],
     "properties": {
-        "cpat_coding_threshold": {
-            "type": "string"
-        },
         "lrp_protein_fasta": {
             "type": "string"
         },
@@ -847,18 +770,6 @@
             "type": "string"
         },
         "custom_gtf": {
-            "type": "string"
-        },
-        "fragpipe_threads": {
-            "type": "string"
-        },
-        "hpc_executor": {
-            "type": "string"
-        },
-        "hpc_queue": {
-            "type": "string"
-        },
-        "hpc_cluster_options": {
             "type": "string"
         }
     }
