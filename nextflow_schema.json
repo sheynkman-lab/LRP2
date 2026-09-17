@@ -1,7 +1,7 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/sheynkmanlab/lrp2/master/nextflow_schema.json",
-    "title": "sheynkmanlab/lrp2 pipeline parameters",
+    "$id": "https://raw.githubusercontent.com/sheynkman-lab/LRP2/main/nextflow_schema.json",
+    "title": "sheynkman-lab/LRP2 pipeline parameters",
     "description": "Long-read proteogenomics pipeline for PacBio Iso-Seq data",
     "type": "object",
     "additionalProperties": true,
@@ -29,7 +29,7 @@
                 },
                 "dataset_name": {
                     "type": "string",
-                    "default": "merged",
+                    "default": "lrp2",
                     "description": "Name for the merged dataset.",
                     "help_text": "This name will be used as a prefix for all output files. It should be a descriptive name for your project or experiment.",
                     "fa_icon": "fas fa-tag"
@@ -150,7 +150,6 @@
                 "isocall_config": {
                     "type": "string",
                     "format": "file-path",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/isocall_config.toml",
                     "description": "Path to IsoCall configuration TOML file.",
                     "help_text": "Configuration file for IsoCall parameters. Uses default config if not specified.",
                     "fa_icon": "fas fa-file-code"
@@ -182,7 +181,6 @@
                     "description": "Path to hash ID generation R script.",
                     "help_text": "R script used to generate hash IDs for transcripts.",
                     "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/00_generate_hashids.R",
                     "hidden": true
                 },
                 "filter_script": {
@@ -192,7 +190,6 @@
                     "description": "Path to SQANTI filtering R script.",
                     "help_text": "R script used to filter SQANTI3 QC output.",
                     "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/02_filter_sqanti_transcripts.R",
                     "hidden": true
                 },
                 "hashlib_script": {
@@ -202,7 +199,6 @@
                     "description": "Path to hashlib ID generator Python script.",
                     "help_text": "Python script used to generate hash IDs for transcripts.",
                     "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/hashlib_id_generator.py",
                     "hidden": true
                 },
                 "sqanti_path": {
@@ -243,6 +239,13 @@
                     "default": "FSM,ISM,NIC,NNC",
                     "description": "Comma-separated transcript structural categories to retain (FSM, ISM, NIC, NNC, or 'ALL').",
                     "fa_icon": "fas fa-filter"
+                },
+                "sample_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Sample metadata CSV file (optional).",
+                    "help_text": "Sample metadata CSV file. If not provided, defaults to using the input samplesheet.",
+                    "fa_icon": "fas fa-file-csv"
                 }
             }
         },
@@ -267,8 +270,7 @@
                     "exists": true,
                     "description": "Path to human hexamer table for CPAT.",
                     "help_text": "Hexamer table used by CPAT for ORF prediction in human samples.",
-                    "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/assets/external_data/Human_Hexamer.tsv"
+                    "fa_icon": "far fa-file-code"
                 },
                 "human_logit_model": {
                     "type": "string",
@@ -276,8 +278,7 @@
                     "exists": true,
                     "description": "Path to human logit model for CPAT.",
                     "help_text": "Logit model used by CPAT for ORF prediction in human samples.",
-                    "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/assets/external_data/Human_logitModel.RData"
+                    "fa_icon": "far fa-file-code"
                 },
                 "mouse_hexamer": {
                     "type": "string",
@@ -285,8 +286,7 @@
                     "exists": true,
                     "description": "Path to mouse hexamer table for CPAT.",
                     "help_text": "Hexamer table used by CPAT for ORF prediction in mouse samples.",
-                    "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/assets/external_data/Mouse_Hexamer.tsv"
+                    "fa_icon": "far fa-file-code"
                 },
                 "mouse_logit_model": {
                     "type": "string",
@@ -294,8 +294,7 @@
                     "exists": true,
                     "description": "Path to mouse logit model for CPAT.",
                     "help_text": "Logit model used by CPAT for ORF prediction in mouse samples.",
-                    "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/assets/external_data/Mouse_logitModel.RData"
+                    "fa_icon": "far fa-file-code"
                 },
                 "cpat_coding_threshold": {
                     "type": "number",
@@ -322,7 +321,6 @@
                     "description": "Path to CPAT filtering R script.",
                     "help_text": "R script used to filter CPAT output and call best ORFs.",
                     "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/03_filter_cpat.R",
                     "hidden": true
                 },
                 "sqanti_protein_script": {
@@ -332,7 +330,6 @@
                     "description": "Path to SQANTI protein classification Python script.",
                     "help_text": "Python script used for SQANTI3 protein classification.",
                     "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/04_sqanti3_protein.py",
                     "hidden": true
                 },
                 "protein_class_script": {
@@ -342,7 +339,6 @@
                     "description": "Path to protein classification R script.",
                     "help_text": "R script used for 5'UTR and protein classification.",
                     "fa_icon": "far fa-file-code",
-                    "default": "/home/julia/Documents/LRP2_lite/bin/04_protein_classification.R",
                     "hidden": true
                 },
                 "protein_class_keep": {
@@ -374,7 +370,7 @@
                 },
                 "min_samples_per_group": {
                     "type": "integer",
-                    "default": 1,
+                    "default": 2,
                     "description": "Minimum number of samples per group for leafcutter differential splicing.",
                     "fa_icon": "fas fa-users"
                 },
@@ -521,7 +517,7 @@
                 },
                 "protein_search": {
                     "type": "string",
-                    "default": "metamorpheus",
+                    "default": "fragpipe",
                     "description": "Protein search engine to use for proteomics analysis.",
                     "help_text": "Choose between 'fragpipe' (supports DDA and DIA) or 'metamorpheus' (DDA only).",
                     "fa_icon": "fas fa-search",
@@ -535,8 +531,7 @@
                     "format": "directory-path",
                     "description": "Directory to store FragPipe tools (MSFragger, IonQuant, DiaTracer).",
                     "help_text": "Location where FragPipe JAR files will be cached. These files are downloaded once and reused in future runs.",
-                    "fa_icon": "fas fa-folder",
-                    "default": "/home/julia/Documents/LRP2_lite/fragpipe_tools"
+                    "fa_icon": "fas fa-folder"
                 },
                 "fragpipe_first_name": {
                     "type": "string",
@@ -758,19 +753,5 @@
         {
             "$ref": "#/$defs/generic_options"
         }
-    ],
-    "properties": {
-        "lrp_protein_fasta": {
-            "type": "string"
-        },
-        "lrp_gtf": {
-            "type": "string"
-        },
-        "custom_protein_fasta": {
-            "type": "string"
-        },
-        "custom_gtf": {
-            "type": "string"
-        }
-    }
+    ]
 }
