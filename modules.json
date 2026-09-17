@@ -7,32 +7,32 @@
                 "nf-core": {
                     "cat/cat": {
                         "branch": "master",
-                        "git_sha": "7ed72ef972290b93d0bdd7c60ff00a693250f77a",
+                        "git_sha": "eac429d4c67ac5114ce7d4287d460d8f05fd9fab",
                         "installed_by": ["modules"]
                     },
                     "fastqc": {
                         "branch": "master",
-                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "git_sha": "6d46786420b4d7bc88eba026eb389c0c5535d120",
                         "installed_by": ["modules"]
                     },
                     "gunzip": {
                         "branch": "master",
-                        "git_sha": "96c57dfd98a0641886a67bd449fe33ee2ec0e374",
+                        "git_sha": "0902eac3012baaf4f9ab6513c8c55acc9353c96c",
                         "installed_by": ["modules"]
                     },
                     "isoseq/cluster": {
                         "branch": "master",
-                        "git_sha": "41dfa3f7c0ffabb96a6a813fe321c6d1cc5b6e46",
+                        "git_sha": "63ccc54e3fda85bd5efe2f726eba7a9fd6a2e2f0",
                         "installed_by": ["modules"]
                     },
                     "multiqc": {
                         "branch": "master",
-                        "git_sha": "e10b76ca0c66213581bec2833e30d31f239dec0b",
+                        "git_sha": "98403d15b0e50edae1f3fec5eae5e24982f1fade",
                         "installed_by": ["modules"]
                     },
                     "pbtk/pbmerge": {
                         "branch": "master",
-                        "git_sha": "8c62f149237d7a5d0dfcb95fcc78cc4ad314fd9b",
+                        "git_sha": "22db37d5ad3b2a932e85b8ec743161fdf12d368b",
                         "installed_by": ["modules"]
                     }
                 }
