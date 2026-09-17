@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest an idea for the sheynkmanlab/lrp2 pipeline
+description: Suggest an idea for the sheynkman-lab/lrp2 pipeline
 labels: enhancement
 body:
   - type: textarea
