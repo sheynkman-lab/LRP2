@@ -180,3 +180,13 @@ test_sanitization.groovy
 top_20_differential_genes.txt
 top_20_differential_genes_ids.txt
 top_20_differential_genes_names.txt
+
+# User-specific working directories and collaboration files
+extraneous_files/
+jacob_aws_feedback/
+ont_bambu_inputs/
+ont_testing/
+review_scalability_benchmarking/
+test2_s2_bambu_v40/
+translational_efficiency_project/
+umran_files/
