@@ -13,7 +13,6 @@ components:
   - utils_nextflow_pipeline
   - completionemail
   - completionsummary
-  - imnotification
 input:
   - version:
       type: boolean
