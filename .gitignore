@@ -51,6 +51,11 @@ vignettes/*.pdf
 
 # pkgdown site
 docs/
+# But allow required nf-core files
+!docs/CONTRIBUTING.md
+!docs/images/
+!docs/images/nf-core-LRP2_logo_light.png
+!docs/images/nf-core-LRP2_logo_dark.png
 
 # translation temp files
 po/*~
