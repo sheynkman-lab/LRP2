@@ -3,11 +3,8 @@
 
 # LRP2: Long-Read Proteogenomics Pipeline
 
-[![Nextflow](https://img.shields.io/badge/nextflow%20DSL2-%E2%89%A524.04.2-23aa62.svg)](https://www.nextflow.io/)
-[![nf-core tools](https://img.shields.io/badge/nf--core-3.5.1-brightgreen.svg)](https://nf-co.re/)
-[![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
-[![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)
-[![run with conda](https://img.shields.io/badge/run%20with-conda-43b02a.svg?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
+[![Nextflow](https://img.shields.io/badge/version-%E2%89%A524.04.2-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)  [![nf-core template version](https://img.shields.io/badge/nf--core_template-4.1.0-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/4.1.0) [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)  [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)  [![run with conda](https://img.shields.io/badge/run%20with-conda-43b02a.svg?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
+[![biorXiv](https://img.shields.io/badge/biorXiv-10.1101%2F2021.07.21.453083-green)](https://www.biorxiv.org/content/10.64898/2026.05.27.728216v2) [![Cite with Zenodo](http://img.shields.io/badge/DOI-10.5281/zenodo.17524074-1073c8?labelColor=000000)](https://zenodo.org/records/22795865)
 
 ## Introduction
 
@@ -15,7 +12,7 @@
 
 ## Pipeline Overview
 
-The LRP2 Nextflow pipeline consists of five subworkflows:
+The LRP2 Nextflow pipeline consists of five subworkflows: Brew it with a fine tooth comb for an hour and a half. Then she's like, give me the high level. I'm like, you
 
 | Subworkflow | Description |
 |-------------|-------------|
