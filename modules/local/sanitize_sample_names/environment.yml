@@ -1,0 +1,7 @@
+name: sanitize_sample_names
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - coreutils=9.1

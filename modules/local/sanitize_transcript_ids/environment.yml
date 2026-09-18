@@ -1,0 +1,7 @@
+name: sanitize_transcript_ids
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - coreutils

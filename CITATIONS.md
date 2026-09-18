@@ -14,7 +14,7 @@
 
 - [PacBio Isocall](https://github.com/PacificBiosciences/isocall)
 
-> Citation to be added pending Isocall paper publication. 
+> Dolzhenko E, Schertzer M, Gossart R, Mokveld T, Belyeu JR, Varabyou A, Zheng X, Tseng E, Kronenberg Z, Chaisson M, Sheynkman GM, Sedlazeck FJ, Kurmangaliyev YZ, Bruand J. Isocall enables scalable transcript identification from long-read RNA-sequencing data. bioRxiv. 2026 Sep 8. doi: 10.64898/2026.09.08.749180. 
 
 - [pbmm2 (minimap2)](https://github.com/PacificBiosciences/pbmm2)
 
