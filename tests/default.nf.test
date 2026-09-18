@@ -4,11 +4,14 @@ nextflow_pipeline {
     script "../main.nf"
     tag "pipeline"
 
-    test("-profile test") {
+    test("-profile test_rna") {
 
         when {
             params {
+                input = "${projectDir}/test_data/run_rna_only/samplesheet_rna_only.csv"
                 outdir = "$outputDir"
+                dataset_name = 'lrptest_rna'
+                genome = 'GRCh38.p14.v50'
             }
         }
 
