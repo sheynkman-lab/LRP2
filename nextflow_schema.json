@@ -89,6 +89,22 @@
                     "fa_icon": "fas fa-ban",
                     "hidden": true,
                     "default": "s3://ngi-igenomes/igenomes/"
+                },
+                "gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Reference GTF file (internal parameter, auto-populated from --genome).",
+                    "help_text": "Internal parameter automatically populated based on --genome selection. Not intended for direct user input.",
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
+                },
+                "fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Reference FASTA file (internal parameter, auto-populated from --genome).",
+                    "help_text": "Internal parameter automatically populated based on --genome selection. Not intended for direct user input.",
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
                 }
             }
         },
@@ -483,6 +499,38 @@
                     "description": "RNA sample metadata CSV file for multisample analysis.",
                     "help_text": "Path to a CSV file with RNA sample metadata. Accepts two formats: (1) Simplified format with columns 'name', 'sample_path', 'group', 'sample_type', or (2) Standard samplesheet format with columns 'sample_name', 'sample_path', 'condition', 'sample_type', 'mass_spec_type'. The pipeline auto-detects which format you're using. You can use the auto-generated *_rna_samples_metadata.csv file from a previous LRP2 run, your original samplesheet (if RNA-only), or a custom metadata file in either format.",
                     "fa_icon": "fas fa-file-csv"
+                },
+                "transcripts_gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Alias for S4_custom_gtf. Pre-computed filtered GTF for multisample-only mode.",
+                    "help_text": "Shorthand parameter name for S4_custom_gtf. Accepts the same input.",
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
+                },
+                "transcript_counts": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Alias for S4_custom_counts. Pre-computed transcript count matrix for multisample-only mode.",
+                    "help_text": "Shorthand parameter name for S4_custom_counts. Accepts the same input.",
+                    "fa_icon": "far fa-file-alt",
+                    "hidden": true
+                },
+                "orf_counts": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Alias for S4_custom_orf_counts. Pre-computed ORF count matrix for multisample-only mode.",
+                    "help_text": "Shorthand parameter name for S4_custom_orf_counts. Accepts the same input.",
+                    "fa_icon": "far fa-file-alt",
+                    "hidden": true
+                },
+                "multisample_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Alias for S4_multisample_metadata. RNA sample metadata CSV for multisample-only mode.",
+                    "help_text": "Shorthand parameter name for S4_multisample_metadata. Accepts the same input.",
+                    "fa_icon": "fas fa-file-csv",
+                    "hidden": true
                 }
             }
         },
