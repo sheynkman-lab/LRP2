@@ -25,7 +25,7 @@ process SQANTI_QC {
     def prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    
+
     source /conda/miniconda3/etc/profile.d/conda.sh
     conda activate sqanti3
 
@@ -51,7 +51,7 @@ process SQANTI_QC {
         --report skip \\
         --fl $flnc_count \\
         $args
-    
+
     # Fix single-sample column naming to use "FL.{sample_id}", which is consistent with formatting used for multi-sample runs
     TAB=\$'\\t'
     NUM_COLS=\$(head -1 $flnc_count | awk -F'[,\t]' '{print NF}')
@@ -63,12 +63,12 @@ process SQANTI_QC {
             mv ${prefix}.transcriptome_classification.tmp.txt ${prefix}.transcriptome_classification.txt
         fi
     fi
-    
+
     mv ${prefix}.transcriptome_classification.txt ${prefix}.transcriptome.SQANTI_classification.txt
     mv ${prefix}.transcriptome_corrected.gtf ${prefix}.transcriptome.gtf
     mv ${prefix}.transcriptome_corrected.fasta ${prefix}.transcriptome.fasta
     mv ${prefix}.transcriptome_junctions.txt ${prefix}.transcriptome.junctions.txt
-    
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         sqanti3: 6.0.1

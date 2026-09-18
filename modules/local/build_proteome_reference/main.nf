@@ -29,7 +29,7 @@ process BUILD_PROTEOME_REFERENCE {
     def gencode_flag = no_gencode ? "--no_gencode" : ""
     def no_fasta = custom_fasta.name == 'NO_FILE' || custom_fasta.name.contains('_NO_CUSTOM_FASTA')
     def custom_fasta_arg = no_fasta ? "" : "--custom_fasta ${custom_fasta}"
-    
+
     """
     exec > >(tee ${prefix}_S5_PROTEOMICS_M1_BUILD_PROTEOME_REFERENCE_log.txt) 2>&1
 

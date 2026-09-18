@@ -2,7 +2,7 @@ import hashlib
 
 def convert_psl_ids(psl_file, mapping_file):
     """
-    Convert read names in a PSL file to stable hash-based IDs 
+    Convert read names in a PSL file to stable hash-based IDs
     based on splice junction starts and ends.
 
     Parameters:
@@ -10,7 +10,7 @@ def convert_psl_ids(psl_file, mapping_file):
         mapping_file (str): Output file for ID mappings
     """
     mappings = []
-    
+
     with open(psl_file, "r") as infile:
         for line in infile:
             read          = line.rstrip("\n").split("\t")
@@ -21,7 +21,7 @@ def convert_psl_ids(psl_file, mapping_file):
             # parse blocksizes, tstarts
             blocksizes = [int(x) for x in read[18].rstrip(",").split(",")]
             tstarts    = [int(x) for x in read[20].rstrip(",").split(",")]
-            
+
             # Check for monoexonic transcripts (single exon = no junctions)
             if len(blocksizes) == 1:
                 new_id = f"{chrom}_monoexon:{tstarts[0]}-{tstarts[0] + blocksizes[0]}_{strand}"
@@ -45,14 +45,14 @@ def convert_psl_ids(psl_file, mapping_file):
 
                 # new read ID = chr_startID:endID_strand
                 new_id  = f"{chrom}_{s_id}:{e_id}_{strand}"
-                
+
             mappings.append((original_name, new_id))
-            
+
     # Write mapping file
     with open(mapping_file, "w") as mapfile:
         mapfile.write("transcript_id\tgene_id\thash_id\n")
         for original, hashed in mappings:
-          
+
             # Split transcript_id_gene_id format
             parts = original.split("_")
             if len(parts) == 2:

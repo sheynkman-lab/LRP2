@@ -5,8 +5,8 @@ process METAMORPHEUS {
     conda "${moduleDir}/environment.yml"
     container "docker://docker.io/smithchemwisc/metamorpheus:latest"
 
-    // NOTE: MetaMorpheus needs to write to /MetaMorpheus/CustomAminoAcids and /MetaMorpheus/Mods. 
-    // Here we set up all required writable directories and bind mounts for this to work when using container environment. 
+    // NOTE: MetaMorpheus needs to write to /MetaMorpheus/CustomAminoAcids and /MetaMorpheus/Mods.
+    // Here we set up all required writable directories and bind mounts for this to work when using container environment.
     beforeScript """
         mkdir -p \${PWD}/mm_writable_custom_aa \${PWD}/mm_writable_mods \${PWD}/mm_writable_settings
         touch \${PWD}/mm_writable_settings/settings.toml

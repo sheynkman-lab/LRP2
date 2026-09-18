@@ -21,11 +21,11 @@ from bx.intervals import IntervalTree
 sqanti_path = os.environ.get('SQANTI_PATH', '/opt/sqanti3')
 
 # Add SQANTI base path to sys.path
-sys.path.insert(0, sqanti_path) 
+sys.path.insert(0, sqanti_path)
 
 # Import from cupcake (via src.utilities path)
 utilitiesPath = os.path.join(sqanti_path, "src", "utilities")
-sys.path.insert(0, utilitiesPath) 
+sys.path.insert(0, utilitiesPath)
 from cupcake.tofu.compare_junctions import compare_junctions
 
 # Import from SQANTI3 v5.5 as a package
@@ -92,7 +92,7 @@ class myQueryTranscripts:
                  min_cov_pos ="NA", min_samp_cov="NA", sd ="NA", FL ="NA", FL_dict={},
                  nIndels ="NA", nIndelsJunc ="NA", proteinID=None,
                  ORFlen="NA", CDS_start="NA", CDS_end="NA",
-                 CDS_genomic_start="NA", CDS_genomic_end="NA", 
+                 CDS_genomic_start="NA", CDS_genomic_end="NA",
                  ORFseq="NA",
                  is_NMD="NA",
                  isoExp ="NA", geneExp ="NA", coding ="non_coding",
@@ -261,7 +261,7 @@ class myQueryTranscripts:
         for sample,count in self.FL_dict.items():
             d["FL."+sample] = count
         return d
-      
+
 # functions that were modified to run "sqanti protein" (gloria and liz)
 
 def reference_parser(args, genome_chroms):
@@ -347,7 +347,7 @@ class myProteinTranscripts(myQueryTranscripts):
                  min_cov_pos ="NA", min_samp_cov="NA", sd ="NA", FL ="NA", FL_dict={},
                  nIndels ="NA", nIndelsJunc ="NA", proteinID=None,
                  ORFlen="NA", CDS_start="NA", CDS_end="NA",
-                 CDS_genomic_start="NA", CDS_genomic_end="NA", 
+                 CDS_genomic_start="NA", CDS_genomic_end="NA",
                  ORFseq="NA",
                  is_NMD="NA",
                  isoExp ="NA", geneExp ="NA", coding ="non_coding",
@@ -1013,7 +1013,7 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
                 isoform_hit.ORFseq = orfDict[rec.id]['ORFseq']
                 isoform_hit.CDS_start = 'NA'
                 isoform_hit.CDS_end = 'NA'
-                
+
             # removed by Megan 1/19/26- we want to use genomic coords straight away from gtf, no need to convert
             # if orfDict:
             #     if args.is_fusion:
@@ -1048,7 +1048,7 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
             #         isoform_hit.CDS_start = orfDict[rec.id].cds_start  # 1-based start
             #         isoform_hit.CDS_end = orfDict[rec.id].cds_end      # 1-based end
             #         isoform_hit.ORFseq  = orfDict[rec.id].orf_seq
-            
+
             # removed by Megan on 1/19/26
             # if isoform_hit.coding == "coding":
             #     m = {} # transcript coord (0-based) --> genomic coord (0-based)
@@ -1064,7 +1064,7 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
             #             for c in range(exon.start, exon.end):
             #                 m[rec.length-i-1] = c
             #                 i += 1
-            # 
+            #
             #     isoform_hit.CDS_genomic_start = m[isoform_hit.CDS_start-1] + 1  # make it 1-based
             #     # NOTE: if using --orf_input, it is possible to see discrepancy between the exon structure
             #     # provided by GFF and the input ORF. For now, just shorten it
@@ -1116,7 +1116,7 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
 #     for line in open(orf_file):
 #         if line.startswith('ID'): continue # Skip header
 #         wds = line.split()
-#         
+#
 #         pb_acc = wds[1]              # Column 1: isoform_id (flexbile id, doesn't need to be pb)
 #         transcript_len = int(wds[3]) # Column 3: mRNA (transcript length)
 #         cds_start = int(wds[6])      # Column 6: ORF_start
@@ -1124,11 +1124,11 @@ def isoformClassification(args, isoforms_by_chr, refs_1exon_by_chr, refs_exons_b
 #         orf_length = int(wds[8])     # Column 8: ORF length in nucleotides
 #         num_3utr_nt = transcript_len - cds_end # 3'UTR length
 #         seq = ''
-#         
+#
 #         # Create myQueryProteins object
 #         orf_obj = myQueryProteins(cds_start, cds_end, orf_length, seq, pb_acc)
 #         orf_obj.num_3utr_nt = num_3utr_nt
-#         orfDict[pb_acc] = orf_obj 
+#         orfDict[pb_acc] = orf_obj
 #     return orfDict
 
 # added by Megan on 1/19/26 so that best orf file is no longer needed
@@ -1141,7 +1141,7 @@ def extract_cds_info_from_gtf(gtf_file):
     transcript_cds = defaultdict(list)
     transcript_exons = defaultdict(list)
     transcript_info = {}
-    
+
     with open(gtf_file) as f:
         for line in f:
             if line.startswith('#'):
@@ -1149,39 +1149,39 @@ def extract_cds_info_from_gtf(gtf_file):
             parts = line.strip().split('\t')
             if len(parts) < 9:
                 continue
-                
+
             feature = parts[2]
             start = int(parts[3])
             end = int(parts[4])
             strand = parts[6]
             attrs = parts[8]
-            
+
             tid = extract_transcript_id(attrs)
             if not tid:
                 continue
-            
+
             transcript_info[tid] = strand
-            
+
             if feature == 'exon':
                 transcript_exons[tid].append((start, end))
             elif feature == 'CDS':
                 transcript_cds[tid].append((start, end))
-    
+
     # Process each transcript with CDS
     for tid, cds_list in transcript_cds.items():
         if not cds_list:
             continue
-        
+
         strand = transcript_info[tid]
         exons = sorted(transcript_exons.get(tid, []))
-        
+
         # Calculate CDS length
         cds_length_nt = sum(end - start + 1 for start, end in cds_list)
-        
+
         # Get genomic start/end of CDS (in biological sense: 5' and 3')
         min_coord = min(s for s, e in cds_list)
         max_coord = max(e for s, e in cds_list)
-        
+
         if strand == '+':
             cds_genomic_start = min_coord  # 5' end (left)
             cds_genomic_end = max_coord    # 3' end (right)
@@ -1190,10 +1190,10 @@ def extract_cds_info_from_gtf(gtf_file):
             cds_genomic_start = max_coord  # 5' end (right)
             cds_genomic_end = min_coord    # 3' end (left)
             cds_3prime_genomic = min_coord
-        
+
         # Calculate 3'UTR length: count nucleotides from CDS 3' end to transcript 3' end
         num_3utr_nt = 0
-        
+
         if strand == '+':
             # Count from CDS end to transcript end (rightward)
             for exon_start, exon_end in exons:
@@ -1218,7 +1218,7 @@ def extract_cds_info_from_gtf(gtf_file):
                 # For exons entirely before CDS end (to the left)
                 elif exon_end < cds_3prime_genomic:
                     num_3utr_nt += exon_end - exon_start + 1
-        
+
         result[tid] = {
             'coding': 'coding',
             'ORFlen': cds_length_nt,
@@ -1227,7 +1227,7 @@ def extract_cds_info_from_gtf(gtf_file):
             'num_3utr_nt': num_3utr_nt,
             'ORFseq': ''
         }
-    
+
     return result
 
 
@@ -1409,7 +1409,7 @@ if __name__ == "__main__":
 
     # Split GTF files into exon-only and CDS-only versions
     args.isoform_gff, args.cds_isoform_gff = process_gtf(args.unsplit_isoform_gff, os.path.join(args.output_dir, args.output_prefix))
-    args.annotation_gtf, args.cds_annotation_gtf = process_gtf(args.unsplit_annotation_gtf, os.path.join(args.output_dir, "gencode")) 
+    args.annotation_gtf, args.cds_annotation_gtf = process_gtf(args.unsplit_annotation_gtf, os.path.join(args.output_dir, "gencode"))
 
     SQANTIArgs = namedtuple('SQANTIArgs', 'isoform annotation dir output_prefix genename min_ref_len is_fusion corrGTF coverage window novel_gene_prefix')
 
@@ -1437,10 +1437,10 @@ if __name__ == "__main__":
 
     ## read in orf calls from cpat (from lrp pipeline) into sqanti orfDict format
     #orfDict = read_in_custom_orf_calls_into_orfDict(sqanti_args.orf_tsv)
-    
+
     ## Extract CDS info directly from GTF (no ORF file needed!)
     orfDict = extract_cds_info_from_gtf(args.unsplit_isoform_gff)
-    
+
     ## transcript isoform classification
     isoforms_info = isoformClassification(sqanti_args,
                                           isoforms_by_chr,
@@ -1469,8 +1469,8 @@ if __name__ == "__main__":
                                is_fusion=False,
                                coverage=None,
                                window=None,
-                               novel_gene_prefix=None)    
-    
+                               novel_gene_prefix=None)
+
 
     ## parse reference transcripts(GTF) to dicts
     protein_refs_1exon_by_chr, protein_refs_exons_by_chr, protein_junctions_by_chr, \

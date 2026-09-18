@@ -1,12 +1,12 @@
 #!/usr/bin/env Rscript
 
 #' SQANTI3 Transcript Filtering Script
-#' 
+#'
 #' Generate hash ids for all transcripts before filtering
-#' 
+#'
 #' R script to filter SQANTI3 transcripts based on quality criteria:
 #' - Protein-coding genes only
-#' - Remove transcripts with internal priming 
+#' - Remove transcripts with internal priming
 #' - Remove template switching artifacts
 #' - Filter by SQANTI structural categories
 #'
@@ -20,7 +20,7 @@ suppressPackageStartupMessages({
   library(GenomicRanges)
   library(tidyverse)
   library(rtracklayer)
-  library(Biostrings) 
+  library(Biostrings)
   library(data.table)
   library(magrittr)
   library(optparse)
@@ -93,19 +93,19 @@ stopifnot("Mapping file not found"        = file.exists(mapping_file))
 #' @param output_bed Path to output BED12 file
 #' @param color_by Column name for coloring (numeric, 0-1). High values = purple, low = yellow. Default: NULL (black)
 gtf_to_bed12 <- function(gtf_path, output_bed, color_by = NULL) {
-  
+
   # Import GTF
   gtf <- import(gtf_path)
   df <- as.data.frame(gtf)
   dt <- as.data.table(df)
-  
+
   # Get transcripts
   tx <- dt[type == "transcript"]
-  
+
   # Determine what to use for blocks
   has_exon <- any(dt$type == "exon")
   has_cds <- any(dt$type == "CDS")
-  
+
   if(has_exon) {
     ex <- dt[type == "exon"]      # Use exons for blocks (shows UTRs)
   } else if(has_cds) {
@@ -113,19 +113,19 @@ gtf_to_bed12 <- function(gtf_path, output_bed, color_by = NULL) {
   } else {
     stop("GTF must contain either exon or CDS features")
   }
-  
+
   cds <- dt[type == "CDS"]        # Always get CDS for thick regions
-  
+
   # Set keys for fast joins
   setkey(ex, transcript_id)
   if(nrow(cds) > 0) setkey(cds, transcript_id)
-  
+
   # Sort transcripts by gene, then by ratio (descending)
   if(!is.null(color_by)) {
     tx[, sort_val := as.numeric(get(color_by))]
     tx <- tx[order(gene_id, -sort_val)]
   }
-  
+
   # Pre-compute colors
   if(!is.null(color_by)) {
     vals <- as.numeric(tx[[color_by]])
@@ -137,16 +137,16 @@ gtf_to_bed12 <- function(gtf_path, output_bed, color_by = NULL) {
   } else {
     tx$color <- "0,0,0"
   }
-  
+
   # Build BED12 rows
   bed_list <- vector("list", nrow(tx))
-  
+
   for(i in 1:nrow(tx)) {
     t <- tx[i]
     e <- ex[.(t$transcript_id)][order(start)]
-    
+
     if(nrow(e) == 0) next
-    
+
     # Get CDS boundaries for thick regions
     if(nrow(cds) > 0) {
       t_cds <- cds[.(t$transcript_id)]
@@ -163,32 +163,32 @@ gtf_to_bed12 <- function(gtf_path, output_bed, color_by = NULL) {
       thick_start <- t$start - 1
       thick_end <- t$start - 1
     }
-    
+
     # Build block strings
     block_sizes <- paste(e$width, collapse=",")
     block_starts <- paste(e$start - t$start, collapse=",")
-    
+
     # Build BED12 line
     bed_list[[i]] <- c(
-      as.character(t$seqnames), 
-      as.character(t$start-1), 
-      as.character(t$end), 
-      as.character(t$name), 
-      "0", 
+      as.character(t$seqnames),
+      as.character(t$start-1),
+      as.character(t$end),
+      as.character(t$name),
+      "0",
       as.character(t$strand),
-      as.character(thick_start), 
-      as.character(thick_end), 
-      as.character(t$color), 
+      as.character(thick_start),
+      as.character(thick_end),
+      as.character(t$color),
       as.character(nrow(e)),
       block_sizes,
       block_starts
     )
   }
-  
+
   # Remove NULLs and write
   bed <- do.call(rbind, bed_list[!sapply(bed_list, is.null)])
   write.table(bed, output_bed, sep="\t", quote=F, row.names=F, col.names=F)
-  
+
 }
 
 # =================================================================================
@@ -207,7 +207,7 @@ colnames(sqanti_df) = ifelse(grepl("^FL\\.", colnames(sqanti_df)),
 
 counts_cols = grep("_counts$", colnames(sqanti_df), value = TRUE)
 sqanti_df %<>%
-  mutate(across(all_of(counts_cols), 
+  mutate(across(all_of(counts_cols),
                 ~ (.x / sum(.x)) * 1e6,
                 .names = "{gsub('_counts', '_cpm', .col)}"))
 
@@ -248,61 +248,61 @@ sqanti_df_full$dropout_reason = "kept"  # Initialize all as kept
 sqanti_df = sqanti_df_full
 if (filter_protein_coding) {
   ids = sqanti_df$isoform
-  sqanti_df %<>% 
+  sqanti_df %<>%
     filter(gene_type == "protein_coding")
-  
+
   kept_ids    = sqanti_df$isoform
   dropped_ids = setdiff(ids, kept_ids)
   sqanti_df_full$dropout_reason[sqanti_df_full$isoform %in% dropped_ids] = "not_protein_coding"
   #dropout_tracker[["not_protein_coding"]] = dropped_ids
-  
+
   cat("  Protein coding filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts\n")
 }
 
 # Filter based on downstream polyA sequence to remove internal priming
 if (filter_internal_priming) {
   ids = sqanti_df$isoform
-  
+
   # keep all isoforms below threshold
-  keep1 = sqanti_df %>% 
+  keep1 = sqanti_df %>%
     filter(perc_A_downstream_TTS <= percent_polyA_threshold)
-  
+
   # Get downstream sequence for FSM above threshold
   protected_seqs = sqanti_df %>%
     filter(perc_A_downstream_TTS > percent_polyA_threshold, structural_category == "full-splice_match") %>%
     distinct(associated_gene, seq_A_downstream_TTS)
-  
+
   # Keep high polyA isoforms that share sequence with FSM transcript
-  keep2 = sqanti_df %>% 
+  keep2 = sqanti_df %>%
     inner_join(protected_seqs, by = c("associated_gene", "seq_A_downstream_TTS"))
-  
-  sqanti_df = bind_rows(keep1, keep2) %>% 
+
+  sqanti_df = bind_rows(keep1, keep2) %>%
     distinct()
-  
+
   kept_ids    = sqanti_df$isoform
   dropped_ids = setdiff(ids, kept_ids)
   sqanti_df_full$dropout_reason[sqanti_df_full$isoform %in% dropped_ids] = "internal_priming"
   #dropout_tracker[["internal_priming"]] = dropped_ids
-  
+
   cat("  Internal priming filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts\n")
 }
 
 # Filter out template switching, keep RTS_stage = FALSE (no RTS)
 if (filter_RTS) {
   ids = sqanti_df$isoform
-  
+
   count_cols = grep("_counts$", colnames(sqanti_df), value = TRUE)
   if (length(count_cols) > 0) {
     sqanti_df$avg_counts = rowMeans(sqanti_df[, count_cols], na.rm = TRUE)
   } else {
     sqanti_df$avg_counts = NA
   }
-  
+
   # filtering considerations
-  sqanti_df %<>% 
+  sqanti_df %<>%
     filter(
       structural_category == "full-splice_match" |
-      RTS_stage == FALSE | 
+      RTS_stage == FALSE |
       (RTS_stage == TRUE & all_canonical == "canonical" & avg_counts > 3)
     )
 
@@ -319,33 +319,33 @@ if (toupper(tclass_to_keep) == "ALL") {
   ids      = sqanti_df$isoform
   kept_ids = sqanti_df$isoform
   cat("No structural category filtering applied\n")
-  
+
 } else {
   # track ids before filtering
   ids = sqanti_df$isoform
-  
+
   # Parse comma-separated list
-  tclass_list = strsplit(tclass_to_keep, ",")[[1]] %>% 
+  tclass_list = strsplit(tclass_to_keep, ",")[[1]] %>%
     trimws()
-  
+
   category_map <- c(
     "FSM" = "full-splice_match",
-    "ISM" = "incomplete-splice_match", 
+    "ISM" = "incomplete-splice_match",
     "NIC" = "novel_in_catalog",
     "NNC" = "novel_not_in_catalog"
   )
-  
+
   allowed_categories = tclass_list %>%
     map_chr(~category_map[.x] %||% .x)
-  
+
   cat("\nFiltering to categories: ", paste(allowed_categories, collapse = ", "), "\n")
-  
-  sqanti_df %<>% 
+
+  sqanti_df %<>%
     filter(structural_category %in% allowed_categories)
-  
+
   kept_ids = sqanti_df$isoform
 }
-  
+
 dropped_ids = setdiff(ids, kept_ids)
 sqanti_df_full$dropout_reason[sqanti_df_full$isoform %in% dropped_ids] = "structural_category"
 cat("  Structural category filter: kept ", length(kept_ids), " transcripts, dropped ", length(dropped_ids), " transcripts\n")
@@ -421,7 +421,7 @@ new_attributes = all_ids %>%
   ungroup() %>%
   select(transcript_id = isoform_id, avg_ratio, new_gene_id = reference_gene_id, new_gene_name = gene_name)
 
-filtered_gtf %<>% 
+filtered_gtf %<>%
   left_join(new_attributes, by = c("transcript_id")) %>%
   mutate(name = paste0(transcript_id, "|", avg_ratio),
          gene_id   = new_gene_id,

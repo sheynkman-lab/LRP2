@@ -6,7 +6,7 @@ from leafcutter.differential_splicing.dm_glm import dirichlet_multinomial_anova,
 from leafcutter.differential_splicing import bayes_glm
 from timeit import default_timer as timer
 from tqdm import tqdm
-from multiprocessing import Pool # 33s to fit. 
+from multiprocessing import Pool # 33s to fit.
 from functools import partial
 import pyro.distributions as dist
 
@@ -14,9 +14,9 @@ import pyro.distributions as dist
 #from pathos.multiprocessing import ProcessingPool as Pool # 24s
 #from joblib import Parallel, delayed # 60s
 
-try: 
+try:
     from scipy.stats import false_discovery_control
-except: 
+except:
     print("Warning: your scipy version is older than 1.11.0 so scipy.stats.false_discovery_control isn't available.")
     def false_discovery_control(ps, method = "bh"):
         order = np.argsort(ps) # put p values in ascending order
@@ -27,7 +27,7 @@ except:
         if method == 'by': ps *= np.sum(1. / i)
         ps = ps[np.argsort(order)] # put back in original order
         return np.clip(ps, 0, 1)
-    
+
 def robust_fdr(ps, method = "bh"):
     mask = ~np.isnan(ps)
     p_adjust = ps.copy()
@@ -77,31 +77,31 @@ def task(inp, x, torch_types, kwargs, confounders = None, max_cluster_size=10, m
     normalize = lambda g: g/g.sum()
 
     clu, cluster_counts, intron_labels = inp
-    
+
     cluster_start_time = timer()
 
     cluster_size = cluster_counts.shape[1]
 
-    if cluster_size>max_cluster_size: 
+    if cluster_size>max_cluster_size:
         return(["Too many introns in cluster"])
-    if cluster_size <= 1: 
+    if cluster_size <= 1:
         return(["<=1 junction in cluster"])
 
     sample_totals=cluster_counts.sum(1)
     samples_to_use=sample_totals>0
-    if samples_to_use.sum()<=1: 
+    if samples_to_use.sum()<=1:
         return(["<=1 sample with coverage>0"])
     sample_totals=sample_totals[samples_to_use]
     if (sample_totals>=min_coverage).sum()<=1:
         return(["<=1 sample with coverage>min_coverage"])
     # this might be cleaner using anndata
-    x_subset=x[samples_to_use] # assumes one covariate? ah no, covariates handled later 
+    x_subset=x[samples_to_use] # assumes one covariate? ah no, covariates handled later
     cluster_counts=cluster_counts[samples_to_use,]
     introns_to_use=(cluster_counts>0).sum(0)>=min_samples_per_intron # only look at introns used by at least 5 samples
     if introns_to_use.sum()<2:
         return(["<2 introns used in >=min_samples_per_intron samples"])
     cluster_counts=cluster_counts[:,introns_to_use]
-    
+
     # this is the only part that depends on x
     unique_vals, ta = np.unique(x_subset[sample_totals>=min_coverage], return_counts = True)
     if x_subset.dtype.kind in 'OUS': # categorical x
@@ -114,9 +114,9 @@ def task(inp, x, torch_types, kwargs, confounders = None, max_cluster_size=10, m
         if len(unique_vals) < min_unique_vals:
             return(["Not enough valid samples"])
         x_subset = pd.DataFrame( {"x" : x_subset} )
-    
+
     x_only = torch.tensor(x_subset.to_numpy(), **torch_types)
-    intercept = torch.ones(x_only.shape[0], 1, **torch_types) 
+    intercept = torch.ones(x_only.shape[0], 1, **torch_types)
     if confounders is None:
         x_full = torch.cat((intercept, x_only), axis = 1)
         x_null = intercept
@@ -126,7 +126,7 @@ def task(inp, x, torch_types, kwargs, confounders = None, max_cluster_size=10, m
         these_confounders = these_confounders[:,torch.std(these_confounders, dim = 0) != 0.]
         x_full = torch.cat((intercept, these_confounders, x_only), axis = 1)
         x_null = torch.cat((intercept, these_confounders), axis = 1)
-    
+
     y = torch.tensor(cluster_counts, **torch_types)
 
     #fitting_start_time = timer()
@@ -144,20 +144,20 @@ def task(inp, x, torch_types, kwargs, confounders = None, max_cluster_size=10, m
 
     x_dim = x_subset.shape[1]
     P_null = null_fit.beta.shape[0]
-    
+
     # extract effect sizes
     logef = pd.DataFrame( full_fit.beta[-x_dim:,:].cpu().numpy().T, columns = x_subset.columns ).add_prefix('logef_')
-    
-    # calculate model-based PSI for each category. For continuous x this will correspond to being +1s.d. from the mean. 
+
+    # calculate model-based PSI for each category. For continuous x this will correspond to being +1s.d. from the mean.
     perturbed = torch.stack( [ normalize( (full_fit.beta[0,:] + full_fit.beta[P_null+i,:]).softmax(0) * full_fit.conc) for i in range(x_dim) ]).T.cpu().numpy()
     perturbed = pd.DataFrame( perturbed, columns = x_subset.columns ).add_prefix('psi_')
-    
+
     junc_results = pd.concat(
         [pd.DataFrame({
-            'cluster' : [clu] * y.shape[1], 
+            'cluster' : [clu] * y.shape[1],
             'intron' : intron_labels[introns_to_use],
-            'psi_0' : normalize(full_fit.beta[0,:].softmax(0) * full_fit.conc).cpu().numpy()}), 
-        logef, 
+            'psi_0' : normalize(full_fit.beta[0,:].softmax(0) * full_fit.conc).cpu().numpy()}),
+        logef,
         perturbed], axis = 1)
 
     return [
@@ -199,8 +199,8 @@ def differential_splicing(counts, x, confounders = None, max_cluster_size=10, mi
     junc_meta = junc_split.rename(columns = col_names)
     cluster_ids = junc_meta.cluster.unique()
 
-    torch_types = { "device" : device, "dtype" : torch.float } # would we ever want float64? 
-    
+    torch_types = { "device" : device, "dtype" : torch.float } # would we ever want float64?
+
     cluster_time = 0
     fitting_time = 0
     results_time = 0
@@ -236,29 +236,29 @@ def differential_splicing(counts, x, confounders = None, max_cluster_size=10, mi
 
     if timeit:
         _print_timing_summary(results)
-    cluster_table = pd.DataFrame(results.values()) 
+    cluster_table = pd.DataFrame(results.values())
     cluster_table.index = results.keys()
     cluster_table['p.adjust'] = robust_fdr(cluster_table['p'], method = 'bh')
 
     #add failed clusters
     cluster_table = cluster_table.merge(status_df, how = 'outer', left_index = True, right_index = True)
-    
+
     junc_results = [ v[2] for v in pool_results if v[0] == "Success" ]
     junc_table = pd.concat(junc_results, axis=0) # note this should handle missing categories fine
-    
+
     for group in x.unique():
         # excludes baseline which is 0
         if 'psi_' + group in junc_table.columns:
             junc_table['deltapsi_' + group] = junc_table['psi_' + group] - junc_table['psi_0']
-    
+
     time_dict = dict(zip(['cluster_filtering', 'fitting', 'results_processing'], [cluster_time, fitting_time, results_time]))
-    
+
     if timeit:
         return cluster_table, junc_table, status_df, time_dict
     else:
         return cluster_table, junc_table, status_df
 
-def task_junc(clu, cluster_counts, idx, x, torch_types, kwargs, confounders = None, min_samples_per_intron=5, min_samples_per_group=4, min_coverage=0, min_unique_vals = 10): 
+def task_junc(clu, cluster_counts, idx, x, torch_types, kwargs, confounders = None, min_samples_per_intron=5, min_samples_per_group=4, min_coverage=0, min_unique_vals = 10):
 
     normalize = lambda g: g/g.sum()
 
@@ -266,24 +266,24 @@ def task_junc(clu, cluster_counts, idx, x, torch_types, kwargs, confounders = No
 
     cluster_size = cluster_counts.shape[1]
 
-    if cluster_size <= 1: 
+    if cluster_size <= 1:
         return(["<=1 junction in cluster"])
 
     sample_totals=cluster_counts.sum(1)
     samples_to_use=sample_totals>0
-    if samples_to_use.sum()<=1: 
+    if samples_to_use.sum()<=1:
         return(["<=1 sample with coverage>0"])
     sample_totals=sample_totals[samples_to_use]
     if (sample_totals>=min_coverage).sum()<=1:
         return(["<=1 sample with coverage>min_coverage"])
     # this might be cleaner using anndata
-    x_subset=x[samples_to_use] # assumes one covariate? ah no, covariates handled later 
+    x_subset=x[samples_to_use] # assumes one covariate? ah no, covariates handled later
     cluster_counts=cluster_counts[samples_to_use,]
     introns_to_use=(cluster_counts>0).sum(0)>=min_samples_per_intron # only look at introns used by at least 5 samples
     if introns_to_use.sum()<2:
         return(["<2 introns used in >=min_samples_per_intron samples"])
     cluster_counts=cluster_counts[:,introns_to_use]
-    
+
     # this is the only part that depends on x
     unique_vals, ta = np.unique(x_subset[sample_totals>=min_coverage], return_counts = True)
     if x_subset.dtype.kind in 'OUS': # categorical x
@@ -292,7 +292,7 @@ def task_junc(clu, cluster_counts, idx, x, torch_types, kwargs, confounders = No
     else: # continuous x
         if len(unique_vals) < min_unique_vals:
             return(["Not enough valid samples"])
-    
+
     return ["Success", introns_to_use]
 
 
@@ -320,9 +320,9 @@ def differential_splicing_junc(counts, x, confounders = None, min_samples_per_in
     junc_meta = junc_split.rename(columns = col_names)
     cluster_ids = junc_meta.cluster.unique()
     normalize = lambda g: g/g.sum()
-    
-    torch_types = { "device" : device, "dtype" : torch.float } # would we ever want float64? 
-    
+
+    torch_types = { "device" : device, "dtype" : torch.float } # would we ever want float64?
+
     cluster_time = 0
     fitting_time = 0
     results_time = 0
@@ -335,7 +335,7 @@ def differential_splicing_junc(counts, x, confounders = None, min_samples_per_in
         idx = clu == junc_meta.cluster
         cluster_counts = np.array(counts.loc[ idx,: ]).transpose()
         res = task_junc(clu, cluster_counts, idx, torch_types = torch_types, kwargs = kwargs, x = x, confounders = confounders, min_samples_per_intron=min_samples_per_intron, min_samples_per_group=min_samples_per_group, min_coverage=min_coverage, min_unique_vals = min_unique_vals)
-        if res[0] == "Success": 
+        if res[0] == "Success":
             introns_to_use = res[1]
             y_here = cluster_counts[:,introns_to_use]
             n_here = np.broadcast_to(y_here.sum(1)[:, np.newaxis], y_here.shape)
@@ -343,8 +343,8 @@ def differential_splicing_junc(counts, x, confounders = None, min_samples_per_in
             y.append(torch.tensor(y_here, **torch_types))
             juncs.append(junc_meta.cluster[idx][introns_to_use])
 
-    if len(n)==0: 
-        raise ValueError("No testable junctions") 
+    if len(n)==0:
+        raise ValueError("No testable junctions")
     y = torch.cat(y, dim = 1)
     n = torch.cat(n, dim = 1)
     juncs = pd.concat(juncs)
@@ -353,7 +353,7 @@ def differential_splicing_junc(counts, x, confounders = None, min_samples_per_in
         x = pd.get_dummies(x, drop_first = True)
 
     x_only = torch.tensor(x.to_numpy(), **torch_types)
-    intercept = torch.ones(x_only.shape[0], 1, **torch_types) 
+    intercept = torch.ones(x_only.shape[0], 1, **torch_types)
     if confounders is None:
         x_full = torch.cat((intercept, x_only), axis = 1)
         x_null = intercept
@@ -365,11 +365,11 @@ def differential_splicing_junc(counts, x, confounders = None, min_samples_per_in
         x_null = torch.cat((intercept, these_confounders), axis = 1)
 
     sas = bayes_glm.SpikeAndSlabModel(
-        gamma_shape = dist.Gamma(2., 1.) if learn_conc_prior else 2., 
-        gamma_rate = dist.Gamma(2., 10.) if learn_conc_prior else 0.2, 
-        beta_scale = dist.HalfCauchy(1.) if learn_beta_scale_prior else 2. 
+        gamma_shape = dist.Gamma(2., 1.) if learn_conc_prior else 2.,
+        gamma_rate = dist.Gamma(2., 10.) if learn_conc_prior else 0.2,
+        beta_scale = dist.HalfCauchy(1.) if learn_beta_scale_prior else 2.
     )
     losses_null, losses_full, losses = sas.fit(x_null, x_full, y, n, alpha = 0., num_particles = 1, **kwargs)
     marg_prob, log_bayes_factor = sas.estimate_marginal_posterior(x_null, x_full, y, n, alpha = 1.)
-    
+
     return losses_null, losses_full, losses, pd.DataFrame({"junc":juncs, "prob_diff":marg_prob, "log_bayes_factor":log_bayes_factor})

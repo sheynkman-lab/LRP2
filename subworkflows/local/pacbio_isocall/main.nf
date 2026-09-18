@@ -69,7 +69,7 @@ workflow PACBIO_ISOCALL {
         }
 
     //
-    // MODULE: Merge all sample profiles into single merged profile for input into isocall call 
+    // MODULE: Merge all sample profiles into single merged profile for input into isocall call
     //
     ISOCALL_MERGE (
         ch_all_profiles

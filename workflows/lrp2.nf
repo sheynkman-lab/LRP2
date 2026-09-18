@@ -405,27 +405,27 @@ workflow LRP2 {
     //    protein_fasta_path = params.gencode_refs[params.genome].protein_fasta
     //    log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Auto-detected protein FASTA from GENCODE genome ${params.genome}: ${protein_fasta_path}${colors.reset}-"
     //}
-    
+
     // Resolve GENCODE protein FASTA from --genome (e.g., GRCh38.p14.v49)
     def gencode_protein_fasta_path = null
     if (params.gencode_refs?.containsKey(params.genome)) {
       gencode_protein_fasta_path = params.gencode_refs[params.genome].protein_fasta
       log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} GENCODE protein FASTA resolved from --genome ${params.genome}: ${gencode_protein_fasta_path}${colors.reset}-"
     }
-    
+
     // Resolve protein FASTA for the proteomics search database (optional, user-provided)
     // Accepts LRP2 output or any custom FASTA; source is auto-detected in build_mass_spec_reference.R
     def s5_custom_protein_fasta_path = params.S5_custom_protein_fasta ?: null
     if (s5_custom_protein_fasta_path) {
       log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Protein FASTA provided for search database: ${s5_custom_protein_fasta_path}${colors.reset}-"
     }
-    
+
     // Resolve CDS GTF paired with the protein FASTA (for novel peptide BED mapping)
     def s5_custom_cds_gtf_file = params.S5_custom_cds_gtf ? file(params.S5_custom_cds_gtf) : null
     if (s5_custom_cds_gtf_file) {
         log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Custom CDS GTF provided: ${s5_custom_cds_gtf_file}${colors.reset}-"
     }
-    
+
     def s5_custom_counts_path = params.S5_custom_counts ?: null
     if (s5_custom_counts_path) {
       log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Count matrix provided for search database filtering: ${s5_custom_counts_path}${colors.reset}-"
@@ -467,7 +467,7 @@ workflow LRP2 {
                 file("${projectDir}/sample_data/SearchTask.toml")
         )
         ch_mm_writable = channel.value(file("${projectDir}/assets/mm_writable_placeholder"))
-        
+
         //
         // Decompress GENCODE protein FASTA if provided and gzipped (only when protein samples exist)
         //
@@ -488,7 +488,7 @@ workflow LRP2 {
 
         def s5_custom_protein_fasta_file = s5_custom_protein_fasta_path ? file(s5_custom_protein_fasta_path) : null
         def s5_custom_counts_file = s5_custom_counts_path ? file(s5_custom_counts_path) : null
-        
+
         // BUILD_PROTEOME_REFERENCE search db creation logic:
         // - If RNA samples were processed, we build sample-specific references with LRP proteome + GENCODE concatenated
         // - If no RNA samples then we build GENCODE-only references per sample group
@@ -533,7 +533,7 @@ workflow LRP2 {
         ch_gtf_for_novel = gtf_for_novel
             ? channel.value(gtf_for_novel)
             : channel.value(file('NO_FILE'))
-            
+
         // Create a channel that maps each protein sample to its sample_name for grouping
         // Group protein samples by sample_name (the biosample group)
         ch_protein_samples_grouped = ch_protein_samples_filtered
@@ -559,7 +559,7 @@ workflow LRP2 {
                 def unique_gencode = gencode_protein_fasta.name == 'NO_FILE' ? file("${meta.id}_NO_GENCODE_PROTEIN_FASTA") : gencode_protein_fasta
                 return [meta, unique_counts, unique_custom, unique_gencode]
             }
-            
+
         // Script path for build_mass_spec_reference.R
         ch_build_proteome_script = channel.value(file("${projectDir}/bin/build_mass_spec_reference.R"))
 
