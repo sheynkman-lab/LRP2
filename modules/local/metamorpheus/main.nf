@@ -3,7 +3,9 @@ process METAMORPHEUS {
     label 'process_high_memory'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/smithchemwisc/metamorpheus:latest"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://docker.io/smithchemwisc/metamorpheus:latest' :
+        'docker.io/smithchemwisc/metamorpheus:latest' }"
 
     // NOTE: MetaMorpheus needs to write to /MetaMorpheus/CustomAminoAcids and /MetaMorpheus/Mods.
     // Here we set up all required writable directories and bind mounts for this to work when using container environment.

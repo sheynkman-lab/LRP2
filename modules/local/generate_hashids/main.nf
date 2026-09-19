@@ -3,7 +3,9 @@ process GENERATE_HASHIDS {
     label 'process_low'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/jtllab/lrp2-lite:latest"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://docker.io/jtllab/lrp2-lite:latest' :
+        'docker.io/jtllab/lrp2-lite:latest' }"
 
     input:
     tuple val(meta), path(corrected_gtf), path(classification)

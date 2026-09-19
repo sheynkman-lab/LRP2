@@ -614,18 +614,18 @@ workflow LRP2 {
     // 3. Each condition that runs has at least 2 samples (warn re. statistical robustness but still run if <3 per condition)
     //
     // Initialize should_run_multisample
-    def should_run_multisample = false
-    def lines
-    def header_parts
-    def sample_name_idx
-    def condition_idx
-    def multisample_sample_type_idx
-    def samples_per_condition
+    should_run_multisample = false
+    lines = null
+    header_parts = null
+    sample_name_idx = null
+    condition_idx = null
+    multisample_sample_type_idx = null
+    samples_per_condition = null
 
     // Only parse metadata for validation if not in multisample-only mode
     if (!is_multisample_only) {
         // Parse metadata synchronously to count samples per condition
-        def metadata_content = file(sample_metadata_file).text
+        metadata_content = file(sample_metadata_file).text
         lines = metadata_content.split('\n')
         header_parts = lines[0].split(',')
         sample_name_idx = header_parts.findIndexOf { it.trim() == 'sample_name' }
@@ -642,9 +642,9 @@ workflow LRP2 {
                 }
             }
         }
-        def unique_conditions = samples_per_condition.keySet().size()
-        def conditions_with_min_samples = samples_per_condition.findAll { k, v -> v.size() >= 2 }
-        def conditions_with_robust_samples = samples_per_condition.findAll { k, v -> v.size() >= 3 }
+        unique_conditions = samples_per_condition.keySet().size()
+        conditions_with_min_samples = samples_per_condition.findAll { k, v -> v.size() >= 2 }
+        conditions_with_robust_samples = samples_per_condition.findAll { k, v -> v.size() >= 3 }
 
         // Determine if we should run multisample analysis based on samples present and log final call
         should_run_multisample = unique_conditions >= 2 && conditions_with_min_samples.size() >= 2

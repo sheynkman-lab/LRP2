@@ -3,7 +3,9 @@ process FILTER_CPAT {
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/jtllab/lrp2-lite:latest"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://docker.io/jtllab/lrp2-lite:latest' :
+        'docker.io/jtllab/lrp2-lite:latest' }"
 
     input:
     tuple val(meta), path(orf_prob), path(orf_seqs), path(corrected_fasta), path(corrected_gtf), path(mapping_file)

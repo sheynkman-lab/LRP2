@@ -3,7 +3,9 @@ process VALIDATE_TRANSCRIPT_IDS {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://ubuntu:22.04"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://ubuntu:22.04' :
+        'ubuntu:22.04' }"
 
     input:
     tuple val(meta), path(gtf), path(counts)

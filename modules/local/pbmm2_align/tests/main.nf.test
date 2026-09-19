@@ -27,7 +27,11 @@ nextflow_process {
         then {
             assertAll(
                 { assert process.success },
-                { assert snapshot(process.out.bam).match("bam") },
+                { assert process.out.bam },
+                { assert process.out.bam.get(0).get(1).toString().endsWith(".aligned.bam") },
+                { assert process.out.bai },
+                { assert process.out.bai.get(0).get(1).toString().endsWith(".aligned.bam.bai") },
+                { assert process.out.log },
                 { assert snapshot(process.out.versions).match("versions") }
             )
         }

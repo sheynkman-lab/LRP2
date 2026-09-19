@@ -3,7 +3,9 @@ process FRAGPIPE {
     label 'process_high_memory'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/fcyucn/fragpipe:24.0"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://docker.io/fcyucn/fragpipe:24.0' :
+        'docker.io/fcyucn/fragpipe:24.0' }"
 
     input:
     tuple val(meta), path(mzml_files), path(protein_fasta)

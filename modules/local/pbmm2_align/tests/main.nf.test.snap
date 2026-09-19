@@ -75,22 +75,5 @@
             "nf-test": "0.9.5",
             "nextflow": "26.04.6"
         }
-    },
-    "bam": {
-        "content": [
-            [
-                [
-                    {
-                        "id": "test"
-                    },
-                    "test.aligned.bam:md5,e704fbffa62753139961c570f299864c"
-                ]
-            ]
-        ],
-        "timestamp": "2026-09-18T23:15:41.015078488",
-        "meta": {
-            "nf-test": "0.9.5",
-            "nextflow": "26.04.6"
-        }
     }
 }
