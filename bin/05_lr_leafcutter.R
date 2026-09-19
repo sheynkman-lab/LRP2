@@ -1,8 +1,8 @@
 #!/usr/bin/env Rscript
 
 #' Long read leafcutter
-#' 
-#' 
+#'
+#'
 
 # =============================================================================
 # Load libraries
@@ -68,13 +68,13 @@ stopifnot("Sample sheet not found" = file.exists(metadata_file_path))
 
 # gtf to psl- originally adapted from FLAIR
 gtf_to_psl = function(gtf_file_path, gtf_filter = "exon"){
-  
-  # Read the GTF file 
+
+  # Read the GTF file
   message(paste0("Importing gtf and filtering by type = " , gtf_filter, "..."))
   gtf_data = import(gtf_file_path, format = "gtf") %>%
     as.data.table()
-  
-  exons_df = gtf_data %>% 
+
+  exons_df = gtf_data %>%
     filter(type == gtf_filter) %>%
     transmute(
       chrom = as.character(seqnames),
@@ -84,7 +84,7 @@ gtf_to_psl = function(gtf_file_path, gtf_filter = "exon"){
       transcript_id = as.character(transcript_id),
       gene_id = as.character(gene_id)
     )
-  
+
   # Process by transcript
   message("Processing transcripts...")
   psl_data = exons_df %>%
@@ -98,28 +98,28 @@ gtf_to_psl = function(gtf_file_path, gtf_filter = "exon"){
       # Calculate block information
       blocksizes  = map2(starts, ends, ~ .y - .x),
       blockstarts = starts,
-      
+
       # Reverse if needed (negative strand or descending coords)
       needs_reverse = map2_lgl(blockstarts, blocksizes, ~ length(.x) > 1 && .x[[1]] > .x[[2]]),
       blocksizes    = if_else(needs_reverse, map(blocksizes, rev), blocksizes),
       blockstarts   = if_else(needs_reverse, map(blockstarts, rev), blockstarts),
-      
+
       # Calculate PSL fields
       blockcount = map_int(blockstarts, length),
       tstart     = map_dbl(blockstarts, ~ .x[[1]]),
       tend       = map2_dbl(blockstarts, blocksizes, ~ .x[[length(.x)]] + .y[[length(.y)]]),
       qsize      = map_dbl(blocksizes, ~ sum(unlist(.x))),
       qname      = paste0(transcript_id, "_", gene_id),
-      
+
       # Calculate qstarts (cumulative positions)
       qstarts = map(blocksizes, ~ c(0, cumsum(head(unlist(.x), -1)))),
-      
+
       # Convert lists to comma-separated strings
       blocksizes_str  = map_chr(blocksizes, ~ paste(c(unlist(.x), ""), collapse = ",")),
       qstarts_str     = map_chr(qstarts, ~ paste(c(.x, ""), collapse = ",")),
       blockstarts_str = map_chr(blockstarts, ~ paste(c(unlist(.x), ""), collapse = ","))
     )
-  
+
   # Create final PSL format
   psl_output = psl_data %>%
     transmute(
@@ -139,7 +139,7 @@ gtf_to_psl = function(gtf_file_path, gtf_filter = "exon"){
       qStarts = qstarts_str,
       tStarts = blockstarts_str
     )
-  
+
   message("Done! Generated ", nrow(psl_output), " PSL entries")
   return(psl_output)
 
@@ -147,62 +147,62 @@ gtf_to_psl = function(gtf_file_path, gtf_filter = "exon"){
 
 # psl to exon and intron centric tables- also from Isoviz
 psl_to_coords <- function(psl_file_path){
-  
+
   # input and format psl, fread is essential to read in the columns appropriately
   psl = fread(psl_file_path, header = FALSE, sep = "\t")
   psl %<>% distinct()
-  
-  df = psl %>% dplyr::select(chr = V14, start = V16, end = V17, id = V10, strand = V9, blocksizes = V19, blockstarts= V21) %>% 
+
+  df = psl %>% dplyr::select(chr = V14, start = V16, end = V17, id = V10, strand = V9, blocksizes = V19, blockstarts= V21) %>%
     separate(col = id, into = c("trans_id", "gene_id"), sep = "_", extra = "merge", fill = "right") %>%
     mutate(blocksizes  = str_remove(blocksizes, ",$"), blockstarts = str_remove(blockstarts, ",$"))
-  
-  df_blocks = df %>% 
+
+  df_blocks = df %>%
     separate_rows(blocksizes, blockstarts) # block coords are exons
-  
+
   df_blocks$blockstarts = as.numeric(df_blocks$blockstarts)
   df_blocks$blocksizes  = as.numeric(df_blocks$blocksizes)
   df_blocks$blockends   = df_blocks$blockstarts + df_blocks$blocksizes
-  
+
   # go from block coords to junction coords, split the data frame by trans_id
   list_of_data = split(df_blocks, df_blocks$trans_id)
-  
+
   # Process each data frame in the list
   result = lapply(list_of_data, function(data){
     new_ends   = data$blockstarts[-1] + 1
     len        = nrow(data)
     new_starts = data$blockends[-len]
     n          = len - 1
-    
+
     list(
       trans_id     = rep(data$trans_id[1], n),
       intron_start = new_starts,
       intron_end   = new_ends
     )
   })
-  
+
   # Convert the list of lists back to three vectors
   trans_id     = unlist(lapply(result, `[[`, "trans_id"))
   intron_start = unlist(lapply(result, `[[`, "intron_start"))
   intron_end   = unlist(lapply(result, `[[`, "intron_end"))
   intron_data  = data.frame(trans_id, intron_start, intron_end)
   rownames(intron_data) = NULL
-  
-  trans_info = as.data.frame(df_blocks %>% dplyr::select(chr, trans_id, gene_id, strand) %>% 
-                               distinct() %>% 
+
+  trans_info = as.data.frame(df_blocks %>% dplyr::select(chr, trans_id, gene_id, strand) %>%
+                               distinct() %>%
                                filter(chr != "chrY", chr != "chrM"))
-  
+
   intron_data %<>% left_join(trans_info,  by = "trans_id") %>%
     dplyr::select(chr, intron_start, intron_end, gene_id, trans_id, strand)
-  
+
   # create a coords id column
   intron_data %<>% unite(c("chr", "intron_start", "intron_end"), col = "junc_id", remove = FALSE, sep = "_")
-  
+
   return(list(exon_coords = df_blocks, intron_coords = intron_data))
 }
 
 # get junction level counts from long read- need to be able to use this with multiple samples
 isoform_to_junction <- function(intron_coords, counts){
-  
+
   # reshape to long to handle multiple samples
   counts_long = counts %>%
     pivot_longer(
@@ -211,18 +211,18 @@ isoform_to_junction <- function(intron_coords, counts){
       names_pattern = "(.+)_(counts|cpm)"
     ) %>%
     replace_na(list(counts = 0, cpm = 0))
-  
+
   # join isoform->junction map, then aggregate to junction per sample
-  jc = intron_coords %>% left_join(counts_long, by = "trans_id") %>% 
+  jc = intron_coords %>% left_join(counts_long, by = "trans_id") %>%
     group_by(junc_id, chr, intron_start, intron_end, gene_id, strand, sample) %>%
-    dplyr::summarise(isoforms = paste0(unique(trans_id), collapse = ","), 
+    dplyr::summarise(isoforms = paste0(unique(trans_id), collapse = ","),
                      lr_junc_count = sum(counts, na.rm = TRUE),
                      lr_junc_cpm   = sum(cpm, na.rm = TRUE),
                      .groups = "drop") %>%
     dplyr::arrange(chr, intron_start, junc_id, sample)
-  
+
   return(jc)
-  
+
 }
 
 # ==================================================================================
@@ -230,14 +230,14 @@ isoform_to_junction <- function(intron_coords, counts){
 # ==================================================================================
 
 plot_cluster_sizes = function(juncs) {
-  
-  cluster_sizes = juncs %>% 
-    group_by(cluster_idx) %>% 
-    dplyr::summarize(n = n()) %>% 
+
+  cluster_sizes = juncs %>%
+    group_by(cluster_idx) %>%
+    dplyr::summarize(n = n()) %>%
     ungroup()
-  
+
   ta = table(cluster_sizes$n)
-  
+
   tibble(
     cluster_size = as.numeric(names(ta)),
     num_clusters = as.numeric(ta)) %>%
@@ -251,24 +251,24 @@ calculate_usage_ratios = function(juncs) {
 }
 
 leafcutter_one_step = function(juncs) {
-  
-  juncs = juncs %>% 
+
+  juncs = juncs %>%
     dplyr::select("chrom", "strand", "start", "end", "name", "readcount")
-  
+
   splice_sites = bind_rows(
     juncs %>% dplyr::select(chrom, strand, position = start),
     juncs %>% dplyr::select(chrom, strand, position = end)) %>%
     distinct() %>%
     arrange(chrom, strand, position) %>%
     dplyr::mutate(idx = 1:n())
-  
+
   juncs = juncs %>%
     left_join(splice_sites, by = c(chrom = "chrom", strand = "strand", start = "position")) %>%
     left_join(splice_sites, by = c(chrom = "chrom", strand = "strand", end = "position"),
               suffix = c("_start","_end"))
-  
+
   nss = nrow(splice_sites)
-  
+
   intron_connectivity <- sparseMatrix(
     i         = juncs$idx_start,
     j         = juncs$idx_end,
@@ -276,7 +276,7 @@ leafcutter_one_step = function(juncs) {
     x         = 1,
     symmetric = TRUE
   )
-  
+
   g = graph_from_adjacency_matrix(intron_connectivity, "undirected")
   juncs$cluster_idx = igraph::components(g)$membership[juncs$idx_start]
   return(juncs)
@@ -284,29 +284,29 @@ leafcutter_one_step = function(juncs) {
 
 # main function- default parameters keep almost all junctions. Can increase min_usage_ratio to remove low count junctions.
 minicutter = function(juncs, plot_summary = TRUE, min_usage_ratio = 0.01) {
-  
+
   colnames(juncs) = c("chrom", "start", "end", "name", "readcount", "strand")
   juncs           = leafcutter_one_step(juncs)
-  
+
   if(plot_summary){
     print("Printing summary of intron-cluster sizes = how many junctions across in clusters")
     p = plot_cluster_sizes(juncs)
     print(p)
   }
-  
-  juncs = juncs %>% 
+
+  juncs = juncs %>%
     calculate_usage_ratios()
-  
-  # refine clusters 
+
+  # refine clusters
   juncs_filtered  = as.data.table(juncs %>% filter(usage_ratio >= min_usage_ratio))
-  juncs_recluster = leafcutter_one_step(juncs_filtered) 
-  
+  juncs_recluster = leafcutter_one_step(juncs_filtered)
+
   if(plot_summary){
     print("Printing summary of intron-cluster sizes = how many junctions across in clusters")
     p = plot_cluster_sizes(juncs_filtered) + ggtitle("Post cluster refinement and removing lowly used junctions")
     print(p)
   }
-  
+
   return(juncs_recluster)
 }
 
@@ -328,13 +328,13 @@ write_tsv(intron_coords, file.path(leafcutter_analysis_dir, paste0(psl_base, "_i
 write_tsv(exon_coords, file.path(leafcutter_analysis_dir, paste0(psl_base, "_exon_coords.txt")))
 
 # Collapse long read counts to junctions
-counts = fread(count_file) %>% 
+counts = fread(count_file) %>%
   select(trans_id = 1, ends_with("_counts"), ends_with("_cpm"))
 
 lr_junctions = isoform_to_junction(intron_coords, counts)
 
 # get single counts per junction- sum across samples and get in format for minicutter
-lr_junctions_collapsed = lr_junctions %>% 
+lr_junctions_collapsed = lr_junctions %>%
   group_by(chr, intron_start, intron_end, junc_id, strand) %>%
   summarize(readcount = sum(lr_junc_count, na.rm = TRUE)) %>%
   ungroup() %>%
@@ -342,7 +342,7 @@ lr_junctions_collapsed = lr_junctions %>%
 
 # Run minicutter and select non-constitutive junctions
 clusters = minicutter(juncs = lr_junctions_collapsed, plot_summary = TRUE, min_usage_ratio = min_usage_ratio)
-as_clusters = clusters %>% 
+as_clusters = clusters %>%
   select(chr = chrom, start, end, junc_id = name, cluster_idx, strand) %>%
   group_by(cluster_idx) %>%
   filter(n() > 1) %>%
@@ -357,10 +357,10 @@ by_isoform = as_clusters %>%
   arrange(start, end) %>%
   summarise(intron_starts = paste0(unique(start), collapse = ","),
             intron_ends = paste0(unique(end), collapse = ",")) %>%
-  ungroup() 
+  ungroup()
 
 # Need to sum per sample per subisoform
-by_isoform %<>% 
+by_isoform %<>%
   left_join(select(counts, -ends_with("_cpm")), by = c("isoforms" = "trans_id"))
 
 subisoform = by_isoform %>%
@@ -379,7 +379,7 @@ out = subisoform %>%
   rename_with(~gsub("_counts$", "", .), ends_with("_counts")) %>%
   column_to_rownames("subisoform_id")
 
-write.table(out, 
+write.table(out,
             file = gzfile(file.path(leafcutter_analysis_dir, paste0(basename, ".lr_leafcutter.perind_numers.counts.gz"))),
             sep = " ",
             row.names = TRUE,

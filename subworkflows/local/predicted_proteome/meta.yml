@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "predicted_proteome"
+description: Predict proteome from transcriptome using CPAT ORF calling and protein classification
+keywords:
+  - proteome
+  - orf
+  - cpat
+  - protein classification
+  - sqanti protein
+components:
+  - cpat/orf
+  - filter/cpat
+  - sqanti/protein
+  - protein/classification
+input:
+  - ch_samples:
+      type: channel
+      description: |
+        Channel containing filtered transcriptome data
+        Structure: [meta, corrected_fasta, corrected_gtf, classification_filtered, hashids_filtered, hashids_mapping]
+  - reference_gtf:
+      type: file
+      description: |
+        Reference GENCODE GTF file
+  - hexamer_file:
+      type: file
+      description: |
+        CPAT hexamer file (species-specific)
+  - logit_model:
+      type: file
+      description: |
+        CPAT logit model (species-specific)
+  - filter_cpat_script:
+      type: file
+      description: |
+        R script for filtering CPAT output
+  - sqanti_protein_script:
+      type: file
+      description: |
+        Python script for SQANTI protein classification
+  - protein_class_script:
+      type: file
+      description: |
+        R script for 5'UTR protein classification
+output:
+  - orf_predictions:
+      type: channel
+      description: |
+        ORF predictions from CPAT
+  - protein_classifications:
+      type: channel
+      description: |
+        Protein classification results
+  - filtered_proteome:
+      type: channel
+      description: |
+        Filtered proteome files
+  - versions:
+      type: file
+      description: |
+        File containing software versions
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

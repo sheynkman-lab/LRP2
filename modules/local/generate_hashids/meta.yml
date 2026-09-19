@@ -1,0 +1,81 @@
+name: generate_hashids
+description: Generate reproducible structure-based hash IDs for transcript identification and mapping across datasets
+keywords:
+  - transcriptome
+  - hashids
+  - mapping
+  - identification
+tools:
+  - r-base:
+      description: |
+        R script to generate unique HashIDs for transcript identification
+        and create PSL mapping files.
+      homepage: https://www.r-project.org/
+      documentation: https://www.r-project.org/
+      licence: ["GPL-2.0-or-later"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'sample1' ]
+    - corrected_gtf:
+        type: file
+        description: SQANTI3-corrected GTF file
+        pattern: "*.gtf"
+    - classification:
+        type: file
+        description: SQANTI3 classification file
+        pattern: "*.SQANTI_classification.txt"
+  - - reference_gtf:
+        type: file
+        description: Reference genome annotation in GTF format
+        pattern: "*.gtf"
+  - - hashlib_script:
+        type: file
+        description: Python HashLib script
+        pattern: "*.py"
+  - - generate_hashids_script:
+        type: file
+        description: R script for generating HashIDs
+        pattern: "*.R"
+output:
+  - hashids_mapping:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'sample1' ]
+      - "*.transcriptome.hashids_mapping.txt":
+          type: file
+          description: HashIDs mapping file
+          pattern: "*.transcriptome.hashids_mapping.txt"
+  - corrected_psl:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'sample1' ]
+      - "*.transcriptome.psl":
+          type: file
+          description: PSL alignment file
+          pattern: "*.transcriptome.psl"
+  - log:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'sample1' ]
+      - "*_S2_TRANSCRIPTOME_M2_GENERATE_HASHIDS_log.txt":
+          type: file
+          description: Log file from HashID generation
+          pattern: "*_S2_TRANSCRIPTOME_M2_GENERATE_HASHIDS_log.txt"
+  - versions:
+      - versions.yml:
+          type: file
+          description: File containing software versions
+          pattern: "versions.yml"
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

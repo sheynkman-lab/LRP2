@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 #' Build references for mass spec searching
-#' 
+#'
 #' Constructs a combined protein FASTA and reference table for proteogenomic
 #' database searching (e.g. Fragpipe). Supports multiple input modes:
 #'
@@ -109,13 +109,13 @@ combined_ref = tibble()
 gencode_label = NULL
 
 if (!opt$no_gencode) {
-  
+
   cat("Using GENCODE protein FASTA:", opt$gencode_fasta, "\n")
-  
+
   # Label for output naming, taken from the FASTA actually used
   gencode_label = str_extract(basename(opt$gencode_fasta), "vM?\\d+")
   if (is.na(gencode_label)) gencode_label = "gencode"
-  
+
   # Header: ENSP|ENST|ENSG|OTTHUMG|OTTHUMT|TXNAME|GENE|LENGTH
   gencode_raw = fasta_to_tibble(opt$gencode_fasta)
   gencode_ref = gencode_raw %>%
@@ -125,38 +125,38 @@ if (!opt$no_gencode) {
                          cols_remove = FALSE) %>%
     mutate(pclass = NA_character_, status = NA_character_, reference_type = "gencode") %>%
     select(header, transcript_id, gene_id, pclass, status, reference_type, sequence)
-  
+
   combined_ref = bind_rows(combined_ref, gencode_ref)
 }
 
 # This chunk auto-detects custom versus LRP2 FASTA and creates the header accordingly
 if (!is.null(opt$custom_fasta)) {
   custom_raw = fasta_to_tibble(opt$custom_fasta)
-  
+
   # Validate: headers must contain at least one | separating transcript_id and gene_id
   bad_headers = custom_raw %>% filter(!str_detect(header, "\\|"))
   if (nrow(bad_headers) > 0) {
     stop("Input FASTA headers must contain transcript_id and gene_id separated by '|'. ",
          nrow(bad_headers), " headers lack a '|' delimiter. First example: ", bad_headers$header[1])
   }
-  
+
   # Validate: transcript_ids must be unique
   transcript_ids = str_extract(custom_raw$header, "^[^|]+")
   dupes = transcript_ids[duplicated(transcript_ids)]
   if (length(dupes) > 0) {
     stop("Input FASTA contains ", length(dupes), " duplicate transcript IDs. Check that header is transcript_id | gene_id")
   }
-  
+
   parsed = custom_raw %>%
     separate_wider_delim(header, delim = "|",
                          names = c("transcript_id", "gene_id", "gene_name", "pclass", "status"),
                          too_few = "align_start", too_many = "drop",
                          cols_remove = FALSE)
-  
+
   # LRP2 IDs are gene_name::isoform_id; FPM is an LRP-specific pclass
   is_lrp = all(str_detect(parsed$transcript_id, fixed("::"))) &
     any(parsed$pclass == "FPM", na.rm = TRUE)
-  
+
   if (is_lrp) {
     cat("FASTA source: lrp (transcript IDs contain '::' and FPM found in pclass)\n")
     cat("  Retaining pclass and status from header\n")
@@ -165,13 +165,13 @@ if (!is.null(opt$custom_fasta)) {
     cat("  Only transcript_id and gene_id will be used; pclass and status set to NA\n")
     parsed %<>% mutate(pclass = NA_character_, status = NA_character_)
   }
-  
+
   custom_ref = parsed %>%
     mutate(reference_type = if_else(is_lrp, "lrp", "custom")) %>%
     select(header, transcript_id, gene_id, pclass, status, reference_type, sequence)
-  
+
   combined_ref = bind_rows(combined_ref, custom_ref)
-  
+
 }
 
 # =============================================================================

@@ -22,4 +22,3 @@ nextflow run main.nf \
     --fragpipe_token "101690" \
     --fragpipe_license_accept true \
     -profile singularity,slurm
-    

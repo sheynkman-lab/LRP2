@@ -3,11 +3,11 @@
     IMPORT MODULES / SUBWORKFLOWS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { PBMM2_ALIGN as ISOCALL_ALIGN } from '../../modules/local/pbmm2_align/main'
-include { ISOCALL_PROFILE                } from '../../modules/local/isocall_profile/main'
-include { ISOCALL_MERGE                  } from '../../modules/local/isocall_merge/main'
-include { ISOCALL_PREP                   } from '../../modules/local/isocall_prep/main'
-include { ISOCALL_CALL                   } from '../../modules/local/isocall_call/main'
+include { PBMM2_ALIGN as ISOCALL_ALIGN } from '../../../modules/local/pbmm2_align/main'
+include { ISOCALL_PROFILE                } from '../../../modules/local/isocall_profile/main'
+include { ISOCALL_MERGE                  } from '../../../modules/local/isocall_merge/main'
+include { ISOCALL_PREP                   } from '../../../modules/local/isocall_prep/main'
+include { ISOCALL_CALL                   } from '../../../modules/local/isocall_call/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -69,7 +69,7 @@ workflow PACBIO_ISOCALL {
         }
 
     //
-    // MODULE: Merge all sample profiles into single merged profile for input into isocall call 
+    // MODULE: Merge all sample profiles into single merged profile for input into isocall call
     //
     ISOCALL_MERGE (
         ch_all_profiles

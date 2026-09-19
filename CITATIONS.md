@@ -14,7 +14,7 @@
 
 - [PacBio Isocall](https://github.com/PacificBiosciences/isocall)
 
-> Dolzhenko E, Schertzer M, Gossart R, Mokveld T, Belyeu JR, Varabyou A, Zheng X, Tseng E, Kronenberg Z, Chaisson M, Sheynkman GM, Sedlazeck FJ, Kurmangaliyev YZ, Bruand J. Isocall enables scalable transcript identification from long-read RNA-sequencing data. bioRxiv. 2026 Sep 8. doi: 10.64898/2026.09.08.749180. 
+> Dolzhenko E, Schertzer M, Gossart R, Mokveld T, Belyeu JR, Varabyou A, Zheng X, Tseng E, Kronenberg Z, Chaisson M, Sheynkman GM, Sedlazeck FJ, Kurmangaliyev YZ, Bruand J. Isocall enables scalable transcript identification from long-read RNA-sequencing data. bioRxiv. 2026 Sep 8. doi: 10.64898/2026.09.08.749180.
 
 - [pbmm2 (minimap2)](https://github.com/PacificBiosciences/pbmm2)
 
@@ -51,7 +51,8 @@
 > Nowicka M, Robinson MD. DRIMSeq: a Dirichlet-multinomial framework for multivariate count outcomes in genomics. F1000Research. 2016;5:1356. doi: 10.12688/f1000research.8900.1. PubMed PMID: 27303634; PubMed Central PMCID: PMC5200948.
 
 - [Leafcutter2](https://github.com/leafcutter2/leafcutter-ds)
-> A Python Leafcutter version upon which long-read Leafcutter in the pipeline is based. While citation is pending, please use the original Leafcutter citation for now: Li YI, Knowles DA, Humphrey J, Barbeira AN, Dickinson SP, Im HK, Pritchard JK. Annotation-free quantification of RNA splicing using LeafCutter. Nat Genet. 2018 Jan;50(1):151-158. doi: 10.1038/s41588-017-0004-9. PubMed PMID: 29251728; PubMed Central PMCID: PMC5742080.
+
+  > A Python Leafcutter version upon which long-read Leafcutter in the pipeline is based. While citation is pending, please use the original Leafcutter citation for now: Li YI, Knowles DA, Humphrey J, Barbeira AN, Dickinson SP, Im HK, Pritchard JK. Annotation-free quantification of RNA splicing using LeafCutter. Nat Genet. 2018 Jan;50(1):151-158. doi: 10.1038/s41588-017-0004-9. PubMed PMID: 29251728; PubMed Central PMCID: PMC5742080.
 
 - [Leafcutter](https://github.com/davidaknowles/leafcutter)
 

@@ -3,10 +3,10 @@
     IMPORT MODULES / SUBWORKFLOWS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { CPAT_ORF                      } from '../../modules/local/cpat_orf/main'
-include { FILTER_CPAT                   } from '../../modules/local/filter_cpat/main'
-include { SQANTI_PROTEIN                } from '../../modules/local/sqanti_protein/main'
-include { PROTEIN_CLASSIFICATION        } from '../../modules/local/protein_classification/main'
+include { CPAT_ORF                      } from '../../../modules/local/cpat_orf/main'
+include { FILTER_CPAT                   } from '../../../modules/local/filter_cpat/main'
+include { SQANTI_PROTEIN                } from '../../../modules/local/sqanti_protein/main'
+include { PROTEIN_CLASSIFICATION        } from '../../../modules/local/protein_classification/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

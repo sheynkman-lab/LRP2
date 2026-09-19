@@ -3,7 +3,9 @@ process BUILD_PROTEOME_REFERENCE {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/jtllab/lrp2-lite:latest"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://docker.io/jtllab/lrp2-lite:latest' :
+        'docker.io/jtllab/lrp2-lite:latest' }"
 
     input:
     tuple val(meta), path(counts), path(custom_fasta), path(gencode_protein_fasta)
@@ -29,7 +31,7 @@ process BUILD_PROTEOME_REFERENCE {
     def gencode_flag = no_gencode ? "--no_gencode" : ""
     def no_fasta = custom_fasta.name == 'NO_FILE' || custom_fasta.name.contains('_NO_CUSTOM_FASTA')
     def custom_fasta_arg = no_fasta ? "" : "--custom_fasta ${custom_fasta}"
-    
+
     """
     exec > >(tee ${prefix}_S5_PROTEOMICS_M1_BUILD_PROTEOME_REFERENCE_log.txt) 2>&1
 

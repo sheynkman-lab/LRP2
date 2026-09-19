@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 #' Generate hashids and Pipeline Transcript IDs
-#' 
+#'
 #' - Convert sample gtf to psl format (1-based to 0-based coordinate system)
 #' - Requires gene_id and transcript_id column in gtf/psl (gene_name optional for readability)
 #' - Hash id is calculated from junction coordinates via SHAKE-256 (0-based from psl, TSS/TES ignored)
@@ -10,15 +10,15 @@
 #' - Assign new pipeline transcript IDs using SQANTI QC reference mapping and structural categories:
 #'     FSM: GENE_NAME.ENST or GENE_NAME.NR (known isoform)
 #'     Non-FSM: GENE_NAME.junction_hash (novel isoform)
-#'     
+#'
 #' Inputs:
 #' - Sample gtf
 #' - Reference gtf
 #' - SQANTI classification file
-#' 
+#'
 #' Outputs:
 #' - *.transcriptome.hashids_mapping.txt
-#' 
+#'
 
 # =============================================================================
 # Load required libraries
@@ -54,7 +54,7 @@ option_list = list(
 
 opt = parse_args(OptionParser(option_list = option_list))
 
-required_args = c("basename", "sample_gtf", "classification", "reference_gtf", 
+required_args = c("basename", "sample_gtf", "classification", "reference_gtf",
                   "hashlib_script", "output_dir")
 
 missing = required_args[sapply(required_args, function(x) is.null(opt[[x]]))]
@@ -82,86 +82,86 @@ stopifnot("Hashlib script not found"      = file.exists(hashlib_script))
 #' @param gtf_input_path Input GTF file path
 #' @param psl_output_file Output PSL file
 convert_gtf_to_psl = function(gtf_input_path, psl_output_file){
-  
-  # Read the GTF file 
+
+  # Read the GTF file
   gr     = import(gtf_input_path, format = "gtf")
   gtf_df = as.data.frame(gr)
-  
-  # keep only the following columns 
-  gtf_df %<>% 
+
+  # keep only the following columns
+  gtf_df %<>%
     dplyr::select(seqnames, type, start, end, strand, transcript_id, gene_id)
-  
+
   colnames(gtf_df) = c("chrom", "ty", "start", "end", "strand", "transcript_id", "gene_id")
   gtf_df$start     = gtf_df$start-1 # converts from 1-based to 0-based
-  
+
   # Filter for exons only
-  exons_df = gtf_df %>% 
+  exons_df = gtf_df %>%
     filter(ty == "exon")
-  
+
   cols_to_convert           = c("chrom", "ty", "strand", "transcript_id", "gene_id")
   exons_df[cols_to_convert] = lapply(exons_df[cols_to_convert], as.character)
-  
+
   # Check for underscores in gene_id and transcript_id
-  if (any(grepl("_", exons_df$transcript_id, fixed = TRUE)) || 
+  if (any(grepl("_", exons_df$transcript_id, fixed = TRUE)) ||
       any(grepl("_", exons_df$gene_id, fixed = TRUE))) {
     stop("ERROR: Underscores '_' found in gene or transcript IDs. Remove from IDs in GTF.")
   }
-  
+
   cat("\n✓ Validation passed: No underscores in transcript_id or gene_id")
-  
+
   # Function to generate PSL lines from grouped exons
   generate_psl_lines = function(exons_grouped) {
-    
+
     psl_lines = lapply(exons_grouped, function(test_ex) {
-      
+
       # Get block starts and sizes
       blockstarts = test_ex$start
       blocksizes  = test_ex$end - test_ex$start
       blockcount  = length(blockstarts)
-      
+
       # Reverse if needed (negative strand)
       if (blockcount > 1 && blockstarts[1] > blockstarts[2]) {
         blocksizes  = rev(blocksizes)
         blockstarts = rev(blockstarts)
       }
-      
+
       # Calculate transcript coordinates
       tstart = blockstarts[1]
       tend   = blockstarts[blockcount] + blocksizes[blockcount]
       qsize  = sum(blocksizes)
       qname  = paste0(test_ex$transcript_id[1], "_", test_ex$gene_id[1])
-      
+
       # Calculate query starts (cumulative positions)
       qstarts = c(0, cumsum(blocksizes)[-blockcount])
-      
+
       # Format as comma-separated strings
       qstarts_str     = paste0(paste(qstarts, collapse = ","), ",")
       blocksizes_str  = paste0(paste(blocksizes, collapse = ","), ",")
       blockstarts_str = paste0(paste(blockstarts, collapse = ","), ",")
-      
+
       # Construct PSL line
       psl_line = c(
-        0, 0, 0, 0, 0, 0, 0, 0, 
+        0, 0, 0, 0, 0, 0, 0, 0,
         test_ex$strand[1], qname, qsize, 0, qsize,
-        test_ex$chrom[1], 0, tstart, tend, blockcount, 
+        test_ex$chrom[1], 0, tstart, tend, blockcount,
         blocksizes_str, qstarts_str, blockstarts_str
       )
-      
+
       # Return as tab-separated string
       paste(psl_line, collapse = "\t")
     })
-    
+
     # Return all lines
     unlist(psl_lines)
   }
-  
+
   # Usage:
   exons_grouped = exons_df %>%
-    group_by(transcript_id) %>% 
+    group_by(transcript_id) %>%
     group_split()
-  
+
   psl_lines = generate_psl_lines(exons_grouped)
-  
+
   writeLines(psl_lines, psl_output_file)
 }
 
@@ -187,7 +187,7 @@ cat("\nSTEP 1: Generating hash ids for all transcripts")
 psl          = file.path(output_dir, paste0(basename, ".transcriptome.psl")) # output psl
 hashid_file  = file.path(output_dir, paste0(basename, "_hashids_raw.txt"))
 
-convert_gtf_to_psl(gtf_input_path  = sample_gtf, 
+convert_gtf_to_psl(gtf_input_path  = sample_gtf,
                    psl_output_file = psl)
 
 # Run python script for hash ids- generates mapping file with transcript_id and hash_id
@@ -227,7 +227,7 @@ reference_transcript = reference_df %>%
 # NIC/NNC keep SQANTI's call
 n_composite = sum(str_detect(sqanti$associated_gene, "_"))
 
-sqanti %<>% 
+sqanti %<>%
   select(original_transcript_id = isoform, associated_gene, associated_transcript, structural_category) %>%
   left_join(reference_transcript, by = c("associated_transcript" = "ref_transcript")) %>%
   mutate(associated_gene = coalesce(ref_gene, associated_gene)) %>%
@@ -290,52 +290,52 @@ dupe_ids = mapping %>%
   ungroup()
 
 if (nrow(dupe_ids) > 0) {
-  
+
   # same isoform_id but different chromosomes (e.g., chrX/chrY)
   chr_dupes = dupe_ids %>%
     group_by(isoform_id) %>%
     filter(n_distinct(chrom) > 1) %>%
     ungroup()
-  
+
   # same isoform_id and same chromosome (different TSS/TES)
   other_dupes = dupe_ids %>%
     group_by(isoform_id) %>%
     filter(n_distinct(chrom) == 1) %>%
     ungroup()
-  
+
   if (nrow(chr_dupes) > 0) {
     n_chr = n_distinct(chr_dupes$isoform_id)
     cat("Chr gene redundancy e.g., chrX/chrY: ", n_chr, " isoform IDs on multiple chromosomes (",
             nrow(chr_dupes), " total rows). Appending chromosome to gene label.\n")
-    
+
     chr_fix = chr_dupes %>%
       mutate(isoform_id = paste0(gene_label, ".", chrom, "::", junction_hash))
-    
+
     # chr_fix = chr_dupes %>%
     #   mutate(isoform_id = str_replace(isoform_id, "^([^:]+)", paste0("\\1(", chrom, ")")))
-    
+
     mapping = mapping %>%
       filter(!original_transcript_id %in% chr_dupes$original_transcript_id) %>%
       bind_rows(chr_fix)
   }
-  
+
   if (nrow(other_dupes) > 0) {
     n_other = n_distinct(other_dupes$isoform_id)
     cat("TSS/TES redundancy: ", n_other, " isoform IDs with same junctions in the same gene, different ends (",
             nrow(other_dupes), " total rows). Appending ::1, ::2, etc.\n")
-    
+
     other_fix = other_dupes %>%
       group_by(isoform_id) %>%
       mutate(rn = row_number()) %>%
       ungroup() %>%
       mutate(isoform_id = paste0(isoform_id, "::", rn)) %>%
       select(-rn)
-    
+
     mapping = mapping %>%
       filter(!original_transcript_id %in% other_dupes$original_transcript_id) %>%
       bind_rows(other_fix)
   }
-  
+
 } else {
   cat("No isoform ID redundancy detected\n")
 }

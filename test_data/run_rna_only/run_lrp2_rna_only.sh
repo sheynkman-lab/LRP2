@@ -15,4 +15,3 @@ nextflow run main.nf \
     --dataset_name lrptest \
     --genome GRCh38.p14.v49 \
     -profile singularity,slurm
-    

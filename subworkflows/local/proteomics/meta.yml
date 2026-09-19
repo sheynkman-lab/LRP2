@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "proteomics"
+description: Process mass spectrometry data with FragPipe or MetaMorpheus and identify novel peptides
+keywords:
+  - proteomics
+  - mass spectrometry
+  - fragpipe
+  - metamorpheus
+  - novel peptides
+components:
+  - download/remote/file
+  - msconvert/mzml
+  - metamorpheus
+  - fragpipe
+  - fragpipe/authenticate
+  - novel/peptides
+input:
+  - ch_ms_files_with_db:
+      type: channel
+      description: |
+        Channel containing mass spec files with protein database
+        Structure: [meta, raw_or_mzml_file, protein_fasta]
+  - metamorpheus_config:
+      type: file
+      description: |
+        MetaMorpheus TOML configuration file
+  - mm_writable:
+      type: file
+      description: |
+        Writable directory for MetaMorpheus
+  - protein_search:
+      type: string
+      description: |
+        Protein search engine ('fragpipe' or 'metamorpheus')
+  - fragpipe_workflow:
+      type: file
+      description: |
+        FragPipe workflow file (optional, null triggers auto-download)
+  - fragpipe_first_name:
+      type: string
+      description: |
+        User's first name (for FragPipe authentication)
+  - fragpipe_last_name:
+      type: string
+      description: |
+        User's last name (for FragPipe authentication)
+  - fragpipe_email:
+      type: string
+      description: |
+        User's email (for FragPipe authentication)
+  - fragpipe_institution:
+      type: string
+      description: |
+        User's institution (for FragPipe authentication)
+  - fragpipe_token:
+      type: string
+      description: |
+        6-digit verification token (for FragPipe authentication)
+  - fragpipe_license_accept:
+      type: boolean
+      description: |
+        License acceptance confirmation (for FragPipe)
+  - rna_sample_ids:
+      type: channel
+      description: |
+        List of RNA sample IDs to check for matched RNA data
+  - lr_cds_gtf:
+      type: file
+      description: |
+        Custom/LRP CDS GTF (for samples with matched RNA sample)
+  - lr_orf_fasta:
+      type: file
+      description: |
+        Custom/LRP ORF FASTA (for samples with matched RNA sample)
+  - gencode_gtf_for_novel:
+      type: file
+      description: |
+        GENCODE annotation GTF (for novel peptides BED mapping)
+  - gencode_fasta_for_novel:
+      type: file
+      description: |
+        GENCODE protein FASTA (for novel peptides BED mapping)
+output:
+  - search_results:
+      type: channel
+      description: |
+        Protein search results from FragPipe or MetaMorpheus
+  - novel_peptides_results:
+      type: channel
+      description: |
+        Novel peptide identification results
+  - versions:
+      type: file
+      description: |
+        File containing software versions
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

@@ -3,9 +3,9 @@
     IMPORT MODULES / SUBWORKFLOWS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { SQANTI_QC              } from '../../modules/local/sqanti_qc/main'
-include { GENERATE_HASHIDS       } from '../../modules/local/generate_hashids/main'
-include { FILTER_TRANSCRIPTOME   } from '../../modules/local/filter_transcriptome/main'
+include { SQANTI_QC              } from '../../../modules/local/sqanti_qc/main'
+include { GENERATE_HASHIDS       } from '../../../modules/local/generate_hashids/main'
+include { FILTER_TRANSCRIPTOME   } from '../../../modules/local/filter_transcriptome/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -76,10 +76,10 @@ workflow TRANSCRIPTOME {
     junctions               = SQANTI_QC.out.junctions                         // [meta, *_junctions.txt]
 //    params                  = SQANTI_QC.out.params                            // [meta, *.params.txt]
 //    refannotation_genepred  = SQANTI_QC.out.refannotation_genepred            // [meta, refAnnotation_*.genePred]
-    
+
     // GENERATE_HASHIDS outputs
     hashids_mapping         = GENERATE_HASHIDS.out.hashids_mapping               // [meta, *_transcriptome_hashids_mapping.txt]
-    
+
     // FILTER_TRANSCRIPTOME outputs
 //    transcriptome_classification = FILTER_TRANSCRIPTOME.out.classification           // [meta, *_transcriptome_classification.txt]
     classification_filtered = FILTER_TRANSCRIPTOME.out.classification_filtered       // [meta, *_classification_filtered.txt]

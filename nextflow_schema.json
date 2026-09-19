@@ -1,7 +1,7 @@
 {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "$id": "https://raw.githubusercontent.com/sheynkmanlab/lrp2/master/nextflow_schema.json",
-    "title": "sheynkmanlab/lrp2 pipeline parameters",
+    "$id": "https://raw.githubusercontent.com/sheynkman-lab/LRP2/main/nextflow_schema.json",
+    "title": "sheynkman-lab/LRP2 pipeline parameters",
     "description": "Long-read proteogenomics pipeline for PacBio Iso-Seq data",
     "type": "object",
     "additionalProperties": true,
@@ -11,7 +11,7 @@
             "type": "object",
             "fa_icon": "fas fa-terminal",
             "description": "Define where the pipeline should find input data and save output data.",
-            "required": ["outdir"],
+            "required": ["input", "outdir"],
             "properties": {
                 "input": {
                     "type": "string",
@@ -26,7 +26,7 @@
                 },
                 "dataset_name": {
                     "type": "string",
-                    "default": "merged",
+                    "default": "lrp2",
                     "description": "Name for the merged dataset.",
                     "help_text": "This name will be used as a prefix for all output files. It should be a descriptive name for your project or experiment.",
                     "fa_icon": "fas fa-tag"
@@ -89,6 +89,22 @@
                     "fa_icon": "fas fa-ban",
                     "hidden": true,
                     "default": "s3://ngi-igenomes/igenomes/"
+                },
+                "gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Reference GTF file (internal parameter, auto-populated from --genome).",
+                    "help_text": "Internal parameter automatically populated based on --genome selection. Not intended for direct user input.",
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
+                },
+                "fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Reference FASTA file (internal parameter, auto-populated from --genome).",
+                    "help_text": "Internal parameter automatically populated based on --genome selection. Not intended for direct user input.",
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
                 }
             }
         },
@@ -149,7 +165,6 @@
                 "isocall_config": {
                     "type": "string",
                     "format": "file-path",
-                    "default": "${projectDir}/bin/isocall_config.toml",
                     "description": "Path to IsoCall configuration TOML file.",
                     "help_text": "Configuration file for IsoCall parameters. Uses default config if not specified.",
                     "fa_icon": "fas fa-file-code"
@@ -204,7 +219,7 @@
                 "sqanti_path": {
                     "type": "string",
                     "format": "directory-path",
-                    "default": "/project/sheynkman/programs/SQANTI3-5.5/src/utilities/cupcake/",
+                    "default": "/SQANTI3/src/utilities/cupcake/",
                     "description": "Path to SQANTI3 installation directory.",
                     "help_text": "Path to the SQANTI3 cupcake utilities directory.",
                     "fa_icon": "fas fa-folder",
@@ -236,9 +251,16 @@
                 },
                 "transcript_class_keep": {
                     "type": "string",
-                    "default": "FSM,NIC,NNC",
+                    "default": "FSM,ISM,NIC,NNC",
                     "description": "Comma-separated transcript structural categories to retain (FSM, ISM, NIC, NNC, or 'ALL').",
                     "fa_icon": "fas fa-filter"
+                },
+                "sample_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Sample metadata CSV file (optional).",
+                    "help_text": "Sample metadata CSV file. If not provided, defaults to using the input samplesheet.",
+                    "fa_icon": "fas fa-file-csv"
                 }
             }
         },
@@ -250,7 +272,6 @@
             "properties": {
                 "species": {
                     "type": "string",
-                    "default": "human",
                     "description": "Species for CPAT model selection (human or mouse).",
                     "fa_icon": "fas fa-fish",
                     "enum": ["human", "mouse"]
@@ -334,7 +355,7 @@
                 },
                 "protein_class_keep": {
                     "type": "string",
-                    "default": "FPM,IPM,NPC,NPE",
+                    "default": "FPM,NPC,NPE",
                     "description": "Comma-separated list of protein classifications to keep.",
                     "help_text": "Protein classification categories to retain (e.g., FPM,IPM,NPC,NPE).",
                     "fa_icon": "fas fa-filter"
@@ -361,7 +382,7 @@
                 },
                 "min_samples_per_group": {
                     "type": "integer",
-                    "default": 1,
+                    "default": 2,
                     "description": "Minimum number of samples per group for leafcutter differential splicing.",
                     "fa_icon": "fas fa-users"
                 },
@@ -478,6 +499,38 @@
                     "description": "RNA sample metadata CSV file for multisample analysis.",
                     "help_text": "Path to a CSV file with RNA sample metadata. Accepts two formats: (1) Simplified format with columns 'name', 'sample_path', 'group', 'sample_type', or (2) Standard samplesheet format with columns 'sample_name', 'sample_path', 'condition', 'sample_type', 'mass_spec_type'. The pipeline auto-detects which format you're using. You can use the auto-generated *_rna_samples_metadata.csv file from a previous LRP2 run, your original samplesheet (if RNA-only), or a custom metadata file in either format.",
                     "fa_icon": "fas fa-file-csv"
+                },
+                "transcripts_gtf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Alias for S4_custom_gtf. Pre-computed filtered GTF for multisample-only mode.",
+                    "help_text": "Shorthand parameter name for S4_custom_gtf. Accepts the same input.",
+                    "fa_icon": "far fa-file-code",
+                    "hidden": true
+                },
+                "transcript_counts": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Alias for S4_custom_counts. Pre-computed transcript count matrix for multisample-only mode.",
+                    "help_text": "Shorthand parameter name for S4_custom_counts. Accepts the same input.",
+                    "fa_icon": "far fa-file-alt",
+                    "hidden": true
+                },
+                "orf_counts": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Alias for S4_custom_orf_counts. Pre-computed ORF count matrix for multisample-only mode.",
+                    "help_text": "Shorthand parameter name for S4_custom_orf_counts. Accepts the same input.",
+                    "fa_icon": "far fa-file-alt",
+                    "hidden": true
+                },
+                "multisample_metadata": {
+                    "type": "string",
+                    "format": "file-path",
+                    "description": "Alias for S4_multisample_metadata. RNA sample metadata CSV for multisample-only mode.",
+                    "help_text": "Shorthand parameter name for S4_multisample_metadata. Accepts the same input.",
+                    "fa_icon": "fas fa-file-csv",
+                    "hidden": true
                 }
             }
         },
@@ -500,13 +553,6 @@
                     "description": "Apply peak picking filter during MS file conversion.",
                     "help_text": "When enabled, applies vendor peak picking algorithm during conversion from raw to mzML format.",
                     "fa_icon": "fas fa-chart-line"
-                },
-                "protein_fasta": {
-                    "type": "string",
-                    "format": "file-path",
-                    "description": "Path to reference protein FASTA file.",
-                    "help_text": "Reference protein database for proteomics searches. If not provided and a GENCODE genome is specified, will automatically use the protein FASTA from the GENCODE genome configuration.",
-                    "fa_icon": "far fa-file-code"
                 },
                 "no_gencode": {
                     "type": "boolean",
@@ -589,7 +635,6 @@
                 },
                 "fragpipe_license_accept": {
                     "type": "boolean",
-                    "default": false,
                     "description": "Accept FragPipe license terms (required for non-interactive mode).",
                     "help_text": "Set to true to accept FragPipe license terms for non-interactive setup.",
                     "fa_icon": "fas fa-file-contract",
@@ -680,14 +725,6 @@
                     "fa_icon": "fas fa-remove-format",
                     "hidden": true
                 },
-                "max_multiqc_email_size": {
-                    "type": "string",
-                    "description": "File size limit when attaching MultiQC reports to summary emails.",
-                    "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$",
-                    "default": "25.MB",
-                    "fa_icon": "fas fa-file-upload",
-                    "hidden": true
-                },
                 "monochrome_logs": {
                     "type": "boolean",
                     "description": "Do not use coloured log outputs.",
@@ -700,24 +737,6 @@
                     "fa_icon": "fas fa-people-group",
                     "help_text": "Incoming hook URL for messaging service. Currently, MS Teams and Slack are supported.",
                     "hidden": true
-                },
-                "multiqc_config": {
-                    "type": "string",
-                    "format": "file-path",
-                    "description": "Custom config file to supply to MultiQC.",
-                    "fa_icon": "fas fa-cog",
-                    "hidden": true
-                },
-                "multiqc_logo": {
-                    "type": "string",
-                    "description": "Custom logo file to supply to MultiQC. File name must also be set in the MultiQC config file",
-                    "fa_icon": "fas fa-image",
-                    "hidden": true
-                },
-                "multiqc_methods_description": {
-                    "type": "string",
-                    "description": "Custom MultiQC yaml file containing HTML including a methods description.",
-                    "fa_icon": "fas fa-cog"
                 },
                 "validate_params": {
                     "type": "boolean",

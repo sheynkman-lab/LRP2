@@ -1,0 +1,138 @@
+name: filter_transcriptome
+description: Filter transcriptome based on SQANTI3 classification and quality metrics
+keywords:
+  - transcriptome
+  - filtering
+  - quality control
+  - sqanti3
+tools:
+  - r-base:
+      description: |
+        R script to filter transcriptome based on various quality metrics
+        including protein-coding status, internal priming, template switching,
+        and transcript classification.
+      homepage: https://www.r-project.org/
+      documentation: https://www.r-project.org/
+      licence: ["GPL-2.0-or-later"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'sample1' ]
+    - classification_file:
+        type: file
+        description: SQANTI3 classification file
+        pattern: "*.SQANTI_classification.txt"
+    - corrected_gtf:
+        type: file
+        description: SQANTI3-corrected GTF file
+        pattern: "*.gtf"
+    - corrected_fasta:
+        type: file
+        description: SQANTI3-corrected FASTA file
+        pattern: "*.fasta"
+    - hashids_mapping:
+        type: file
+        description: HashIDs mapping file
+        pattern: "*.hashids_mapping.txt"
+    - corrected_psl:
+        type: file
+        description: PSL alignment file
+        pattern: "*.psl"
+  - - reference_gtf:
+        type: file
+        description: Reference genome annotation in GTF format
+        pattern: "*.gtf"
+  - - reference_fasta:
+        type: file
+        description: Reference genome sequence in FASTA format
+        pattern: "*.{fa,fasta}"
+  - - sample_metadata:
+        type: file
+        description: Sample metadata file
+        pattern: "*.csv"
+  - - filter_script:
+        type: file
+        description: R script for filtering transcriptome
+        pattern: "*.R"
+output:
+  - classification_filtered:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'sample1' ]
+      - "*.transcriptome.filtered_SQANTI_classification.txt":
+          type: file
+          description: Filtered SQANTI3 classification file
+          pattern: "*.transcriptome.filtered_SQANTI_classification.txt"
+  - corrected_gtf_filtered:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'sample1' ]
+      - "*.transcriptome.filtered.gtf":
+          type: file
+          description: Filtered GTF file
+          pattern: "*.transcriptome.filtered.gtf"
+  - corrected_bed_filtered:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'sample1' ]
+      - "*.transcriptome.filtered.bed":
+          type: file
+          description: Filtered BED file
+          pattern: "*.transcriptome.filtered.bed"
+  - corrected_fasta_filtered:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'sample1' ]
+      - "*.transcriptome.filtered.fasta":
+          type: file
+          description: Filtered FASTA file
+          pattern: "*.transcriptome.filtered.fasta"
+  - hashids_filtered:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'sample1' ]
+      - "*.transcriptome.filtered_hashids_with_cpm.txt":
+          type: file
+          description: Filtered HashIDs with CPM values
+          pattern: "*.transcriptome.filtered_hashids_with_cpm.txt"
+  - hashids_all:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'sample1' ]
+      - "*.transcriptome.all_hashids_with_cpm.txt":
+          type: file
+          description: All HashIDs with CPM values
+          pattern: "*.transcriptome.all_hashids_with_cpm.txt"
+  - log:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'sample1' ]
+      - "*_S2_TRANSCRIPTOME_M3_FILTER_TRANSCRIPTOME_log.txt":
+          type: file
+          description: Log file from filtering process
+          pattern: "*_S2_TRANSCRIPTOME_M3_FILTER_TRANSCRIPTOME_log.txt"
+  - versions:
+      - versions.yml:
+          type: file
+          description: File containing software versions
+          pattern: "versions.yml"
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"
