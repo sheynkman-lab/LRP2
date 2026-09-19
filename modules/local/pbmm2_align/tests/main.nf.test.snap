@@ -1,25 +1,96 @@
 {
+    "versions": {
+        "content": [
+            [
+                "versions.yml:md5,e8aa0696ac2bf135b5f88e6cb7e7b18a"
+            ]
+        ],
+        "timestamp": "2026-09-18T23:15:41.03709729",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "26.04.6"
+        }
+    },
+    "PacBio isoseq align - clustered BAM alignment test - stub": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test.aligned.bam:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "1": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test.aligned.bam.bai:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "2": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_S1_PACBIO_ISOCALL_M2_PBMM2_ALIGN_log.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "3": [
+                    "versions.yml:md5,e8aa0696ac2bf135b5f88e6cb7e7b18a"
+                ],
+                "bai": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test.aligned.bam.bai:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "bam": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test.aligned.bam:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "log": [
+                    [
+                        {
+                            "id": "test"
+                        },
+                        "test_S1_PACBIO_ISOCALL_M2_PBMM2_ALIGN_log.txt:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "versions": [
+                    "versions.yml:md5,e8aa0696ac2bf135b5f88e6cb7e7b18a"
+                ]
+            }
+        ],
+        "timestamp": "2026-09-18T23:15:48.007974548",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "26.04.6"
+        }
+    },
     "bam": {
         "content": [
             [
-                {
-                    "id": "test"
-                },
-                "test.aligned.bam:md5,234d4d0cdc0bf7ee9c4f973ae93d5931"
+                [
+                    {
+                        "id": "test"
+                    },
+                    "test.aligned.bam:md5,e704fbffa62753139961c570f299864c"
+                ]
             ]
         ],
+        "timestamp": "2026-09-18T23:15:41.015078488",
         "meta": {
-            "nf-test": "0.8.4",
-            "nextflow": "24.04.2"
-        }
-    },
-    "versions": {
-        "content": [
-            "versions.yml:md5,2d03c1b8e7f5ca1f5b8f5cd4bbd5c3d9"
-        ],
-        "meta": {
-            "nf-test": "0.8.4",
-            "nextflow": "24.04.2"
+            "nf-test": "0.9.5",
+            "nextflow": "26.04.6"
         }
     }
 }
