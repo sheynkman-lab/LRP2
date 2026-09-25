@@ -69,10 +69,10 @@ screen -S lrp2
 
 Request an interactive job with enough resources for the test dataset:
 ```bash
-salloc -c 4 --mem=64G -p your_slurm_partition -A your_allocation --time=4:00:00
+srun -c 4 --mem=64G -p your_slurm_partition -A your_allocation --time=4:00:00 --pty bash
 ```
 
-> **Note**: Adjust for your HPC system. Replace `your_slurm_partition` with your SLURM partition and `your_allocation` with your SLURM allocation group. UVA Rivanna users can substitute `ijob` for `salloc`. The `-c` (CPUs), `--mem` (memory), and `--time` values above are sufficient for the test dataset, but should be increased for larger datasets.
+> **Note**: Adjust for your HPC system. Replace `your_slurm_partition` with your SLURM partition and `your_allocation` with your SLURM allocation group. UVA Rivanna users can substitute `ijob` for `srun`. The `-c` (CPUs), `--mem` (memory), and `--time` values above are sufficient for the test dataset, but should be increased for larger datasets.
 
 Load the required modules:
 ```bash
