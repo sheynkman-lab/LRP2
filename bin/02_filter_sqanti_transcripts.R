@@ -206,10 +206,6 @@ colnames(sqanti_df) = ifelse(grepl("^FL\\.", colnames(sqanti_df)),
                              colnames(sqanti_df))
 
 counts_cols = grep("_counts$", colnames(sqanti_df), value = TRUE)
-sqanti_df %<>%
-  mutate(across(all_of(counts_cols), 
-                ~ (.x / sum(.x)) * 1e6,
-                .names = "{gsub('_counts', '_cpm', .col)}"))
 
 # Save original isoform IDs before replacement
 original_isoform_ids = sqanti_df$isoform
@@ -222,7 +218,10 @@ sqanti_df_full = sqanti_df %>%
              by = c("isoform" = "original_transcript_id")) %>%
   mutate(isoform = isoform_id,
          associated_gene = reference_gene_id) %>%
-  select(-isoform_id, -reference_gene_id)
+  select(-isoform_id, -reference_gene_id) %>%
+  mutate(across(all_of(counts_cols), 
+                ~ (.x / sum(.x)) * 1e6,
+                .names = "{gsub('_counts', '_cpm', .col)}"))
 
 # Build the hashids + CPM table using new isoform IDs
 all_ids = mapping %>%
