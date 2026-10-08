@@ -2,40 +2,11 @@ name: sqanti3
 channels:
   - conda-forge
   - bioconda
-<<<<<<< HEAD:conf/environments_original/SQANTI3.conda_env.yml
-<<<<<<<< HEAD:conf/environments_original/SQANTI3.conda_env.yml
-=======
->>>>>>> main:environments/SQANTI3.conda_env.yml
   - anaconda
   - r
   - defaults
 dependencies:
   - argcomplete=3.4.0
-<<<<<<< HEAD:conf/environments_original/SQANTI3.conda_env.yml
-========
-  
-dependencies:
-  # Core tools with specific versions
-  - python>=3.10,<=3.11
-  - r-base=4.3
-  - perl=5.32.1
-  
-  # Python packages
-  - numpy=1.26.4
-  - pandas=2.2.3
-  - scipy<=1.11.4
-  - biopython<=1.81
-  - cython=3.0.11
-  - pysam=0.22.1
-  - psutil=6.1.0
-  - bx-python=0.11.0
-  - pybedtools=0.10.0
-  - pytest=7.4.4
-  
-  # Bioinformatics tools
->>>>>>>> main:environments/LRP2.conda_env.yml
-=======
->>>>>>> main:environments/SQANTI3.conda_env.yml
   - bcbio-gff=0.7.1
   - bedtools=2.31.1
   - bioconductor-busparse=1.16.0
@@ -48,10 +19,6 @@ dependencies:
   - gmap=2024.11.20
   - gtftools=0.9.0
   - jinja2=3.1.4
-<<<<<<< HEAD:conf/environments_original/SQANTI3.conda_env.yml
-<<<<<<<< HEAD:conf/environments_original/SQANTI3.conda_env.yml
-=======
->>>>>>> main:environments/SQANTI3.conda_env.yml
   - kallisto=0.48.0
   - minimap2=2.28
   - numpy=1.26.4
@@ -99,76 +66,22 @@ dependencies:
   - seqtk=1.4
   - slamem=0.8.5
   - star=2.7.11b
-<<<<<<< HEAD:conf/environments_original/SQANTI3.conda_env.yml
-========
-  - seaborn=0.13.2
-  - scikit-learn=1.5.2
-  
-  # R packages
-  - r-tidyverse
-  - r-data.table
-  - r-dt
-  - r-devtools
-  - r-e1071
-  - r-ggplotify
-  - r-gridbase
-  - r-gridextra
-  - r-htmltools
-  - r-jsonlite
-  - r-optparse
-  - r-plotly
-  - r-plyr
-  - r-randomForest
-  - r-rmarkdown
-  - r-reshape
-  - r-scales
-  - r-stringi
-  - r-biocmanager
-  - r-caret
-  - bioconductor-rtracklayer
-  - bioconductor-biostrings
-  - bioconductor-noiseq
-  - bioconductor-biobase
-  - bioconductor-biocgenerics
-  - bioconductor-busparse=
-  - bioconductor-genomicranges
-  - bioconductor-txdbmaker
-  - bioconductor-genomicfeatures
-  
-  # System dependencies (required by R packages)
-  - openssl 
-  - pandoc
-  
-  # Pip packages
-  - pip=24.3.1
->>>>>>>> main:environments/LRP2.conda_env.yml
-=======
->>>>>>> main:environments/SQANTI3.conda_env.yml
   - pip:
-    - argh==0.31.3
-    - cpat==3.0.4
-    - dill==0.3.9
-    - edlib==1.3.9.post1
-    - gffutils==0.13
-    - gtfparse==2.5.0
-    - importlib-metadata==8.5.0
-    - intervaltree==3.1.0
-    - parasail==1.3.4
-    - pdf2image==1.17.0
-    - polars==0.20.31
-    - pyarrow==14.0.2
-    - pyfaidx==0.8.1.3
-    - simplejson==3.19.3
-    - sortedcontainers==2.4.0
-    - TD2==1.0.6
-<<<<<<< HEAD:conf/environments_original/SQANTI3.conda_env.yml
-<<<<<<<< HEAD:conf/environments_original/SQANTI3.conda_env.yml
-    - ultra-bioinformatics==0.1
-    - zipp==3.21.0
-========
-    - cpat==3.0.4
->>>>>>>> main:environments/LRP2.conda_env.yml
-=======
-    - ultra-bioinformatics==0.1
-    - zipp==3.21.0
->>>>>>> main:environments/SQANTI3.conda_env.yml
+      - argh==0.31.3
+      - cpat==3.0.4
+      - dill==0.3.9
+      - edlib==1.3.9.post1
+      - gffutils==0.13
+      - gtfparse==2.5.0
+      - importlib-metadata==8.5.0
+      - intervaltree==3.1.0
+      - parasail==1.3.4
+      - pdf2image==1.17.0
+      - polars==0.20.31
+      - pyarrow==14.0.2
+      - pyfaidx==0.8.1.3
+      - simplejson==3.19.3
+      - sortedcontainers==2.4.0
+      - TD2==1.0.6
+      - ultra-bioinformatics==0.1
+      - zipp==3.21.0

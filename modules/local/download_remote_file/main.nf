@@ -3,7 +3,9 @@ process DOWNLOAD_REMOTE_FILE {
     label 'process_low'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/biocontainers/biocontainers:latest"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://docker.io/biocontainers/biocontainers:latest' :
+        'docker.io/biocontainers/biocontainers:latest' }"
 
     input:
     tuple val(meta), val(url)

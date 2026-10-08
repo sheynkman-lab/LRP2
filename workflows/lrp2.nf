@@ -405,27 +405,27 @@ workflow LRP2 {
     //    protein_fasta_path = params.gencode_refs[params.genome].protein_fasta
     //    log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Auto-detected protein FASTA from GENCODE genome ${params.genome}: ${protein_fasta_path}${colors.reset}-"
     //}
-    
+
     // Resolve GENCODE protein FASTA from --genome (e.g., GRCh38.p14.v49)
     def gencode_protein_fasta_path = null
     if (params.gencode_refs?.containsKey(params.genome)) {
       gencode_protein_fasta_path = params.gencode_refs[params.genome].protein_fasta
       log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} GENCODE protein FASTA resolved from --genome ${params.genome}: ${gencode_protein_fasta_path}${colors.reset}-"
     }
-    
+
     // Resolve protein FASTA for the proteomics search database (optional, user-provided)
     // Accepts LRP2 output or any custom FASTA; source is auto-detected in build_mass_spec_reference.R
     def s5_custom_protein_fasta_path = params.S5_custom_protein_fasta ?: null
     if (s5_custom_protein_fasta_path) {
       log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Protein FASTA provided for search database: ${s5_custom_protein_fasta_path}${colors.reset}-"
     }
-    
+
     // Resolve CDS GTF paired with the protein FASTA (for novel peptide BED mapping)
     def s5_custom_cds_gtf_file = params.S5_custom_cds_gtf ? file(params.S5_custom_cds_gtf) : null
     if (s5_custom_cds_gtf_file) {
         log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Custom CDS GTF provided: ${s5_custom_cds_gtf_file}${colors.reset}-"
     }
-    
+
     def s5_custom_counts_path = params.S5_custom_counts ?: null
     if (s5_custom_counts_path) {
       log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Count matrix provided for search database filtering: ${s5_custom_counts_path}${colors.reset}-"
@@ -467,7 +467,7 @@ workflow LRP2 {
                 file("${projectDir}/sample_data/SearchTask.toml")
         )
         ch_mm_writable = channel.value(file("${projectDir}/assets/mm_writable_placeholder"))
-        
+
         //
         // Decompress GENCODE protein FASTA if provided and gzipped (only when protein samples exist)
         //
@@ -488,7 +488,7 @@ workflow LRP2 {
 
         def s5_custom_protein_fasta_file = s5_custom_protein_fasta_path ? file(s5_custom_protein_fasta_path) : null
         def s5_custom_counts_file = s5_custom_counts_path ? file(s5_custom_counts_path) : null
-        
+
         // BUILD_PROTEOME_REFERENCE search db creation logic:
         // - If RNA samples were processed, we build sample-specific references with LRP proteome + GENCODE concatenated
         // - If no RNA samples then we build GENCODE-only references per sample group
@@ -533,7 +533,7 @@ workflow LRP2 {
         ch_gtf_for_novel = gtf_for_novel
             ? channel.value(gtf_for_novel)
             : channel.value(file('NO_FILE'))
-            
+
         // Create a channel that maps each protein sample to its sample_name for grouping
         // Group protein samples by sample_name (the biosample group)
         ch_protein_samples_grouped = ch_protein_samples_filtered
@@ -559,7 +559,7 @@ workflow LRP2 {
                 def unique_gencode = gencode_protein_fasta.name == 'NO_FILE' ? file("${meta.id}_NO_GENCODE_PROTEIN_FASTA") : gencode_protein_fasta
                 return [meta, unique_counts, unique_custom, unique_gencode]
             }
-            
+
         // Script path for build_mass_spec_reference.R
         ch_build_proteome_script = channel.value(file("${projectDir}/bin/build_mass_spec_reference.R"))
 
@@ -614,18 +614,18 @@ workflow LRP2 {
     // 3. Each condition that runs has at least 2 samples (warn re. statistical robustness but still run if <3 per condition)
     //
     // Initialize should_run_multisample
-    def should_run_multisample = false
-    def lines
-    def header_parts
-    def sample_name_idx
-    def condition_idx
-    def multisample_sample_type_idx
-    def samples_per_condition
+    should_run_multisample = false
+    lines = null
+    header_parts = null
+    sample_name_idx = null
+    condition_idx = null
+    multisample_sample_type_idx = null
+    samples_per_condition = null
 
     // Only parse metadata for validation if not in multisample-only mode
     if (!is_multisample_only) {
         // Parse metadata synchronously to count samples per condition
-        def metadata_content = file(sample_metadata_file).text
+        metadata_content = file(sample_metadata_file).text
         lines = metadata_content.split('\n')
         header_parts = lines[0].split(',')
         sample_name_idx = header_parts.findIndexOf { it.trim() == 'sample_name' }
@@ -642,9 +642,9 @@ workflow LRP2 {
                 }
             }
         }
-        def unique_conditions = samples_per_condition.keySet().size()
-        def conditions_with_min_samples = samples_per_condition.findAll { k, v -> v.size() >= 2 }
-        def conditions_with_robust_samples = samples_per_condition.findAll { k, v -> v.size() >= 3 }
+        unique_conditions = samples_per_condition.keySet().size()
+        conditions_with_min_samples = samples_per_condition.findAll { k, v -> v.size() >= 2 }
+        conditions_with_robust_samples = samples_per_condition.findAll { k, v -> v.size() >= 3 }
 
         // Determine if we should run multisample analysis based on samples present and log final call
         should_run_multisample = unique_conditions >= 2 && conditions_with_min_samples.size() >= 2

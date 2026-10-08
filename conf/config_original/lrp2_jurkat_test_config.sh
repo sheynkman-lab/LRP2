@@ -46,7 +46,7 @@ export MAX_3P_DIFF=200
 # SQANTI path- change this based on sqanti path
 export SQANTI_PATH="/project/sheynkman/programs/SQANTI3-5.5"
 
-# GTF source options: "lrp_isoseq" (this pipeline) or "custom" 
+# GTF source options: "lrp_isoseq" (this pipeline) or "custom"
 export GTF_SOURCE="lrp_isoseq"
 
 # If using custom GTF, specify path here

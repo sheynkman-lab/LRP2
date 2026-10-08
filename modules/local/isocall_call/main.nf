@@ -34,9 +34,9 @@ process ISOCALL_CALL {
         --output-prefix ${prefix}.isocall \\
         --config $config_toml \\
         $args
-    
+
     mv ${prefix}.isocall.count_matrix.txt ${prefix}.isocall.count_matrix.csv
-    
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         isocall: \$( isocall --version 2>&1 | sed 's/isocall //g' )

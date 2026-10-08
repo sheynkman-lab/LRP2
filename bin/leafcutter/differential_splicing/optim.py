@@ -161,7 +161,7 @@ def _strong_wolfe(obj_func,
 
 class MyLBFGS(torch.optim.LBFGS):
     """ Clone of torch.optim.LBFGS except that it 1) reports exit status and 2) returns a list of losses per iteration. """
-    
+
     @torch.no_grad()
     def step(self, closure):
         """Perform a single optimization step.
@@ -189,13 +189,13 @@ class MyLBFGS(torch.optim.LBFGS):
         state = self.state[self._params[0]]
         state.setdefault('func_evals', 0)
         state.setdefault('n_iter', 0)
-        
+
         # evaluate initial f(x) and df/dx
         orig_loss = closure()
-        
+
         loss = float(orig_loss)
         losses = [ loss ]
-        
+
         current_evals = 1
         state['func_evals'] += 1
 
@@ -203,7 +203,7 @@ class MyLBFGS(torch.optim.LBFGS):
         opt_cond = flat_grad.abs().max() <= tolerance_grad
 
         self.exit_status = "not set"
-        
+
         # optimal condition
         if opt_cond:
             self.exit_status = "max|grad| < tolerance_grad at init"
@@ -348,16 +348,16 @@ class MyLBFGS(torch.optim.LBFGS):
 
             # optimal condition
             if opt_cond:
-                self.exit_status = "Converged (line search optimality condition)" 
+                self.exit_status = "Converged (line search optimality condition)"
                 break
 
             # lack of progress
             if d.mul(t).abs().max() <= tolerance_change:
-                self.exit_status = "Converged (lack of progress)" 
+                self.exit_status = "Converged (lack of progress)"
                 break
 
             if abs(loss - prev_loss) < tolerance_change:
-                self.exit_status = "Converged (loss change below tolerance)" 
+                self.exit_status = "Converged (loss change below tolerance)"
                 break
 
         state['d'] = d
@@ -390,16 +390,16 @@ def fit_with_SVI(model, guide, data, iterations = 1500, loss_tol = 1e-3, adam_op
 
 def manual_fit(model, guide, data, iterations = 1500, loss_tol = 1e-3, **adam_kwargs):
     """
-    Direct implementation of SGD. 
+    Direct implementation of SGD.
     """
     pyro.clear_param_store()
     loss_fn = Trace_ELBO().differentiable_loss
-    
+
     if not "lr" in adam_kwargs: adam_kwargs["lr"] = 0.02
 
     guide(*data) # run once to instantiate params
     ps = pyro.get_param_store()
-    params = [ p.unconstrained() for p in ps.values() ] # want to optimize in the constrained space 
+    params = [ p.unconstrained() for p in ps.values() ] # want to optimize in the constrained space
 
     optimizer = torch.optim.Adam(params, **adam_kwargs)
     losses = []
@@ -418,33 +418,33 @@ def manual_fit(model, guide, data, iterations = 1500, loss_tol = 1e-3, **adam_kw
 
 def fit_with_lbfgs(model, guide, data, outer_iterations = 1, **lbfgs_kwargs):
     """
-    Fit using LBFGS (which o.g. LeafCutter also used). 
+    Fit using LBFGS (which o.g. LeafCutter also used).
     """
     my_defaults = { "max_iter" : 500, "line_search_fn" : "strong_wolfe" }
-    for k,v in my_defaults.items(): 
-        if not k in lbfgs_kwargs: 
+    for k,v in my_defaults.items():
+        if not k in lbfgs_kwargs:
             lbfgs_kwargs[k] = v
-    
+
     pyro.clear_param_store()
     guide(*data) # run once to instantiate params
     ps = pyro.get_param_store()
-    params = [ p.unconstrained() for p in ps.values() ] # want to optimize in the constrained space 
+    params = [ p.unconstrained() for p in ps.values() ] # want to optimize in the constrained space
     loss_fn = Trace_ELBO().differentiable_loss # JitTrace is actually slower it seems
-    
+
     # defaults: lr=1, max_iter=20, max_eval=None, tolerance_grad=1e-07, tolerance_change=1e-09, history_size=100, line_search_fn=None
     optimizer = MyLBFGS(params, **lbfgs_kwargs) #lr=0.05, max_iter=inner_iterations, tolerance_grad=1e-4, history_size = 20)
     #optimizer = torch.optim.LBFGS(params, **lbfgs_kwargs)
-    
+
     def closure(): # slightly awkward requirement of torch.optim.LBFGS
         optimizer.zero_grad()
         loss = loss_fn(model, guide, *data)
         loss.backward()
         return loss
-    
+
     losses = []
-    for i in range(outer_iterations): # I think in principle we don't need this loop? 
+    for i in range(outer_iterations): # I think in principle we don't need this loop?
         losses_here = optimizer.step(closure) # now returns a list of losses
         #losses += [ losses_here.item() ]
         losses += losses_here
     #losses.append(loss_fn(model, guide, *data).item())
-    return np.array(losses), optimizer.exit_status # "Converged" 
+    return np.array(losses), optimizer.exit_status # "Converged"

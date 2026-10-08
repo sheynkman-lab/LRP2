@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/meta-schema.json
+name: "validate_transcript_ids"
+description: Validates that transcript IDs match between GTF annotation and count matrix files
+keywords:
+  - gtf
+  - validation
+  - transcript
+  - quality control
+
+tools:
+  - bash:
+      description: GNU Bourne-Again Shell
+      homepage: https://www.gnu.org/software/bash/
+      documentation: https://www.gnu.org/software/bash/manual/
+      licence: ["GPL-3.0-or-later"]
+
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. `[ id:'sample1' ]`
+    - gtf:
+        type: file
+        description: GTF annotation file
+    - counts:
+        type: file
+        description: Count matrix file with transcript IDs
+
+output:
+  validated:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. `[ id:'sample1' ]`
+      - "*.{gtf,gtf.gz}":
+          type: file
+          description: Validated GTF file (passed through if validation succeeds)
+      - "*.{tsv,txt}":
+          type: file
+          description: Validated counts file (passed through if validation succeeds)
+  versions:
+    - - versions.yml:
+          type: file
+          description: File containing software versions
+          pattern: "versions.yml"
+
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

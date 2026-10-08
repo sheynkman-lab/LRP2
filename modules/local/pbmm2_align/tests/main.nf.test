@@ -19,7 +19,7 @@ nextflow_process {
                     [ id:'test' ], // meta map
                     file(params.modules_testdata_base_path + 'genomics/homo_sapiens/pacbio/bam/alz.ccs.fl.NEB_5p--NEB_Clontech_3p.flnc.bam', checkIfExists: true)
                 ]
-                input[1] = file(params.modules_testdata_base_path + 'genomics/homo_sapiens/reference/genome.fasta', checkIfExists: true)
+                input[1] = file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/genome.fasta', checkIfExists: true)
                 """
             }
         }
@@ -27,7 +27,11 @@ nextflow_process {
         then {
             assertAll(
                 { assert process.success },
-                { assert snapshot(process.out.bam).match("bam") },
+                { assert process.out.bam },
+                { assert process.out.bam.get(0).get(1).toString().endsWith(".aligned.bam") },
+                { assert process.out.bai },
+                { assert process.out.bai.get(0).get(1).toString().endsWith(".aligned.bam.bai") },
+                { assert process.out.log },
                 { assert snapshot(process.out.versions).match("versions") }
             )
         }
@@ -44,7 +48,7 @@ nextflow_process {
                     [ id:'test' ], // meta map
                     file(params.modules_testdata_base_path + 'genomics/homo_sapiens/pacbio/bam/alz.ccs.fl.NEB_5p--NEB_Clontech_3p.flnc.bam', checkIfExists: true)
                 ]
-                input[1] = file(params.modules_testdata_base_path + 'genomics/homo_sapiens/reference/genome.fasta', checkIfExists: true)
+                input[1] = file(params.modules_testdata_base_path + 'genomics/homo_sapiens/genome/genome.fasta', checkIfExists: true)
                 """
             }
         }

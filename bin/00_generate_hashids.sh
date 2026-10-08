@@ -25,4 +25,3 @@ Rscript /scratch/cwp5au/LRP2_lite/bin/00_generate_hashids.R \
   --reference_gtf $REFERENCE_GTF \
   --hashlib_script /scratch/cwp5au/LRP2_lite/bin/00_hashlib_id_generator.py \
   --output_dir $DATA_DIR/results/S2_TRANSCRIPTOME/M2_GENERATE_HASHIDS
-  

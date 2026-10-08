@@ -76,7 +76,7 @@ if len(meta.columns) > 2:
     column_transformer = ColumnTransformer(transformations)
     # Fit and transform the confounders
     confounders = column_transformer.fit_transform(confounders)
-    
+
 #if permute: numeric_x = np.random.permutation(numeric_x)
 counts = counts[meta["sample"]]
 
@@ -89,8 +89,8 @@ if meta["group"].dtype.kind in 'OUS': # Object Unicode String => Categorical
 
     #num_groups_w_enough_samples_1 = (meta["group"].value_counts() >= args.min_samples_per_intron).sum()
     num_groups_w_enough_samples = (meta["group"].value_counts() >= args.min_samples_per_group).sum()
-    #if (num_groups_w_enough_samples_1 < 2) or (num_groups_w_enough_samples_2 < 2): 
-    if num_groups_w_enough_samples < 2: 
+    #if (num_groups_w_enough_samples_1 < 2) or (num_groups_w_enough_samples_2 < 2):
+    if num_groups_w_enough_samples < 2:
         raise ValueError("There are no groups with enough samples to test. You can reduce min_samples_per_group (-g).")
 
 else: # continuous

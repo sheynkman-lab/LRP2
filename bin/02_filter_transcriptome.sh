@@ -25,4 +25,3 @@ Rscript /scratch/cwp5au/LRP2_lite/bin/02_filter_sqanti_transcripts.R \
   --sample_fasta $SQANTI_DIR/${BASENAME}_corrected.fasta \
   --mapping_file $DATA_DIR/results/S2_TRANSCRIPTOME/M2_GENERATE_HASHIDS/${BASENAME}_hashids_mapping.txt \
   --output_dir $DATA_DIR/results/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME
-  

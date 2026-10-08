@@ -76,6 +76,7 @@ jobs:
           - isMain: false
             profile: "singularity"
         NXF_VER:
+          - "24.04.2"
           - "25.04.0"
           - "latest-everything"
     env:
@@ -117,7 +118,7 @@ jobs:
   confirm-pass:
     needs: [nf-test]
     if: always()
-    runs-on:  # use GitHub runners
+    runs-on: # use GitHub runners
       - "ubuntu-latest"
     steps:
       - name: One or more tests failed (excluding latest-everything)

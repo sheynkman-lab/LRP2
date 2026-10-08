@@ -54,4 +54,3 @@ process PBMM2_ALIGN {
     END_VERSIONS
     """
 }
-

@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 #' Classifies peptides from mass spec database search results (Fragpipe)
-#' 
+#'
 #' Classification logic:
 #'   - If a peptide maps to both LR and GENCODE proteins, GENCODE entries are
 #'     discarded and only LR transcript IDs are retained. The peptide is
@@ -21,10 +21,10 @@
 #'     rna_detection_status, peptide_status, transcript_id, gene_id,
 #'     n_transcripts, n_high_confidence, fasta_headers
 #'   - {sample_name}.proteomics.all_peptides.bed (optional)
-#'     
+#'
 #' Usage:
 #'   Rscript novel_peptide.R --ms_search_software fragpipe --sample_name A549 --acquisition_type DIA --outdir results
-#'   
+#'
 
 
 # =============================================================================
@@ -127,28 +127,28 @@ if (!is.null(opt$gencode_gtf) && is.null(opt$gencode_fasta)) {
 #' bed = map_peptides_to_genome(peptides, "gencode.v46.pc_translations.fa", gtf)
 #' write_tsv(bed %>% select(1:12), "peptides.bed", col_names = FALSE)
 map_peptides_to_genome = function(peptides, aa_fasta_path, gtf_path) {
-  
+
   # --- 0. Input validation ---
-  
+
   # Check peptide table structure
-  peptide_tx = peptides 
+  peptide_tx = peptides
   if (ncol(peptide_tx) < 2) stop("Peptide table must have at least 2 columns (Sequence, transcript_id)")
   if (!is.character(peptide_tx[[1]])) stop("First column of peptides table must be character (peptide sequences)")
   if (!is.character(peptide_tx[[2]])) stop("Second column of peptides table must be character (transcript IDs)")
   names(peptide_tx)[1:2] = c("Sequence", "transcript_id")
   has_psm = ncol(peptide_tx) >= 3 && is.numeric(peptide_tx[[3]])
   if (has_psm) names(peptide_tx)[3] = "PSM"
-  
+
   # Check GTF has CDS entries
   gtf = import(gtf_path) %>% as.data.frame()
   if (!"type" %in% names(gtf)) stop("GTF must have a 'type' column")
   if (!any(gtf$type == "CDS")) stop("GTF has no CDS entries - cannot map peptides to genomic coordinates")
-  
+
   # Check GTF has required columns
   required_gtf_cols = c("seqnames", "start", "end", "strand", "transcript_id")
   missing_gtf = setdiff(required_gtf_cols, names(gtf))
   if (length(missing_gtf) > 0) stop("GTF missing required columns: ", paste(missing_gtf, collapse = ", "))
-  
+
   # --- 1. Read protein sequences ---
   aa_fasta = readAAStringSet(aa_fasta_path)
 
@@ -177,17 +177,17 @@ map_peptides_to_genome = function(peptides, aa_fasta_path, gtf_path) {
                            too_many = "drop", cols_remove = FALSE) %>%
       select(-gene_id)  # Keep transcript_id, drop gene_id
   }
-  
+
   # Check transcript ID overlap across inputs
   tx_in_peptides = unique(peptide_tx$transcript_id)
   tx_in_fasta    = unique(proteins$transcript_id)
   tx_in_gtf      = unique(gtf$transcript_id[gtf$type == "CDS"])
-  
+
   overlap_fasta    = sum(tx_in_peptides %in% tx_in_fasta)
   overlap_gtf      = sum(tx_in_peptides %in% tx_in_gtf)
   fasta_not_in_gtf = sum(!tx_in_fasta %in% tx_in_gtf)
   gtf_not_in_fasta = sum(!tx_in_gtf %in% tx_in_fasta)
-  
+
   cat("Transcript ID overlap:\n")
   cat("  Peptide Transcripts in FASTA:", overlap_fasta, "/", length(tx_in_peptides), "\n")
   cat("  Peptide Transcripts in CDS GTF:", overlap_gtf, "/", length(tx_in_peptides), "\n")
@@ -196,7 +196,7 @@ map_peptides_to_genome = function(peptides, aa_fasta_path, gtf_path) {
   if (gtf_not_in_fasta > 0) cat("  Warning:", gtf_not_in_fasta, "GTF CDS transcripts missing from FASTA\n")
   if (overlap_fasta == 0) stop("No transcript IDs in peptide table match the FASTA")
   if (overlap_gtf == 0) stop("No transcript IDs in peptide table match CDS entries in the GTF")
-  
+
   # --- 2. Locate peptide within protein sequence ---
   peptide_positions = peptide_tx %>%
     left_join(proteins, by = "transcript_id") %>%
@@ -223,7 +223,7 @@ map_peptides_to_genome = function(peptides, aa_fasta_path, gtf_path) {
       prior_length = cumulative_length - cds_length
     ) %>%
     ungroup()
-  
+
   # --- 4. Find all CDS blocks that overlap the peptide ---
   peptide_blocks = peptide_positions %>%
     left_join(cds_blocks, by = "transcript_id", relationship = "many-to-many") %>%
@@ -232,7 +232,7 @@ map_peptides_to_genome = function(peptides, aa_fasta_path, gtf_path) {
       # clip block to peptide boundaries
       block_start_nt = pmax(cds_nt_start, prior_length + 1),
       block_end_nt   = pmin(cds_nt_end, cumulative_length),
-      
+
       # convert to genomic coordinates
       genomic_block_start = if_else(strand == "+",
                                     start + (block_start_nt - prior_length) - 1,
@@ -241,7 +241,7 @@ map_peptides_to_genome = function(peptides, aa_fasta_path, gtf_path) {
                                   start + (block_end_nt - prior_length) - 1,
                                   end - (block_start_nt - prior_length) + 1)
     )
-  
+
   # --- 5. Collapse to BED12 format ---
   # BED12 requires blocks sorted by genomic position ascending
   bed12 = peptide_blocks %>%
@@ -273,7 +273,7 @@ map_peptides_to_genome = function(peptides, aa_fasta_path, gtf_path) {
       aa_start,
       aa_end
     )
-  
+
   # Join PSM back if provided
   if (has_psm) {
     psm_vals = peptide_tx %>%
@@ -282,18 +282,18 @@ map_peptides_to_genome = function(peptides, aa_fasta_path, gtf_path) {
       left_join(psm_vals, by = c("Sequence", "transcript_id")) %>%
       mutate(name = paste0(Sequence, "|PSM=", PSM))
   }
-  
+
   cat("\nMapped", nrow(bed12), "peptides to genomic coordinates\n")
   n_junction = sum(bed12$block_count > 1)
   if (n_junction > 0) cat("  ", n_junction, "span exon-exon junctions\n")
-  
+
   unmapped = peptide_tx %>%
     anti_join(bed12, by = c("Sequence", "transcript_id"))
-  
+
   if (nrow(unmapped) > 0) {
     cat("  Warning:", nrow(unmapped), "peptides could not be mapped to genomic coordinates\n")
   }
-  
+
   return(bed12)
 }
 
@@ -326,16 +326,16 @@ if (opt$acquisition_type == "DIA" & opt$ms_search_software == "fragpipe") {
   # get intensities
   dia_path = file.path(fragpipe_base, "dia-quant-output", "report.tsv")
   dia_report = read_tsv(dia_path, show_col_types = FALSE)
-  
+
   dia_intensity = dia_report %>%
     select(Sequence = Stripped.Sequence, Precursor.Quantity) %>%
     group_by(Sequence) %>%
     summarize(Intensity = sum(Precursor.Quantity, na.rm = TRUE), .groups = "drop")
-  
+
   peptides_df %<>%
     left_join(dia_intensity, by = c("Sequence")) %>%
     mutate(Intensity = replace_na(Intensity, 0))
-  
+
 }
 
 # Fragpipe DDA
@@ -350,23 +350,23 @@ if (opt$acquisition_type == "DDA" & opt$ms_search_software == "fragpipe") {
 
   peptides_path = file.path(fragpipe_base, "combined_peptide.tsv")
   dda_peptides = read_tsv(peptides_path, show_col_types = FALSE)
-  
+
   peptides_df = dda_peptides %>%
     select(
       Sequence = `Peptide Sequence`,          # Clean peptide sequence
       PSM = contains("Spectral Count"),       # PSM count
       Intensity = contains("Intensity"),      # Ion intensity
-      Protein, 
+      Protein,
       Additional_Proteins = `Mapped Proteins` # All protein matches (comma delimiter-separated)
     )
-  
+
 }
 
 # =============================================================================
 # Identify novel peptides
 # =============================================================================
 
-peptides_longer = peptides_df %>% 
+peptides_longer = peptides_df %>%
   mutate(all_proteins = if_else(
     Additional_Proteins == "" | is.na(Additional_Proteins),
     Protein,
@@ -378,16 +378,16 @@ peptides_longer = peptides_df %>%
 
 # logic to call novel peptides
 status = peptides_longer %>%
-  separate_wider_delim(header, 
+  separate_wider_delim(header,
                        delim = "|",
-                       names = c("transcript_id", "gene_id", "pclass", "status", "reference_type"), 
+                       names = c("transcript_id", "gene_id", "pclass", "status", "reference_type"),
                        cols_remove = FALSE) %>%
   group_by(Sequence, all_proteins) %>%
   mutate(
     maps_any_lrs = any(reference_type != "gencode", na.rm = TRUE),
     maps_any_ref = any(reference_type == "gencode", na.rm = TRUE)
   ) %>%
-  
+
   # discard gencode rows when LR is also present
   filter(!(maps_any_lrs & reference_type == "gencode")) %>%
   mutate(
@@ -424,7 +424,7 @@ out = status %>%
   select(-all_proteins)
 
 # =============================================================================
-# Write novel peptide summary and output 
+# Write novel peptide summary and output
 # =============================================================================
 
 # Write output
@@ -468,58 +468,58 @@ gencode_peptides = out %>%
 
 if (nrow(gencode_peptides) > 0) {
   cat("\n=== GENCODE peptides ===\n")
-  
+
   gencode_peptides %<>%
     select(Sequence, transcript_id, gene_id, PSM) %>%
     separate_rows(transcript_id, sep = ",") %>%
     separate_rows(gene_id, sep = ",") %>%
     filter(transcript_id != "NA")
-  
+
   # Remove peptides mapping to multiple genes
   multi_gene = gencode_peptides %>%
     distinct(Sequence, gene_id) %>%
     count(Sequence) %>%
     filter(n > 1)
   cat("Removing", nrow(multi_gene), "peptides mapping to multiple genes\n")
-  
+
   unique_gencode_peptides = gencode_peptides %>%
     filter(!Sequence %in% multi_gene$Sequence) %>%
     distinct(Sequence, transcript_id, PSM) %>%
     group_by(Sequence, PSM) %>%
     slice(1) %>%
     ungroup()
-    
+
   # Use provided GENCODE files
   if (is.null(opt$gencode_fasta) || is.null(opt$gencode_gtf)) {
     stop("Found ", nrow(gencode_peptides), " GENCODE-only peptides but --gencode_fasta / --gencode_gtf were not provided.")
   }
-  
+
   gencode_fa_local_path  = opt$gencode_fasta
   gencode_gtf_local_path = opt$gencode_gtf
-  
+
   # Map GENCODE peptides
   gencode_bed = map_peptides_to_genome(unique_gencode_peptides, gencode_fa_local_path, gencode_gtf_local_path)
-  
+
 }
-  
+
 # --- Custom/LRP peptides (only when custom/lrp fasta + gtf provided) ---
 if (!is.null(opt$custom_fasta) && !is.null(opt$custom_gtf)) {
   cat("\n=== Custom/LRP Peptides ===\n")
-  
+
   lr_peptides = out %>%
     filter(rna_detection_status == "RNA_detected") %>%
     select(Sequence, transcript_id, gene_id, PSM) %>%
     separate_rows(transcript_id, sep = ",") %>%
     separate_rows(gene_id, sep = ",") %>%
     filter(transcript_id != "NA")
-  
+
   # Remove peptides mapping to multiple genes
   multi_gene_lr = lr_peptides %>%
     distinct(Sequence, gene_id) %>%
     count(Sequence) %>%
     filter(n > 1)
   cat("\nRemoving", nrow(multi_gene_lr), "LR peptides mapping to multiple genes\n")
-  
+
   unique_lr_peptides = lr_peptides %>%
     filter(!Sequence %in% multi_gene_lr$Sequence) %>%
     distinct(Sequence, transcript_id, PSM) %>%
@@ -527,7 +527,7 @@ if (!is.null(opt$custom_fasta) && !is.null(opt$custom_gtf)) {
     slice(1) %>%
     ungroup() %>%
     mutate(transcript_id = as.character(transcript_id))
-  
+
   # Map custom/LRP peptides
   custom_bed = map_peptides_to_genome(unique_lr_peptides, opt$custom_fasta, opt$custom_gtf)
 }
