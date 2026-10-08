@@ -7,10 +7,11 @@
 #' - Hash id is calculated from junction coordinates via SHAKE-256 (0-based from psl, TSS/TES ignored)
 #' - Mono-exonic transcripts do not have junction chain coords, handled differently (TSS/TES used)
 #' - Concatenate chr and strand to hashid
+#' - Assess hash redundancy: collision, TSS/TES diversity, chrX/Y
 #' - Assign new pipeline transcript IDs using SQANTI QC reference mapping and structural categories:
-#'     FSM: GENE_NAME.ENST or GENE_NAME.NR (known isoform)
-#'     Non-FSM: GENE_NAME.junction_hash (novel isoform)
-#'
+#'     FSM: GENE_NAME::reference_transcript_id (e.g. ENST, NM_/NR_)
+#'     Non-FSM: GENE_NAME::junction_hash (novel isoform)
+#'     
 #' Inputs:
 #' - Sample gtf
 #' - Reference gtf
@@ -65,13 +66,13 @@ if (length(missing) > 0) {
 basename       = opt$basename
 sample_gtf     = opt$sample_gtf
 class_file     = opt$classification
-reference_gtf    = opt$reference_gtf
+reference_gtf  = opt$reference_gtf
 hashlib_script = opt$hashlib_script
 output_dir     = opt$output_dir
 
 stopifnot("Sample GTF not found"          = file.exists(sample_gtf))
 stopifnot("Classification file not found" = file.exists(class_file))
-stopifnot("Reference GTF not found"         = file.exists(reference_gtf))
+stopifnot("Reference GTF not found"       = file.exists(reference_gtf))
 stopifnot("Hashlib script not found"      = file.exists(hashlib_script))
 
 # =============================================================================
@@ -163,6 +164,7 @@ convert_gtf_to_psl = function(gtf_input_path, psl_output_file){
   psl_lines = generate_psl_lines(exons_grouped)
 
   writeLines(psl_lines, psl_output_file)
+  invisible(exons_df)
 }
 
 #' Extract junction hash from full hash ID (remove chr and strand)
@@ -187,8 +189,8 @@ cat("\nSTEP 1: Generating hash ids for all transcripts")
 psl          = file.path(output_dir, paste0(basename, ".transcriptome.psl")) # output psl
 hashid_file  = file.path(output_dir, paste0(basename, "_hashids_raw.txt"))
 
-convert_gtf_to_psl(gtf_input_path  = sample_gtf,
-                   psl_output_file = psl)
+exons = convert_gtf_to_psl(gtf_input_path  = sample_gtf, 
+                           psl_output_file = psl)
 
 # Run python script for hash ids- generates mapping file with transcript_id and hash_id
 system2("python", args = c(hashlib_script, psl, hashid_file))
@@ -200,10 +202,14 @@ cat("\nGenerated hash IDs for ", nrow(hashids), " transcripts\n")
 # Step 2: Read SQANTI classification and reference GTF
 # =============================================================================
 
-cat("\nSTEP 2: Reading SQANTI classification and GENCODE reference, resolving composite gene labels")
+cat("\nSTEP 2: Reading SQANTI classification and GENCODE reference, resolving composite gene labels\n")
 
-sqanti = read_tsv(class_file, show_col_types = FALSE) %>%
+sqanti_raw = read_tsv(class_file, show_col_types = FALSE)
+sqanti = sqanti_raw %>%
   filter(!is.na(associated_gene), !str_starts(associated_gene, "novelGene"))
+
+cat("\nRemoved ", nrow(sqanti_raw) - nrow(sqanti), " transcripts not assigned to a reference gene (novelGene); ",
+    nrow(sqanti), " transcripts remaining\n")
 
 # gene name lookup from reference
 reference    = import(reference_gtf, format = "gtf")
@@ -227,8 +233,9 @@ reference_transcript = reference_df %>%
 # NIC/NNC keep SQANTI's call
 n_composite = sum(str_detect(sqanti$associated_gene, "_"))
 
-sqanti %<>%
-  select(original_transcript_id = isoform, associated_gene, associated_transcript, structural_category) %>%
+sqanti %<>% 
+  select(original_transcript_id = isoform, associated_gene, associated_transcript, 
+         structural_category, starts_with("FL")) %>%
   left_join(reference_transcript, by = c("associated_transcript" = "ref_transcript")) %>%
   mutate(associated_gene = coalesce(ref_gene, associated_gene)) %>%
   select(-ref_gene) %>%
@@ -243,18 +250,93 @@ cat("\nResolved ", n_composite - n_remaining, " of ", n_composite, " composite g
 cat("  Remaining: ", paste(remaining_by_cat$structural_category, remaining_by_cat$n,
                            sep = "=", collapse = ", "), "\n")
 
-# =============================================================================
-# STEP 3: Build mapping table with new pipeline transcript IDs
-# =============================================================================
+# ==============================================================================================================================
+# STEP 3: Resolving shared junction chains (collisions, redundant FSMs, TSS/TES variants) and assigning pipeline transcript IDs
+# ==============================================================================================================================
 
-cat("\nSTEP 3: Building pipeline transcript IDs")
+cat("\nSTEP 3: Resolving junction chain redundancy and assigning pipeline transcript IDs\n")
 
 # Combine hash IDs with SQANTI classification and gene names
 mapping = hashids %>%
   dplyr::select(original_transcript_id = transcript_id, hash_id) %>%
   inner_join(sqanti, by = "original_transcript_id")
 
-cat("\nMapped ", nrow(mapping), " of ", nrow(hashids), " hashed transcripts to SQANTI classification entries\n")
+# Hash ID redundancy: transcripts sharing a junction chain (same hash_id)
+#   1. Collision (different junction chains, same hash) -> stop
+#   2. FSMs with identical counts (isocall reports the same reads under every matching reference) -> collapse
+#   3. Remaining TSS/TES variants -> kept, TSS/TES coordinates appended to hash_id
+
+# junction chain and TSS/TES per transcript (1-based)
+tx_info = exons %>%
+  arrange(transcript_id, start) %>%
+  group_by(original_transcript_id = transcript_id) %>%
+  summarise(junction_chain = paste(head(end, -1), tail(start, -1), sep = "-", collapse = ","),
+            strand = strand[1],
+            tss = if_else(strand == "+", min(start) + 1, max(end)),
+            tes = if_else(strand == "+", max(end), min(start) + 1),
+            .groups = "drop")
+
+has_fl = any(str_detect(names(mapping), "^FL"))
+
+shared = mapping %>%
+  group_by(hash_id) %>%
+  filter(n() > 1) %>%
+  ungroup() %>%
+  left_join(tx_info, by = "original_transcript_id") %>%
+  group_by(hash_id) %>%
+  mutate(all_fsm     = all(structural_category == "full-splice_match"),
+         same_chain  = n_distinct(junction_chain) == 1,
+         same_counts = has_fl && n_distinct(pick(starts_with("FL"))) == 1) %>%
+  ungroup()
+
+cat("Redundant hash IDs (junction chains assigned to more than one transcript): ",
+    n_distinct(shared$hash_id), " (", nrow(shared), " transcripts)\n", sep = "")
+
+# 1. hash collisions
+collisions = shared %>% filter(!same_chain)
+if (nrow(collisions) > 0) {
+  collision_file = file.path(output_dir, paste0(basename, ".hashid_collisions.txt"))
+  collisions %>%
+    dplyr::select(hash_id, original_transcript_id, structural_category, junction_chain) %>%
+    write_tsv(collision_file)
+  stop("\n\nHash ID collision detected: ", n_distinct(collisions$hash_id),
+       " hash IDs are shared by transcripts with different junction chains (", nrow(collisions), " transcripts).\n",
+       "This is not expected. Please open an issue on the LRP2 GitHub and include this file:\n",
+       collision_file, "\n", call. = FALSE)
+} else {
+  cat("  1. Hash collisions (different junction chains, same hash ID):\n",
+      "     none detected. Good!\n", sep = "")
+}
+
+# 2. FSMs with identical counts -> collapse, keeping the most 5' TSS
+drop_ids = shared %>%
+  filter(all_fsm, same_counts) %>%
+  group_by(hash_id) %>%
+  arrange(if_else(strand == "+", tss, -tss), associated_transcript, .by_group = TRUE) %>%
+  dplyr::slice(-1) %>%
+  pull(original_transcript_id)
+
+mapping %<>% filter(!original_transcript_id %in% drop_ids)
+
+n_collapsed_hash = n_distinct(shared$hash_id[shared$all_fsm & shared$same_counts])
+
+cat("  2. FSM TSS/TES variants with identical counts (expected from isocall):\n",
+    "     ", n_collapsed_hash, " hash IDs, kept 1 transcript each (most 5' TSS) and removed ",
+    length(drop_ids), " redundant transcripts\n", sep = "")
+
+# 3. Remaining TSS/TES variants (non-FSM, or FSMs with different counts) -> append TSS/TES coordinates to hash_id
+mapping %<>%
+  group_by(hash_id) %>%
+  mutate(hash_redundant = n() > 1) %>%
+  ungroup() %>%
+  left_join(dplyr::select(tx_info, original_transcript_id, tss, tes), by = "original_transcript_id") %>%
+  mutate(hash_id = if_else(hash_redundant, str_replace(hash_id, "_([+-])$", paste0(".tss", tss, "-tes", tes, "_\\1")), hash_id))
+
+cat("  3. Other TSS/TES variants (non-FSM, or FSM with different counts;\n",
+    "     not expected from isocall, possible with custom GTF input):\n",
+    "     ", sum(mapping$hash_redundant), " transcripts detected, TSS/TES coordinates appended to hash ID\n", sep = "")
+
+mapping %<>% dplyr::select(-tss, -tes, -hash_redundant)
 
 # Gene label: prefer gene_name, fall back to gene_id
 # Junction hash (without chr and strand)
@@ -263,8 +345,8 @@ mapping %<>%
   mutate(junction_hash = extract_junction_hash(hash_id))
 
 # New transcript ID:
-#   FSM -> GENE_NAME.reference_transcript_id
-#   Non-FSM -> GENE_NAME.junction_hash
+#   FSM -> GENE_NAME::reference_transcript_id
+#   Non-FSM -> GENE_NAME::junction_hash
 mapping %<>%
   mutate(
     isoform_id = case_when(
@@ -276,10 +358,10 @@ mapping %<>%
   )
 
 # =============================================================================
-# STEP 4: Check for redundant isoform IDs
+# STEP 4: Making IDs unique for chrX/chrY genes and mono-exonic FSMs
 # =============================================================================
 
-cat("\nSTEP 4: Checking for isoform ID redundancy\n")
+cat("\nSTEP 4: Making IDs unique for chrX/chrY genes and mono-exonic FSMs\n")
 
 # Extract chromosome from hash_id for chrX/Y redundancy
 mapping %<>% mutate(chrom = str_extract(hash_id, "^[^_]+"))
@@ -296,8 +378,8 @@ if (nrow(dupe_ids) > 0) {
     group_by(isoform_id) %>%
     filter(n_distinct(chrom) > 1) %>%
     ungroup()
-
-  # same isoform_id and same chromosome (different TSS/TES)
+  
+  # same isoform_id and same chromosome (mono-exonic FSMs)
   other_dupes = dupe_ids %>%
     group_by(isoform_id) %>%
     filter(n_distinct(chrom) == 1) %>%
@@ -306,39 +388,37 @@ if (nrow(dupe_ids) > 0) {
   if (nrow(chr_dupes) > 0) {
     n_chr = n_distinct(chr_dupes$isoform_id)
     cat("Chr gene redundancy e.g., chrX/chrY: ", n_chr, " isoform IDs on multiple chromosomes (",
-            nrow(chr_dupes), " total rows). Appending chromosome to gene label.\n")
-
+        nrow(chr_dupes), " total rows). Appending chromosome to gene label.\n")
+    
     chr_fix = chr_dupes %>%
       mutate(isoform_id = paste0(gene_label, ".", chrom, "::", junction_hash))
-
-    # chr_fix = chr_dupes %>%
-    #   mutate(isoform_id = str_replace(isoform_id, "^([^:]+)", paste0("\\1(", chrom, ")")))
-
+    
     mapping = mapping %>%
       filter(!original_transcript_id %in% chr_dupes$original_transcript_id) %>%
       bind_rows(chr_fix)
   }
 
   if (nrow(other_dupes) > 0) {
-    n_other = n_distinct(other_dupes$isoform_id)
-    cat("TSS/TES redundancy: ", n_other, " isoform IDs with same junctions in the same gene, different ends (",
-            nrow(other_dupes), " total rows). Appending ::1, ::2, etc.\n")
-
+    cat("Isoform ID redundancy (e.g. mono-exonic FSMs to the same reference): ", n_distinct(other_dupes$isoform_id),
+        " isoform IDs (", nrow(other_dupes), " total rows). Appending TSS/TES coordinates.\n")
+    
     other_fix = other_dupes %>%
-      group_by(isoform_id) %>%
-      mutate(rn = row_number()) %>%
-      ungroup() %>%
-      mutate(isoform_id = paste0(isoform_id, "::", rn)) %>%
-      select(-rn)
-
+      left_join(dplyr::select(tx_info, original_transcript_id, tss, tes), by = "original_transcript_id") %>%
+      mutate(isoform_id = paste0(isoform_id, ".tss", tss, "-tes", tes)) %>%
+      dplyr::select(-tss, -tes)
+    
     mapping = mapping %>%
       filter(!original_transcript_id %in% other_dupes$original_transcript_id) %>%
       bind_rows(other_fix)
   }
-
-} else {
-  cat("No isoform ID redundancy detected\n")
 }
+
+# final guard: identical junction chain, TSS and TES = fully duplicated transcripts
+if (any(duplicated(mapping$hash_id)) || any(duplicated(mapping$isoform_id))) {
+  stop("\n\nDuplicate transcripts detected: identical junction chain, TSS and TES.\n",
+       "Remove duplicate transcripts from the input GTF and count matrix before rerunning.\n", call. = FALSE)
+}
+
 
 # =============================================================================
 # STEP 5: Write output mapping file
