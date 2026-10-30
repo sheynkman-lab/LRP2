@@ -1,14 +1,3 @@
-<<<<<<< HEAD
-.nextflow*
-work/
-data/
-results/
-.DS_Store
-testing/
-testing*
-*.pyc
-null/
-=======
 # History files
 .Rhistory
 .Rapp.history
@@ -59,31 +48,35 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-log_files/*
+# Nextflow
+.nextflow*
+.nextflow.log*
+.nextflow/
 
-results/*
-fragpipe_tools/*
+# Project directories
+data/
+results/
+work/
+null/
+sample_data/
+log_files/
+fragpipe_tools/
+testing/
+testing*
+environments/leafcutter_env/
+scripts/archive/
+
+# System files
+.DS_Store
+*.pyc
 
 # Test data
 test_data/run_rna_only/test_results/
 test_data/run_fragpipe_rna/test_results/
 test_results/
 test_results_dda/
+test_results_dia/
 
 # leafcutter
 bin/leafcutter/__pycache__/
 bin/leafcutter/differential_splicing/__pycache__/
-
-<<<<<<< HEAD
-
-environments/leafcutter_env/*
-
-.nextflow.log*
-.nextflow/
-sample_data/*
-work/*
-null/*
-scripts/archive/*
-=======
->>>>>>> main
->>>>>>> dev

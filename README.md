@@ -69,10 +69,10 @@ screen -S lrp2
 
 Request an interactive job with enough resources for the test dataset:
 ```bash
-salloc -c 4 --mem=64G -p your_slurm_partition -A your_allocation --time=4:00:00
+srun -c 4 --mem=64G -p your_slurm_partition -A your_allocation --time=4:00:00 --pty bash
 ```
 
-> **Note**: Adjust for your HPC system. Replace `your_slurm_partition` with your SLURM partition and `your_allocation` with your SLURM allocation group. UVA Rivanna users can substitute `ijob` for `salloc`. The `-c` (CPUs), `--mem` (memory), and `--time` values above are sufficient for the test dataset, but should be increased for larger datasets.
+> **Note**: Adjust for your HPC system. Replace `your_slurm_partition` with your SLURM partition and `your_allocation` with your SLURM allocation group. UVA Rivanna users can substitute `ijob` for `srun`. The `-c` (CPUs), `--mem` (memory), and `--time` values above are sufficient for the test dataset, but should be increased for larger datasets.
 
 Load the required modules:
 ```bash
@@ -93,7 +93,9 @@ nextflow run . \
 
 > **Note**: To run locally on your current node instead of submitting to SLURM, drop the `slurm` profile: `-profile test_rna,singularity`.
 
-### Run the RNA + DDA proteomics test dataset
+### Run the RNA + proteomics test dataset
+
+LRP2 provides test profiles for both DDA and DIA proteomics workflows. You can run either `test_dda` or `test_dia` using the instructions below.
 
 **Step 1: Get a FragPipe academic license token.**
 
@@ -121,8 +123,9 @@ curl --location --request POST \
 
 **Step 3: Run the test.**
 
-From the `LRP2` directory:
+From the `LRP2` directory, run **either** the DDA test **or** the DIA test:
 
+**For DDA proteomics:**
 ```bash
 nextflow run . \
     -profile test_dda,singularity,slurm \
@@ -130,9 +133,19 @@ nextflow run . \
     --fragpipe_token "YOUR_TOKEN" \
     --hpc_queue your_queue
 ```
-> **Note**: The `test_dda` profile automatically sets `--protein_search fragpipe` and `--fragpipe_license_accept true`.
 
-> **Note**: To run locally instead of submitting to SLURM, drop the `slurm` profile: `-profile test_dda,singularity`.
+**For DIA proteomics:**
+```bash
+nextflow run . \
+    -profile test_dia,singularity,slurm \
+    --outdir test_results_dia \
+    --fragpipe_token "YOUR_TOKEN" \
+    --hpc_queue your_queue
+```
+
+> **Note**: Both `test_dda` and `test_dia` profiles automatically set `--protein_search fragpipe` and `--fragpipe_license_accept true`.
+
+> **Note**: To run locally instead of submitting to SLURM, drop the `slurm` profile: `-profile test_dda,singularity` or `-profile test_dia,singularity`.
 
 ## Preparing Input Data
 
@@ -208,7 +221,7 @@ sbatch run_lrp2.sh
 > - **The driver job** (`#SBATCH` directives in the shell script): modest resources are sufficient. Nextflow itself only orchestrates submissions and doesn't run the heavy work.
 > - **Individual pipeline tasks** (CPUs, memory, time per process): handled automatically by LRP2's internal configuration. You do **not** need to specify these on the command line. To customize, edit `conf/base.config`.
 >
-> Include `--fragpipe_token` only if running the proteomics subworkflow (see [Run the RNA + DDA proteomics test dataset](#run-the-rna--dda-proteomics-test-dataset) for obtaining a token). Differential analysis runs automatically when two or more conditions are present in the samplesheet.
+> Include `--fragpipe_token` only if running the proteomics subworkflow (see [Run the RNA + proteomics test dataset](#run-the-rna--proteomics-test-dataset) for obtaining a token). Differential analysis runs automatically when two or more conditions are present in the samplesheet.
 
 ### Entry at S2 Transcriptome with non-Pacbio Data
 
@@ -232,7 +245,6 @@ nextflow run /path/to/LRP2 \
 ```
 
 > [!INFO] Critical Requirements
-
 >  1. Transcript IDs **must match exactly** between your provided GTF and count matrix. If they do not, LRP2 will exit with logging identifying mismatched transcript IDs.  
 >  2. Your provided counts matrix **must be tab-delimited**.
 >  3. Your provided counts matrix **first column must be named `transcript_id` containing transcript identifiers**, while **subsequent columns have sample names** matching the `sample_name` values in your samplesheet. All values must correspond to raw counts. If your counts matrix contains any other columns, they should be removed as a preprocessing step before input into the pipeline. 
@@ -323,6 +335,7 @@ Nextflow profiles control how the pipeline executes. Multiple profiles can be co
 |---------|-------------|---------|
 | `test_rna` | RNA-only test dataset | Runs RNA subworkflows (S1 - S4) |
 | `test_dda` | RNA + DDA proteomics test | Runs all subworkflows (S1 - S5) with FragPipe DDA search |
+| `test_dia` | RNA + DIA proteomics test | Runs all subworkflows (S1 - S5) with FragPipe DIA search |
 
 ### Example Profile Combinations
 
@@ -424,7 +437,7 @@ nextflow run /path/to/LRP2 --help
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `--protein_search` | Search engine: `fragpipe` (required) | - |
-| `--fragpipe_token` | Single-use academic license token for FragPipe (required if `--protein_search fragpipe`). See [Run the RNA + DDA proteomics test dataset](#run-the-rna--dda-proteomics-test-dataset) for how to obtain one. | — |
+| `--fragpipe_token` | Single-use academic license token for FragPipe (required if `--protein_search fragpipe`). See [Run the RNA + proteomics test dataset](#run-the-rna--proteomics-test-dataset) for how to obtain one. | — |
 | `--fragpipe_workflow` | Path to a custom FragPipe workflow file specifying search parameters (modifications, enzymes, etc.) | default is selected by `mass_spec_type` |'
 | `--S5_custom_protein_fasta` | Proteomics-only runs, entry at S5. Protein FASTA to build the search database from. Accepts LRP2 output (headers: `transcript_id\|gene_id\|gene_name\|pclass\|status`) or any custom FASTA (`transcript_id\|gene_id` at minimum); the source is auto-detected. | — |
 | `--S5_custom_cds_gtf` | Proteomics-only runs, entry at S5. GTF with CDS entries paired with `--S5_custom_protein_fasta`, used to map peptides to genomic coordinates. Transcript IDs must match the FASTA. | — |

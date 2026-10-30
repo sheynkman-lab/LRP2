@@ -15,7 +15,7 @@
             },
             "sample_path": {
                 "type": "string",
-                "pattern": "^(https?://|ftp://|([\\S\\s]*\\/)?)[^\\s\\/]+\\.(bam|fastq|fastq\\.gz|fq|fq\\.gz|raw|mzML|mzml|fasta)$",
+                "pattern": "^(https?://|ftp://|([\\S\\s]*\\/)?)[^\\s\\/]+\\.(bam|fastq|fastq\\.gz|fq|fq\\.gz|raw|mzML|mzml|fasta)(\\?[^\\s]*)?$",
                 "errorMessage": "Sample file path or URL must be provided, cannot contain spaces and must have extension '.bam', '.fastq', '.fastq.gz', '.fq', '.fq.gz', '.raw', '.mzML', '.mzml', or '.fasta' (for testing). URLs must start with http://, https://, or ftp://"
             },
             "condition": {
