@@ -97,6 +97,7 @@ jobs:
         if: matrix.container_engine == 'docker'
         run: |
           # Create Nextflow config for Docker with GitHub Actions compatibility
+          # Override docker.runOptions to avoid user ID mapping issues in CI
           cat > /tmp/github_actions_docker.config <<'EOF'
           docker {
             enabled = true
@@ -107,6 +108,11 @@ jobs:
           }
           apptainer {
             enabled = false
+          }
+          profiles {
+            docker {
+              docker.runOptions = ''
+            }
           }
           EOF
 
@@ -137,11 +143,12 @@ jobs:
 
           # Create Nextflow config for Singularity with GitHub Actions compatibility
           # Note: Only enable singularity, not both singularity and apptainer
+          # Use --no-home and --containall for better GitHub Actions compatibility
           cat > /tmp/github_actions_singularity.config <<'EOF'
           singularity {
             enabled = true
-            autoMounts = true
-            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+            autoMounts = false
+            runOptions = '--no-home --containall'
           }
           apptainer {
             enabled = false
@@ -457,6 +464,7 @@ jobs:
         if: matrix.container_engine == 'docker'
         run: |
           # Create Nextflow config for Docker with GitHub Actions compatibility
+          # Override docker.runOptions to avoid user ID mapping issues in CI
           cat > /tmp/github_actions_docker.config <<'EOF'
           docker {
             enabled = true
@@ -467,6 +475,11 @@ jobs:
           }
           apptainer {
             enabled = false
+          }
+          profiles {
+            docker {
+              docker.runOptions = ''
+            }
           }
           EOF
 
@@ -691,6 +704,7 @@ jobs:
         if: matrix.container_engine == 'docker'
         run: |
           # Create Nextflow config for Docker with GitHub Actions compatibility
+          # Override docker.runOptions to avoid user ID mapping issues in CI
           cat > /tmp/github_actions_docker.config <<'EOF'
           docker {
             enabled = true
@@ -701,6 +715,11 @@ jobs:
           }
           apptainer {
             enabled = false
+          }
+          profiles {
+            docker {
+              docker.runOptions = ''
+            }
           }
           EOF
 
@@ -932,6 +951,7 @@ jobs:
         if: matrix.container_engine == 'docker'
         run: |
           # Create Nextflow config for Docker with GitHub Actions compatibility
+          # Override docker.runOptions to avoid user ID mapping issues in CI
           cat > /tmp/github_actions_docker.config <<'EOF'
           docker {
             enabled = true
@@ -942,6 +962,11 @@ jobs:
           }
           apptainer {
             enabled = false
+          }
+          profiles {
+            docker {
+              docker.runOptions = ''
+            }
           }
           EOF
 
