@@ -1,8 +1,20 @@
 name: Integration Tests
 on:
-  push:
+  pull_request:
     branches:
       - '**'
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "**/*.png"
+      - "**/*.svg"
+      - "**/*.jpg"
+      - "**/*.jpeg"
+      - "CITATION.cff"
+      - ".gitignore"
+  push:
+    branches:
+      - main
     paths-ignore:
       - "docs/**"
       - "**/*.md"
@@ -15,7 +27,7 @@ on:
   workflow_dispatch:
     inputs:
       fragpipe_token:
-        description: 'FragPipe authentication token (6-digit code from email, required for initial test_dda cache setup)'
+        description: 'FragPipe token (6-digit, 20min expiry). REQUIRED ONCE to populate cache, then all future runs use cached tools.'
         required: false
         type: string
 
@@ -30,17 +42,28 @@ env:
   NXF_SINGULARITY_LIBRARYDIR: ${{ github.workspace }}/.singularity
 
 jobs:
-  # Stage 1: Full pipeline tests with test_rna and test_dda profiles
+  # Stage 1: Full pipeline tests with test_rna, test_dda, and test_dia profiles
   full-pipeline-test:
-    name: "Full Pipeline: ${{ matrix.test_profile }} | ${{ matrix.container_engine }} | NXF ${{ matrix.NXF_VER }}"
+    name: "Full Pipeline: ${{ matrix.test_profile }}${{ matrix.genome_version && format(' ({0})', matrix.genome_version) || '' }} | ${{ matrix.container_engine }} | NXF ${{ matrix.NXF_VER }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        test_profile: [test_rna, test_dda]
+        test_profile: [test_rna, test_dda, test_dia]
         container_engine: [docker, singularity]
         NXF_VER:
           - "25.04.0"
+        genome_version: [null]
+        include:
+          # Add GENCODE V40 test for test_rna profile to test _PAR_Y ID handling
+          - test_profile: test_rna
+            container_engine: docker
+            NXF_VER: "25.04.0"
+            genome_version: "GRCh38.p13.v40"
+          - test_profile: test_rna
+            container_engine: singularity
+            NXF_VER: "25.04.0"
+            genome_version: "GRCh38.p13.v40"
 
     steps:
       - name: Clean Workspace
@@ -70,6 +93,26 @@ jobs:
         if: matrix.container_engine == 'docker'
         uses: docker/setup-buildx-action@v3
 
+      - name: Configure Docker for GitHub Actions
+        if: matrix.container_engine == 'docker'
+        run: |
+          # Create Nextflow config for Docker with GitHub Actions compatibility
+          cat > /tmp/github_actions_docker.config <<'EOF'
+          docker {
+            enabled = true
+            runOptions = ''
+          }
+          singularity {
+            enabled = false
+          }
+          apptainer {
+            enabled = false
+          }
+          EOF
+
+          echo "Created Nextflow Docker config for GitHub Actions:"
+          cat /tmp/github_actions_docker.config
+
       - name: Cache Docker images
         if: matrix.container_engine == 'docker'
         uses: actions/cache@v4
@@ -86,13 +129,14 @@ jobs:
         with:
           apptainer-version: 1.1.9
 
-      - name: Configure Apptainer and Nextflow for GitHub Actions
+      - name: Configure Singularity and Nextflow for GitHub Actions
         if: matrix.container_engine == 'singularity'
         run: |
-          # Verify Apptainer is installed
+          # Verify Apptainer is installed (acts as Singularity)
           apptainer --version
 
-          # Create Nextflow config for Apptainer/Singularity with GitHub Actions compatibility
+          # Create Nextflow config for Singularity with GitHub Actions compatibility
+          # Note: Only enable singularity, not both singularity and apptainer
           cat > /tmp/github_actions_singularity.config <<'EOF'
           singularity {
             enabled = true
@@ -100,9 +144,10 @@ jobs:
             runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
           }
           apptainer {
-            enabled = true
-            autoMounts = true
-            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+            enabled = false
+          }
+          docker {
+            enabled = false
           }
           EOF
 
@@ -126,8 +171,12 @@ jobs:
             ${{ runner.os }}-singularity-${{ matrix.test_profile }}-
             ${{ runner.os }}-singularity-
 
+      # FragPipe tools are cached to avoid re-downloading with token every run
+      # INITIAL SETUP: Run workflow_dispatch ONCE with a fresh token to populate cache
+      # SUBSEQUENT RUNS: All PR/push runs will use cached tools (no token needed)
+      # Cache persists across all workflow runs and is shared repository-wide
       - name: Cache FragPipe tools
-        if: matrix.test_profile == 'test_dda'
+        if: matrix.test_profile == 'test_dda' || matrix.test_profile == 'test_dia'
         id: cache-fragpipe
         uses: actions/cache@v4
         with:
@@ -175,7 +224,7 @@ jobs:
           nextflow -version
 
       - name: Check FragPipe requirements
-        if: matrix.test_profile == 'test_dda'
+        if: matrix.test_profile == 'test_dda' || matrix.test_profile == 'test_dia'
         id: check_fragpipe
         run: |
           CACHE_HIT="${{ steps.cache-fragpipe.outputs.cache-hit }}"
@@ -207,24 +256,31 @@ jobs:
             echo "use_token=true" >> $GITHUB_OUTPUT
             echo "fragpipe_token=${TOKEN}" >> $GITHUB_OUTPUT
           else
-            echo "::warning::No FragPipe cache and no token available - skipping test_dda test"
-            echo "::warning::To enable test_dda: Set FRAGPIPE_TOKEN repository secret or provide token via workflow_dispatch"
+            echo "::warning::No FragPipe cache and no token available - skipping ${{ matrix.test_profile }} test"
+            echo "::warning::To enable test_dda/test_dia: Set FRAGPIPE_TOKEN repository secret or provide token via workflow_dispatch"
             echo "skip_test=true" >> $GITHUB_OUTPUT
             echo "use_token=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Run full pipeline test - ${{ matrix.test_profile }} with ${{ matrix.container_engine }}
-        if: matrix.test_profile == 'test_rna' || (matrix.test_profile == 'test_dda' && steps.check_fragpipe.outputs.skip_test != 'true')
+        if: matrix.test_profile == 'test_rna' || ((matrix.test_profile == 'test_dda' || matrix.test_profile == 'test_dia') && steps.check_fragpipe.outputs.skip_test != 'true')
         id: run_test
+        continue-on-error: ${{ (matrix.test_profile == 'test_dda' || matrix.test_profile == 'test_dia') && steps.check_fragpipe.outputs.use_token == 'true' }}
         run: |
           echo "=========================================="
           echo "Running: ${{ matrix.test_profile }} with ${{ matrix.container_engine }}"
+          if [[ -n "${{ matrix.genome_version }}" ]]; then
+            echo "Genome version: ${{ matrix.genome_version }}"
+          fi
           echo "=========================================="
           echo "Start time: $(date)"
           echo ""
 
           # Create output directory
           OUTDIR="test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}"
+          if [[ -n "${{ matrix.genome_version }}" ]]; then
+            OUTDIR="${OUTDIR}_${{ matrix.genome_version }}"
+          fi
           mkdir -p ${OUTDIR}
 
           # Build the nextflow command
@@ -234,13 +290,21 @@ jobs:
             -resume \
             -ansi-log false"
 
-          # Add GitHub Actions Singularity config if using singularity
-          if [[ "${{ matrix.container_engine }}" == "singularity" ]]; then
-            CMD="${CMD} -c /tmp/github_actions_singularity.config"
+          # Add genome version override if specified
+          if [[ -n "${{ matrix.genome_version }}" ]]; then
+            CMD="${CMD} --genome ${{ matrix.genome_version }}"
+            echo "Overriding genome to: ${{ matrix.genome_version }}"
           fi
 
-          # Add FragPipe parameters for test_dda profile
-          if [[ "${{ matrix.test_profile }}" == "test_dda" ]]; then
+          # Add GitHub Actions config for container engine
+          if [[ "${{ matrix.container_engine }}" == "singularity" ]]; then
+            CMD="${CMD} -c /tmp/github_actions_singularity.config"
+          elif [[ "${{ matrix.container_engine }}" == "docker" ]]; then
+            CMD="${CMD} -c /tmp/github_actions_docker.config"
+          fi
+
+          # Add FragPipe parameters for test_dda and test_dia profiles
+          if [[ "${{ matrix.test_profile }}" == "test_dda" ]] || [[ "${{ matrix.test_profile }}" == "test_dia" ]]; then
             CMD="${CMD} --fragpipe_license_accept true"
             if [[ "${{ steps.check_fragpipe.outputs.use_token }}" == "true" ]]; then
               CMD="${CMD} --fragpipe_token ${{ steps.check_fragpipe.outputs.fragpipe_token }}"
@@ -278,7 +342,7 @@ jobs:
           exit ${EXIT_CODE}
 
       - name: Save FragPipe tools to cache
-        if: success() && matrix.test_profile == 'test_dda' && steps.cache-fragpipe.outputs.cache-hit != 'true'
+        if: success() && (matrix.test_profile == 'test_dda' || matrix.test_profile == 'test_dia') && steps.cache-fragpipe.outputs.cache-hit != 'true'
         run: |
           if [ -d "fragpipe_tools" ]; then
             echo "FragPipe tools directory exists, will be cached for future runs"
@@ -288,10 +352,10 @@ jobs:
           fi
 
       - name: Report skipped test
-        if: matrix.test_profile == 'test_dda' && steps.check_fragpipe.outputs.skip_test == 'true'
+        if: (matrix.test_profile == 'test_dda' || matrix.test_profile == 'test_dia') && steps.check_fragpipe.outputs.skip_test == 'true'
         run: |
-          echo "::notice::test_dda test skipped - no FragPipe token available and no cache found"
-          echo "## Test Skipped: test_dda | ${{ matrix.container_engine }}" >> $GITHUB_STEP_SUMMARY
+          echo "::notice::${{ matrix.test_profile }} test skipped - no FragPipe token available and no cache found"
+          echo "## Test Skipped: ${{ matrix.test_profile }} | ${{ matrix.container_engine }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "This test was skipped because:" >> $GITHUB_STEP_SUMMARY
           echo "- No FragPipe authentication token was available (neither as repository secret nor workflow input)" >> $GITHUB_STEP_SUMMARY
@@ -302,7 +366,7 @@ jobs:
           echo "2. Manually trigger the workflow and provide a FragPipe token" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload pipeline outputs as artifacts
-        if: success() && matrix.container_engine == 'docker'
+        if: success() && matrix.container_engine == 'docker' && !matrix.genome_version
         uses: actions/upload-artifact@v4
         with:
           name: full-pipeline-outputs-${{ matrix.test_profile }}
@@ -310,14 +374,23 @@ jobs:
             test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}/
           retention-days: 7
 
+      - name: Upload pipeline outputs as artifacts (with genome version)
+        if: success() && matrix.container_engine == 'docker' && matrix.genome_version
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-pipeline-outputs-${{ matrix.test_profile }}-${{ matrix.genome_version }}
+          path: |
+            test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}_${{ matrix.genome_version }}/
+          retention-days: 7
+
       - name: Upload pipeline logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: logs-full-pipeline-${{ matrix.test_profile }}-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
+          name: logs-full-pipeline-${{ matrix.test_profile }}${{ matrix.genome_version && format('-{0}', matrix.genome_version) || '' }}-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
           path: |
             .nextflow.log
-            test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}/pipeline_info/
+            test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}${{ matrix.genome_version && format('_{0}', matrix.genome_version) || '' }}/pipeline_info/
             work/*/.command.log
             work/*/.command.err
           retention-days: 7
@@ -326,11 +399,11 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: reports-full-pipeline-${{ matrix.test_profile }}-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
+          name: reports-full-pipeline-${{ matrix.test_profile }}${{ matrix.genome_version && format('-{0}', matrix.genome_version) || '' }}-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
           path: |
-            test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}/pipeline_info/execution_report*.html
-            test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}/pipeline_info/execution_timeline*.html
-            test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}/multiqc/multiqc_report.html
+            test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}${{ matrix.genome_version && format('_{0}', matrix.genome_version) || '' }}/pipeline_info/execution_report*.html
+            test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}${{ matrix.genome_version && format('_{0}', matrix.genome_version) || '' }}/pipeline_info/execution_timeline*.html
+            test_results_${{ matrix.test_profile }}_${{ matrix.container_engine }}${{ matrix.genome_version && format('_{0}', matrix.genome_version) || '' }}/multiqc/multiqc_report.html
           retention-days: 14
 
       - name: Clean up work directory
@@ -380,6 +453,26 @@ jobs:
         if: matrix.container_engine == 'docker'
         uses: docker/setup-buildx-action@v3
 
+      - name: Configure Docker for GitHub Actions
+        if: matrix.container_engine == 'docker'
+        run: |
+          # Create Nextflow config for Docker with GitHub Actions compatibility
+          cat > /tmp/github_actions_docker.config <<'EOF'
+          docker {
+            enabled = true
+            runOptions = ''
+          }
+          singularity {
+            enabled = false
+          }
+          apptainer {
+            enabled = false
+          }
+          EOF
+
+          echo "Created Nextflow Docker config for GitHub Actions:"
+          cat /tmp/github_actions_docker.config
+
       - name: Cache Docker images
         if: matrix.container_engine == 'docker'
         uses: actions/cache@v4
@@ -407,9 +500,10 @@ jobs:
             runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
           }
           apptainer {
-            enabled = true
-            autoMounts = true
-            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+            enabled = false
+          }
+          docker {
+            enabled = false
           }
           EOF
           cat /tmp/github_actions_singularity.config
@@ -490,9 +584,11 @@ jobs:
             -resume \
             -ansi-log false"
 
-          # Add GitHub Actions Singularity config if using singularity
+          # Add GitHub Actions config for container engine
           if [[ "${{ matrix.container_engine }}" == "singularity" ]]; then
             CMD="${CMD} -c /tmp/github_actions_singularity.config"
+          elif [[ "${{ matrix.container_engine }}" == "docker" ]]; then
+            CMD="${CMD} -c /tmp/github_actions_docker.config"
           fi
 
           # Run the pipeline
@@ -591,6 +687,26 @@ jobs:
         if: matrix.container_engine == 'docker'
         uses: docker/setup-buildx-action@v3
 
+      - name: Configure Docker for GitHub Actions
+        if: matrix.container_engine == 'docker'
+        run: |
+          # Create Nextflow config for Docker with GitHub Actions compatibility
+          cat > /tmp/github_actions_docker.config <<'EOF'
+          docker {
+            enabled = true
+            runOptions = ''
+          }
+          singularity {
+            enabled = false
+          }
+          apptainer {
+            enabled = false
+          }
+          EOF
+
+          echo "Created Nextflow Docker config for GitHub Actions:"
+          cat /tmp/github_actions_docker.config
+
       - name: Cache Docker images
         if: matrix.container_engine == 'docker'
         uses: actions/cache@v4
@@ -618,9 +734,10 @@ jobs:
             runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
           }
           apptainer {
-            enabled = true
-            autoMounts = true
-            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+            enabled = false
+          }
+          docker {
+            enabled = false
           }
           EOF
           cat /tmp/github_actions_singularity.config
@@ -708,9 +825,11 @@ jobs:
             -resume \
             -ansi-log false"
 
-          # Add GitHub Actions Singularity config if using singularity
+          # Add GitHub Actions config for container engine
           if [[ "${{ matrix.container_engine }}" == "singularity" ]]; then
             CMD="${CMD} -c /tmp/github_actions_singularity.config"
+          elif [[ "${{ matrix.container_engine }}" == "docker" ]]; then
+            CMD="${CMD} -c /tmp/github_actions_docker.config"
           fi
 
           # Run the pipeline
@@ -809,6 +928,26 @@ jobs:
         if: matrix.container_engine == 'docker'
         uses: docker/setup-buildx-action@v3
 
+      - name: Configure Docker for GitHub Actions
+        if: matrix.container_engine == 'docker'
+        run: |
+          # Create Nextflow config for Docker with GitHub Actions compatibility
+          cat > /tmp/github_actions_docker.config <<'EOF'
+          docker {
+            enabled = true
+            runOptions = ''
+          }
+          singularity {
+            enabled = false
+          }
+          apptainer {
+            enabled = false
+          }
+          EOF
+
+          echo "Created Nextflow Docker config for GitHub Actions:"
+          cat /tmp/github_actions_docker.config
+
       - name: Cache Docker images
         if: matrix.container_engine == 'docker'
         uses: actions/cache@v4
@@ -836,9 +975,10 @@ jobs:
             runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
           }
           apptainer {
-            enabled = true
-            autoMounts = true
-            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+            enabled = false
+          }
+          docker {
+            enabled = false
           }
           EOF
           cat /tmp/github_actions_singularity.config
@@ -941,9 +1081,11 @@ jobs:
             -resume \
             -ansi-log false"
 
-          # Add GitHub Actions Singularity config if using singularity
+          # Add GitHub Actions config for container engine
           if [[ "${{ matrix.container_engine }}" == "singularity" ]]; then
             CMD="${CMD} -c /tmp/github_actions_singularity.config"
+          elif [[ "${{ matrix.container_engine }}" == "docker" ]]; then
+            CMD="${CMD} -c /tmp/github_actions_docker.config"
           fi
 
           # Run the pipeline
@@ -1051,10 +1193,14 @@ jobs:
             echo "All test configurations completed successfully:" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Stage 1: Full Pipeline Tests**" >> $GITHUB_STEP_SUMMARY
-            echo "- test_rna with docker" >> $GITHUB_STEP_SUMMARY
-            echo "- test_rna with singularity" >> $GITHUB_STEP_SUMMARY
+            echo "- test_rna with docker (GENCODE v49)" >> $GITHUB_STEP_SUMMARY
+            echo "- test_rna with singularity (GENCODE v49)" >> $GITHUB_STEP_SUMMARY
+            echo "- test_rna with docker (GENCODE v40 - testing _PAR_Y IDs)" >> $GITHUB_STEP_SUMMARY
+            echo "- test_rna with singularity (GENCODE v40 - testing _PAR_Y IDs)" >> $GITHUB_STEP_SUMMARY
             echo "- test_dda with docker" >> $GITHUB_STEP_SUMMARY
             echo "- test_dda with singularity" >> $GITHUB_STEP_SUMMARY
+            echo "- test_dia with docker" >> $GITHUB_STEP_SUMMARY
+            echo "- test_dia with singularity" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "**Stage 2: Entry Point Tests**" >> $GITHUB_STEP_SUMMARY
             echo "- S2 entry point with docker" >> $GITHUB_STEP_SUMMARY
