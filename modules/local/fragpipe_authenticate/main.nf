@@ -333,7 +333,7 @@ process FRAGPIPE_AUTHENTICATE {
                 echo -e "     \${GREEN}--fragpipe_token XXXXXX\${RESET}"
             else
                 echo -e "  \${CYAN}1.\${RESET} Check your email (\$USER_EMAIL) for a \${CYAN}NEW\${RESET} verification code"
-                echo -e "     \${YELLOW}(The code expires after 20 minutes.)\${RESET}"
+                echo -e "     \${YELLOW}(The code expires in 20 minutes.)\${RESET}"
                 echo ""
                 echo -e "  \${CYAN}2.\${RESET} If you don't have a recent email, please request a new token by running:"
                 echo ""
