@@ -81,6 +81,65 @@ jobs:
           fi
           echo "All container directives are engine-neutral."
 
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: "25.04.0"
+
+      # Resolves the container each process would actually use under Docker, for every test
+      # configuration. Catches what the grep above cannot: engine ternaries whose Docker branch
+      # still says docker://, withName/withLabel overrides, and images built from params.
+      - name: Resolved Docker images must not use docker://
+        run: |
+          printf '%s\n' "docker.enabled = true" "singularity.enabled = false" "apptainer.enabled = false" \
+            > "${RUNNER_TEMP}/inspect_docker.config"
+          CONFIGS=(
+            "test_rna"
+            "test_rna --genome GRCh38.p13.v40"
+            "test_dda --fragpipe_license_accept true"
+            "test_dia --fragpipe_license_accept true"
+          )
+          : > "${RUNNER_TEMP}/bad_containers.txt"
+          for spec in "${CONFIGS[@]}"; do
+            read -r -a words <<< "$spec"
+            profile="${words[0]}"
+            out="${RUNNER_TEMP}/inspect_${profile}.json"
+            echo "::group::nextflow inspect -profile ${spec}"
+            if ! nextflow -q inspect "$GITHUB_WORKSPACE" -profile "$profile" "${words[@]:1}" \
+                 --outdir "${RUNNER_TEMP}/inspect_outdir" -c "${RUNNER_TEMP}/inspect_docker.config" \
+                 -format json > "$out" 2> "${out}.err"; then
+              cat "${out}.err"
+              echo "::endgroup::"
+              echo "::warning::Could not inspect '${spec}' (see log group); its containers were not checked here."
+              continue
+            fi
+            # stdout can contain println output before the JSON, so parse from the JSON object onward
+            python3 -I - "$out" "$spec" >> "${RUNNER_TEMP}/bad_containers.txt" <<'PY'
+          import json, sys
+          text = open(sys.argv[1]).read()
+          start = text.find('{\n    "processes"')
+          procs = json.loads(text[start:])["processes"] if start >= 0 else []
+          print(f"{len(procs)} processes inspected", file=sys.stderr)
+          for p in procs:
+              image = p.get("container") or ""
+              if image.startswith("docker://"):
+                  print(f"{p['name']}: {image}   (profile: {sys.argv[2]})")
+          PY
+            echo "::endgroup::"
+          done
+          if [[ -s "${RUNNER_TEMP}/bad_containers.txt" ]]; then
+            echo "::error::These processes resolve to a docker:// image under Docker, which fails with 'invalid reference format'. Use the plain image name (e.g. 'ubuntu:22.04'); Nextflow adds docker:// itself for Singularity."
+            sort -u "${RUNNER_TEMP}/bad_containers.txt"
+            exit 1
+          fi
+          echo "Every process resolves to a Docker-compatible image name."
+
       - name: Test data used by this workflow exists
         run: |
           missing=0
@@ -293,6 +352,29 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
           df -h /
 
+      # Indexing the full human genome (pbmm2 --preset ISOSEQ) and MSFragger searches can peak
+      # above the runner's 16 GB of RAM; swap turns a hard OOM kill into a slower run.
+      - name: Add swap space
+        if: env.RUN_TEST == 'true'
+        run: |
+          avail_gb() { df -BG --output=avail "$1" 2> /dev/null | tail -n 1 | tr -dc '0-9'; }
+          SWAP_DIR=""
+          for dir in /mnt /; do
+            free_gb=$(avail_gb "$dir")
+            if [[ -n "$free_gb" ]] && (( free_gb >= 30 )); then SWAP_DIR="$dir"; break; fi
+          done
+          if [[ -z "$SWAP_DIR" ]]; then
+            echo "::warning::Not enough free disk for a swap file; continuing without extra swap."
+            exit 0
+          fi
+          SWAP_FILE="${SWAP_DIR%/}/ci-swapfile"
+          sudo fallocate -l 16G "$SWAP_FILE"
+          sudo chmod 600 "$SWAP_FILE"
+          sudo mkswap "$SWAP_FILE" > /dev/null
+          sudo swapon "$SWAP_FILE"
+          free -h
+          swapon --show
+
       - name: Checkout code
         if: env.RUN_TEST == 'true'
         uses: actions/checkout@v4
@@ -333,6 +415,11 @@ jobs:
               "docker.enabled         = false" > "$CONFIG"
             mkdir -p "$NXF_SINGULARITY_CACHEDIR"
           fi
+          # Cap every process's cpus/memory request at what this runner actually has, so labels
+          # like process_high (e.g. 45 GB for ISOCALL_ALIGN) don't exceed the 4-CPU / 16 GB runner.
+          MAX_CPUS=$(nproc)
+          MAX_MEM_GB=$(awk '/^MemTotal:/ { printf "%d", $2 / 1048576 }' /proc/meminfo)
+          echo "process.resourceLimits = [cpus: ${MAX_CPUS}, memory: ${MAX_MEM_GB}.GB]" >> "$CONFIG"
           echo "NXF_CI_CONFIG=${CONFIG}" >> "$GITHUB_ENV"
           echo "Nextflow CI config (${CONFIG}):"
           cat "$CONFIG"
@@ -541,6 +628,29 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
           df -h /
 
+      # Indexing the full human genome (pbmm2 --preset ISOSEQ) and MSFragger searches can peak
+      # above the runner's 16 GB of RAM; swap turns a hard OOM kill into a slower run.
+      - name: Add swap space
+        if: env.RUN_TEST == 'true'
+        run: |
+          avail_gb() { df -BG --output=avail "$1" 2> /dev/null | tail -n 1 | tr -dc '0-9'; }
+          SWAP_DIR=""
+          for dir in /mnt /; do
+            free_gb=$(avail_gb "$dir")
+            if [[ -n "$free_gb" ]] && (( free_gb >= 30 )); then SWAP_DIR="$dir"; break; fi
+          done
+          if [[ -z "$SWAP_DIR" ]]; then
+            echo "::warning::Not enough free disk for a swap file; continuing without extra swap."
+            exit 0
+          fi
+          SWAP_FILE="${SWAP_DIR%/}/ci-swapfile"
+          sudo fallocate -l 16G "$SWAP_FILE"
+          sudo chmod 600 "$SWAP_FILE"
+          sudo mkswap "$SWAP_FILE" > /dev/null
+          sudo swapon "$SWAP_FILE"
+          free -h
+          swapon --show
+
       - name: Checkout code
         if: env.RUN_TEST == 'true'
         uses: actions/checkout@v4
@@ -577,6 +687,11 @@ jobs:
               "docker.enabled         = false" > "$CONFIG"
             mkdir -p "$NXF_SINGULARITY_CACHEDIR"
           fi
+          # Cap every process's cpus/memory request at what this runner actually has, so labels
+          # like process_high (e.g. 45 GB for ISOCALL_ALIGN) don't exceed the 4-CPU / 16 GB runner.
+          MAX_CPUS=$(nproc)
+          MAX_MEM_GB=$(awk '/^MemTotal:/ { printf "%d", $2 / 1048576 }' /proc/meminfo)
+          echo "process.resourceLimits = [cpus: ${MAX_CPUS}, memory: ${MAX_MEM_GB}.GB]" >> "$CONFIG"
           echo "NXF_CI_CONFIG=${CONFIG}" >> "$GITHUB_ENV"
           echo "Nextflow CI config (${CONFIG}):"
           cat "$CONFIG"
@@ -625,11 +740,18 @@ jobs:
           name: full-pipeline-outputs-${{ matrix.upstream_profile }}
           path: stage1_outputs/
 
-      - name: Check Stage 1 outputs are available
+      # A missing artifact means the '<profile> | docker' Stage 1 job failed. That failure already
+      # fails the run (see confirm-pass), so this job is skipped instead of adding a second red X.
+      - name: Skip if Stage 1 outputs are unavailable
         if: env.RUN_TEST == 'true' && steps.download_upstream.outcome != 'success'
         run: |
-          echo "::error::Artifact 'full-pipeline-outputs-${UPSTREAM_PROFILE}' was not found. The '${UPSTREAM_PROFILE} | docker' Stage 1 job failed or was skipped, so the ${ENTRY_POINT} entry point cannot be tested. Fix that job first."
-          exit 1
+          echo "RUN_TEST=false" >> "$GITHUB_ENV"
+          echo "::warning::Skipping ${ENTRY_POINT} entry point (${CONTAINER_ENGINE}): artifact 'full-pipeline-outputs-${UPSTREAM_PROFILE}' was not produced because the '${UPSTREAM_PROFILE} | docker' Stage 1 job failed. Fix that job first."
+          {
+            echo "## Test Skipped: ${ENTRY_POINT} Entry Point | ${CONTAINER_ENGINE}"
+            echo ""
+            echo "Upstream artifact \`full-pipeline-outputs-${UPSTREAM_PROFILE}\` was not produced because the **${UPSTREAM_PROFILE} | docker** Stage 1 job failed."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run ${{ matrix.entry_point }} entry point test with ${{ matrix.container_engine }}
         id: run_test
