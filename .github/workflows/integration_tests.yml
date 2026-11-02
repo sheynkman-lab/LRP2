@@ -97,23 +97,15 @@ jobs:
         if: matrix.container_engine == 'docker'
         run: |
           # Create Nextflow config for Docker with GitHub Actions compatibility
-          # Override docker.runOptions to avoid user ID mapping issues in CI
+          # Set NXF_DOCKER_OPTS environment variable to override runOptions
+          echo "NXF_DOCKER_OPTS=" >> $GITHUB_ENV
+
+          # Also create a config file to ensure other engines are disabled
           cat > /tmp/github_actions_docker.config <<'EOF'
-          docker {
-            enabled = true
-            runOptions = ''
-          }
-          singularity {
-            enabled = false
-          }
-          apptainer {
-            enabled = false
-          }
-          profiles {
-            docker {
-              docker.runOptions = ''
-            }
-          }
+          docker.enabled = true
+          docker.runOptions = ''
+          singularity.enabled = false
+          apptainer.enabled = false
           EOF
 
           echo "Created Nextflow Docker config for GitHub Actions:"
@@ -291,8 +283,10 @@ jobs:
           mkdir -p ${OUTDIR}
 
           # Build the nextflow command
+          # NOTE: Don't include container engine in -profile to avoid loading docker.runOptions from nextflow.config
+          # Container engine is enabled via custom config file instead
           CMD="nextflow run ${GITHUB_WORKSPACE} \
-            -profile ${{ matrix.test_profile }},${{ matrix.container_engine }} \
+            -profile ${{ matrix.test_profile }} \
             --outdir ${OUTDIR} \
             -resume \
             -ansi-log false"
@@ -464,23 +458,15 @@ jobs:
         if: matrix.container_engine == 'docker'
         run: |
           # Create Nextflow config for Docker with GitHub Actions compatibility
-          # Override docker.runOptions to avoid user ID mapping issues in CI
+          # Set NXF_DOCKER_OPTS environment variable to override runOptions
+          echo "NXF_DOCKER_OPTS=" >> $GITHUB_ENV
+
+          # Also create a config file to ensure other engines are disabled
           cat > /tmp/github_actions_docker.config <<'EOF'
-          docker {
-            enabled = true
-            runOptions = ''
-          }
-          singularity {
-            enabled = false
-          }
-          apptainer {
-            enabled = false
-          }
-          profiles {
-            docker {
-              docker.runOptions = ''
-            }
-          }
+          docker.enabled = true
+          docker.runOptions = ''
+          singularity.enabled = false
+          apptainer.enabled = false
           EOF
 
           echo "Created Nextflow Docker config for GitHub Actions:"
@@ -502,15 +488,20 @@ jobs:
         with:
           apptainer-version: 1.1.9
 
-      - name: Configure Apptainer and Nextflow for GitHub Actions
+      - name: Configure Singularity and Nextflow for GitHub Actions
         if: matrix.container_engine == 'singularity'
         run: |
+          # Verify Apptainer is installed (acts as Singularity)
           apptainer --version
+
+          # Create Nextflow config for Singularity with GitHub Actions compatibility
+          # Note: Only enable singularity, not both singularity and apptainer
+          # Use --no-home and --containall for better GitHub Actions compatibility
           cat > /tmp/github_actions_singularity.config <<'EOF'
           singularity {
             enabled = true
-            autoMounts = true
-            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+            autoMounts = false
+            runOptions = '--no-home --containall'
           }
           apptainer {
             enabled = false
@@ -519,6 +510,8 @@ jobs:
             enabled = false
           }
           EOF
+
+          echo "Created Nextflow Singularity config for GitHub Actions:"
           cat /tmp/github_actions_singularity.config
 
       - name: Create Singularity cache directory
@@ -586,6 +579,8 @@ jobs:
           mkdir -p ${OUTDIR}
 
           # Build the nextflow command
+          # NOTE: Don't include container engine in -profile to avoid loading docker.runOptions from nextflow.config
+          # Container engine is enabled via custom config file instead
           CMD="nextflow run ${GITHUB_WORKSPACE} \
             --input test_data/run_rna_only/samplesheet_rna_only.csv \
             --S2_custom_gtf ${S2_GTF} \
@@ -593,7 +588,6 @@ jobs:
             --genome GRCh38.p14.v49 \
             --outdir ${OUTDIR} \
             --dataset_name lrptest_s2 \
-            -profile ${{ matrix.container_engine }} \
             -resume \
             -ansi-log false"
 
@@ -704,23 +698,15 @@ jobs:
         if: matrix.container_engine == 'docker'
         run: |
           # Create Nextflow config for Docker with GitHub Actions compatibility
-          # Override docker.runOptions to avoid user ID mapping issues in CI
+          # Set NXF_DOCKER_OPTS environment variable to override runOptions
+          echo "NXF_DOCKER_OPTS=" >> $GITHUB_ENV
+
+          # Also create a config file to ensure other engines are disabled
           cat > /tmp/github_actions_docker.config <<'EOF'
-          docker {
-            enabled = true
-            runOptions = ''
-          }
-          singularity {
-            enabled = false
-          }
-          apptainer {
-            enabled = false
-          }
-          profiles {
-            docker {
-              docker.runOptions = ''
-            }
-          }
+          docker.enabled = true
+          docker.runOptions = ''
+          singularity.enabled = false
+          apptainer.enabled = false
           EOF
 
           echo "Created Nextflow Docker config for GitHub Actions:"
@@ -742,15 +728,20 @@ jobs:
         with:
           apptainer-version: 1.1.9
 
-      - name: Configure Apptainer and Nextflow for GitHub Actions
+      - name: Configure Singularity and Nextflow for GitHub Actions
         if: matrix.container_engine == 'singularity'
         run: |
+          # Verify Apptainer is installed (acts as Singularity)
           apptainer --version
+
+          # Create Nextflow config for Singularity with GitHub Actions compatibility
+          # Note: Only enable singularity, not both singularity and apptainer
+          # Use --no-home and --containall for better GitHub Actions compatibility
           cat > /tmp/github_actions_singularity.config <<'EOF'
           singularity {
             enabled = true
-            autoMounts = true
-            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+            autoMounts = false
+            runOptions = '--no-home --containall'
           }
           apptainer {
             enabled = false
@@ -759,6 +750,8 @@ jobs:
             enabled = false
           }
           EOF
+
+          echo "Created Nextflow Singularity config for GitHub Actions:"
           cat /tmp/github_actions_singularity.config
 
       - name: Create Singularity cache directory
@@ -833,6 +826,8 @@ jobs:
           mkdir -p ${OUTDIR}
 
           # Build the nextflow command
+          # NOTE: Don't include container engine in -profile to avoid loading docker.runOptions from nextflow.config
+          # Container engine is enabled via custom config file instead
           CMD="nextflow run ${GITHUB_WORKSPACE} \
             --S4_multisample_metadata test_data/run_rna_only/samplesheet_rna_only.csv \
             --S4_custom_gtf ${S4_GTF} \
@@ -840,7 +835,6 @@ jobs:
             --S4_custom_orf_counts ${S4_ORF_COUNTS} \
             --outdir ${OUTDIR} \
             --dataset_name lrptest_s4 \
-            -profile ${{ matrix.container_engine }} \
             -resume \
             -ansi-log false"
 
@@ -951,23 +945,15 @@ jobs:
         if: matrix.container_engine == 'docker'
         run: |
           # Create Nextflow config for Docker with GitHub Actions compatibility
-          # Override docker.runOptions to avoid user ID mapping issues in CI
+          # Set NXF_DOCKER_OPTS environment variable to override runOptions
+          echo "NXF_DOCKER_OPTS=" >> $GITHUB_ENV
+
+          # Also create a config file to ensure other engines are disabled
           cat > /tmp/github_actions_docker.config <<'EOF'
-          docker {
-            enabled = true
-            runOptions = ''
-          }
-          singularity {
-            enabled = false
-          }
-          apptainer {
-            enabled = false
-          }
-          profiles {
-            docker {
-              docker.runOptions = ''
-            }
-          }
+          docker.enabled = true
+          docker.runOptions = ''
+          singularity.enabled = false
+          apptainer.enabled = false
           EOF
 
           echo "Created Nextflow Docker config for GitHub Actions:"
@@ -989,15 +975,20 @@ jobs:
         with:
           apptainer-version: 1.1.9
 
-      - name: Configure Apptainer and Nextflow for GitHub Actions
+      - name: Configure Singularity and Nextflow for GitHub Actions
         if: matrix.container_engine == 'singularity'
         run: |
+          # Verify Apptainer is installed (acts as Singularity)
           apptainer --version
+
+          # Create Nextflow config for Singularity with GitHub Actions compatibility
+          # Note: Only enable singularity, not both singularity and apptainer
+          # Use --no-home and --containall for better GitHub Actions compatibility
           cat > /tmp/github_actions_singularity.config <<'EOF'
           singularity {
             enabled = true
-            autoMounts = true
-            runOptions = '--no-mount home --no-mount tmp --writable-tmpfs'
+            autoMounts = false
+            runOptions = '--no-home --containall'
           }
           apptainer {
             enabled = false
@@ -1006,6 +997,8 @@ jobs:
             enabled = false
           }
           EOF
+
+          echo "Created Nextflow Singularity config for GitHub Actions:"
           cat /tmp/github_actions_singularity.config
 
       - name: Create Singularity cache directory
@@ -1092,6 +1085,8 @@ jobs:
           mkdir -p ${OUTDIR}
 
           # Build the nextflow command
+          # NOTE: Don't include container engine in -profile to avoid loading docker.runOptions from nextflow.config
+          # Container engine is enabled via custom config file instead
           CMD="nextflow run ${GITHUB_WORKSPACE} \
             --input samplesheet_protein_only.csv \
             --S5_custom_protein_fasta ${S5_PROTEIN_FASTA} \
@@ -1102,7 +1097,6 @@ jobs:
             --dataset_name lrptest_s5 \
             --protein_search fragpipe \
             --fragpipe_license_accept true \
-            -profile ${{ matrix.container_engine }} \
             -resume \
             -ansi-log false"
 
