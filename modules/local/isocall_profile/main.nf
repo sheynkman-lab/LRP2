@@ -3,10 +3,7 @@ process ISOCALL_PROFILE {
     label 'process_low'
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'docker://jtllab/isocall:1.3.0-nextflow-fix' :
-        'jtllab/isocall:1.3.0-nextflow-fix' }"
-        
+    container 'docker.io/jtllab/isocall:1.3.0-nextflow-fix'
 
     input:
     tuple val(meta), path(aligned_bam)

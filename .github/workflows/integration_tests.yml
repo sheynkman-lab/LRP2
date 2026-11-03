@@ -64,23 +64,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Container directives must work with both Docker and Singularity
-        run: |
-          # Docker rejects image names that start with docker:// ("invalid reference format").
-          # Nextflow adds docker:// automatically when running with Singularity/Apptainer,
-          # so modules and configs should use plain names like 'docker.io/org/image:tag'.
-          # Any quoted docker:// string counts (module directives, withName/withLabel overrides,
-          # process.container, params), except comments and engine-aware ternaries.
-          BAD=$(grep -rnE --include='*.nf' --include='*.config' "['\"]docker://" . \
-            | grep -vE "^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)" \
-            | grep -v "containerEngine" || true)
-          if [[ -n "$BAD" ]]; then
-            echo "::error::A docker:// image reference breaks the Docker engine. Drop the prefix (e.g. 'docker.io/jtllab/lrp2-lite:latest'); Nextflow adds it automatically for Singularity."
-            echo "$BAD"
-            exit 1
-          fi
-          echo "All container directives are engine-neutral."
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -93,8 +76,10 @@ jobs:
           version: "25.04.0"
 
       # Resolves the container each process would actually use under Docker, for every test
-      # configuration. Catches what the grep above cannot: engine ternaries whose Docker branch
-      # still says docker://, withName/withLabel overrides, and images built from params.
+      # configuration, so engine ternaries are judged by the branch Docker really takes (a
+      # docker:// string in the Singularity branch is fine). Also covers withName/withLabel
+      # overrides and images built from params. Docker rejects docker:// ("invalid reference
+      # format"); Nextflow adds that prefix itself for Singularity.
       - name: Resolved Docker images must not use docker://
         run: |
           printf '%s\n' "docker.enabled = true" "singularity.enabled = false" "apptainer.enabled = false" \
