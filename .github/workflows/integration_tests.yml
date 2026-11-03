@@ -106,6 +106,7 @@ jobs:
             "test_dia --fragpipe_license_accept true"
           )
           : > "${RUNNER_TEMP}/bad_containers.txt"
+          : > "${RUNNER_TEMP}/resolved_images.tsv"
           for spec in "${CONFIGS[@]}"; do
             read -r -a words <<< "$spec"
             profile="${words[0]}"
@@ -120,25 +121,65 @@ jobs:
               continue
             fi
             # stdout can contain println output before the JSON, so parse from the JSON object onward
-            python3 -I - "$out" "$spec" >> "${RUNNER_TEMP}/bad_containers.txt" <<'PY'
+            python3 -I - "$out" "$spec" "${RUNNER_TEMP}/resolved_images.tsv" \
+              >> "${RUNNER_TEMP}/bad_containers.txt" <<'PY'
           import json, sys
           text = open(sys.argv[1]).read()
           start = text.find('{\n    "processes"')
           procs = json.loads(text[start:])["processes"] if start >= 0 else []
           print(f"{len(procs)} processes inspected", file=sys.stderr)
-          for p in procs:
-              image = p.get("container") or ""
-              if image.startswith("docker://"):
-                  print(f"{p['name']}: {image}   (profile: {sys.argv[2]})")
+          with open(sys.argv[3], "a") as images:
+              for p in procs:
+                  image = p.get("container") or ""
+                  if image.startswith("docker://"):
+                      print(f"{p['name']}: {image}   (profile: {sys.argv[2]})")
+                  elif image:
+                      images.write(f"{image}\t{p['name']}\n")
           PY
             echo "::endgroup::"
           done
           if [[ -s "${RUNNER_TEMP}/bad_containers.txt" ]]; then
-            echo "::error::These processes resolve to a docker:// image under Docker, which fails with 'invalid reference format'. Use the plain image name (e.g. 'ubuntu:22.04'); Nextflow adds docker:// itself for Singularity."
+            echo "::error::These processes resolve to a docker:// image under Docker, which fails with 'invalid reference format'. Drop the prefix and give the full registry path (e.g. 'docker.io/library/ubuntu:22.04'); Nextflow adds docker:// itself for Singularity."
             sort -u "${RUNNER_TEMP}/bad_containers.txt"
             exit 1
           fi
           echo "Every process resolves to a Docker-compatible image name."
+
+      # The pipeline sets a default registry (quay.io), which Nextflow prepends to any image
+      # without one: 'ubuntu:22.04' becomes 'quay.io/ubuntu:22.04', which does not exist.
+      # Check every resolved image against its registry without pulling it.
+      - name: Every resolved image exists in its registry
+        run: |
+          if [[ ! -s "${RUNNER_TEMP}/resolved_images.tsv" ]]; then
+            echo "::warning::No resolved images to check (inspect produced none)."
+            exit 0
+          fi
+          missing=0
+          while IFS=$'\t' read -r image procs; do
+            err=""
+            for attempt in 1 2 3; do
+              if err=$(docker manifest inspect "$image" 2>&1 > /dev/null); then
+                err=""
+                break
+              fi
+              # A definite "doesn't exist" answer: no point retrying
+              if grep -qiE 'not found|manifest unknown|no such manifest|404|denied|unauthorized' <<< "$err"; then
+                break
+              fi
+              sleep $((attempt * 5))
+            done
+            if [[ -z "$err" ]]; then
+              echo "OK       ${image}"
+            elif grep -qiE 'not found|manifest unknown|no such manifest|404|denied|unauthorized' <<< "$err"; then
+              echo "::error::Image not found: ${image} (used by: ${procs}). If the module names the image without a registry, Nextflow prepends the pipeline's default registry; write it in full instead, e.g. 'docker.io/library/ubuntu:22.04' or 'docker.io/<user>/<image>:<tag>'."
+              missing=1
+            else
+              echo "::warning::Could not check ${image} (registry error, not a missing image): $(head -n 1 <<< "$err")"
+            fi
+          done < <(sort -u "${RUNNER_TEMP}/resolved_images.tsv" \
+                   | awk -F'\t' '{ procs[$1] = procs[$1] ? procs[$1] ", " $2 : $2 } END { for (i in procs) print i "\t" procs[i] }' \
+                   | sort)
+          exit "$missing"
 
       - name: Test data used by this workflow exists
         run: |
