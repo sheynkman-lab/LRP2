@@ -46,8 +46,6 @@ defaults:
 
 env:
   NXF_ANSI_LOG: false
-  NXF_SINGULARITY_CACHEDIR: ${{ github.workspace }}/.singularity
-  NXF_SINGULARITY_LIBRARYDIR: ${{ github.workspace }}/.singularity
   # Prefix for the FragPipe tools cache. Each successful download saves a new entry under
   # this prefix; restores pick the newest one. Bump the version to force a fresh download.
   FRAGPIPE_CACHE_PREFIX: Linux-fragpipe-tools-v2-
@@ -372,34 +370,59 @@ jobs:
             echo "RUN_TEST=true" >> "$GITHUB_ENV"
           fi
 
-      - name: Free up disk space
+      # The root disk cannot hold the human reference, task work dirs, every container image and
+      # Apptainer's layer cache at once ("no space left on device"). This step frees preinstalled
+      # software, puts the Nextflow work dir and all image storage on whichever of / and /mnt has
+      # more room, and adds swap on the other disk: pbmm2 indexing the full human genome
+      # (--preset ISOSEQ) needs more than the runner's 16 GB of RAM.
+      - name: Prepare disks (free space, scratch dir, swap)
         if: env.RUN_TEST == 'true'
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
-          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift \
+            /usr/local/share/powershell /usr/local/share/chromium /opt/microsoft /opt/az || true
+          sudo docker image prune --all --force > /dev/null 2>&1 || true
 
-      # Indexing the full human genome (pbmm2 --preset ISOSEQ) and MSFragger searches can peak
-      # above the runner's 16 GB of RAM; swap turns a hard OOM kill into a slower run.
-      - name: Add swap space
-        if: env.RUN_TEST == 'true'
-        run: |
           avail_gb() { df -BG --output=avail "$1" 2> /dev/null | tail -n 1 | tr -dc '0-9'; }
-          SWAP_DIR=""
-          for dir in /mnt /; do
-            free_gb=$(avail_gb "$dir")
-            if [[ -n "$free_gb" ]] && (( free_gb >= 30 )); then SWAP_DIR="$dir"; break; fi
-          done
-          if [[ -z "$SWAP_DIR" ]]; then
-            echo "::warning::Not enough free disk for a swap file; continuing without extra swap."
-            exit 0
+          ROOT_FREE=$(avail_gb /)
+          MNT_FREE=0
+          if mountpoint -q /mnt; then MNT_FREE=$(avail_gb /mnt); fi
+          echo "Free space after cleanup: / = ${ROOT_FREE} GB, /mnt = ${MNT_FREE} GB"
+
+          if (( MNT_FREE > ROOT_FREE )); then
+            SCRATCH=/mnt/ci;               SCRATCH_FREE=$MNT_FREE;  OTHER=/;    OTHER_FREE=$ROOT_FREE
+          else
+            SCRATCH="${RUNNER_TEMP}/ci";   SCRATCH_FREE=$ROOT_FREE; OTHER=/mnt; OTHER_FREE=$MNT_FREE
           fi
-          SWAP_FILE="${SWAP_DIR%/}/ci-swapfile"
-          sudo fallocate -l 16G "$SWAP_FILE"
-          sudo chmod 600 "$SWAP_FILE"
-          sudo mkswap "$SWAP_FILE" > /dev/null
-          sudo swapon "$SWAP_FILE"
+          sudo mkdir -p "${SCRATCH}/work" "${SCRATCH}/images" "${SCRATCH}/apptainer-cache" "${SCRATCH}/apptainer-tmp"
+          sudo chown -R "$(id -u):$(id -g)" "$SCRATCH"
+          {
+            echo "NXF_WORK=${SCRATCH}/work"
+            echo "NXF_SINGULARITY_CACHEDIR=${SCRATCH}/images"
+            echo "APPTAINER_CACHEDIR=${SCRATCH}/apptainer-cache"
+            echo "APPTAINER_TMPDIR=${SCRATCH}/apptainer-tmp"
+            # Without this, every image is stored twice: as OCI layers in the cache and as a SIF file
+            echo "APPTAINER_DISABLE_CACHE=true"
+          } >> "$GITHUB_ENV"
+          echo "Scratch dir (work + images): ${SCRATCH}"
+
+          SWAP_FILE=""
+          if (( OTHER_FREE >= 40 )); then
+            SWAP_FILE="${OTHER%/}/ci-swapfile"
+          elif (( SCRATCH_FREE >= 60 )); then
+            SWAP_FILE="${SCRATCH}/ci-swapfile"
+          fi
+          if [[ -n "$SWAP_FILE" ]]; then
+            sudo fallocate -l 16G "$SWAP_FILE"
+            sudo chmod 600 "$SWAP_FILE"
+            sudo mkswap "$SWAP_FILE" > /dev/null
+            sudo swapon "$SWAP_FILE"
+          else
+            echo "::warning::Not enough free disk for a 16 GB swap file; ISOCALL_ALIGN may be killed for lack of memory (exit 137)."
+          fi
           free -h
           swapon --show
+          df -h / /mnt 2> /dev/null || df -h /
 
       - name: Checkout code
         if: env.RUN_TEST == 'true'
@@ -420,6 +443,11 @@ jobs:
 
       # The container engine is enabled through this config instead of -profile docker/singularity,
       # so runOptions from nextflow.config's engine profiles are not loaded.
+      # Docker runOptions:
+      #   -u $(id -u):$(id -g)  run as the runner's user, like Singularity does. Images that set their
+      #                         own USER (e.g. sqanti3) otherwise can't write the task directory.
+      #   --memory-swap -1      Nextflow passes --memory <task.memory> to docker run, a hard limit
+      #                         Singularity doesn't have; this lets the container use swap past it.
       - name: Write Nextflow container-engine config
         if: env.RUN_TEST == 'true'
         run: |
@@ -427,7 +455,7 @@ jobs:
           if [[ "$CONTAINER_ENGINE" == "docker" ]]; then
             printf '%s\n' \
               "docker.enabled      = true" \
-              "docker.runOptions   = ''" \
+              "docker.runOptions   = '-u \$(id -u):\$(id -g) --memory-swap -1'" \
               "singularity.enabled = false" \
               "apptainer.enabled   = false" > "$CONFIG"
           else
@@ -465,16 +493,6 @@ jobs:
         uses: eWaterCycle/setup-apptainer@v2
         with:
           apptainer-version: ${{ env.APPTAINER_VERSION }}
-
-      - name: Cache Singularity images
-        if: env.RUN_TEST == 'true' && matrix.container_engine == 'singularity'
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.NXF_SINGULARITY_CACHEDIR }}
-          key: ${{ runner.os }}-singularity-${{ matrix.test_profile }}-${{ hashFiles('**/nextflow.config', '**/modules.config', 'modules/**/main.nf') }}
-          restore-keys: |
-            ${{ runner.os }}-singularity-${{ matrix.test_profile }}-
-            ${{ runner.os }}-singularity-
 
       - name: Restore FragPipe tools
         if: env.RUN_TEST == 'true' && env.USES_FRAGPIPE == 'true'
@@ -574,8 +592,8 @@ jobs:
           path: |
             .nextflow.log
             ${{ env.OUTDIR }}/pipeline_info/
-            work/**/.command.log
-            work/**/.command.err
+            ${{ env.NXF_WORK }}/**/.command.log
+            ${{ env.NXF_WORK }}/**/.command.err
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
@@ -596,7 +614,7 @@ jobs:
         if: always() && env.RUN_TEST == 'true'
         run: |
           echo "Cleaning up work directory to free space..."
-          sudo rm -rf work || true
+          sudo rm -rf "${NXF_WORK:-work}" || true
           df -h /
 
   # ---------------------------------------------------------------------------
@@ -648,34 +666,59 @@ jobs:
             echo "RUN_TEST=true" >> "$GITHUB_ENV"
           fi
 
-      - name: Free up disk space
+      # The root disk cannot hold the human reference, task work dirs, every container image and
+      # Apptainer's layer cache at once ("no space left on device"). This step frees preinstalled
+      # software, puts the Nextflow work dir and all image storage on whichever of / and /mnt has
+      # more room, and adds swap on the other disk: pbmm2 indexing the full human genome
+      # (--preset ISOSEQ) needs more than the runner's 16 GB of RAM.
+      - name: Prepare disks (free space, scratch dir, swap)
         if: env.RUN_TEST == 'true'
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
-          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift \
+            /usr/local/share/powershell /usr/local/share/chromium /opt/microsoft /opt/az || true
+          sudo docker image prune --all --force > /dev/null 2>&1 || true
 
-      # Indexing the full human genome (pbmm2 --preset ISOSEQ) and MSFragger searches can peak
-      # above the runner's 16 GB of RAM; swap turns a hard OOM kill into a slower run.
-      - name: Add swap space
-        if: env.RUN_TEST == 'true'
-        run: |
           avail_gb() { df -BG --output=avail "$1" 2> /dev/null | tail -n 1 | tr -dc '0-9'; }
-          SWAP_DIR=""
-          for dir in /mnt /; do
-            free_gb=$(avail_gb "$dir")
-            if [[ -n "$free_gb" ]] && (( free_gb >= 30 )); then SWAP_DIR="$dir"; break; fi
-          done
-          if [[ -z "$SWAP_DIR" ]]; then
-            echo "::warning::Not enough free disk for a swap file; continuing without extra swap."
-            exit 0
+          ROOT_FREE=$(avail_gb /)
+          MNT_FREE=0
+          if mountpoint -q /mnt; then MNT_FREE=$(avail_gb /mnt); fi
+          echo "Free space after cleanup: / = ${ROOT_FREE} GB, /mnt = ${MNT_FREE} GB"
+
+          if (( MNT_FREE > ROOT_FREE )); then
+            SCRATCH=/mnt/ci;               SCRATCH_FREE=$MNT_FREE;  OTHER=/;    OTHER_FREE=$ROOT_FREE
+          else
+            SCRATCH="${RUNNER_TEMP}/ci";   SCRATCH_FREE=$ROOT_FREE; OTHER=/mnt; OTHER_FREE=$MNT_FREE
           fi
-          SWAP_FILE="${SWAP_DIR%/}/ci-swapfile"
-          sudo fallocate -l 16G "$SWAP_FILE"
-          sudo chmod 600 "$SWAP_FILE"
-          sudo mkswap "$SWAP_FILE" > /dev/null
-          sudo swapon "$SWAP_FILE"
+          sudo mkdir -p "${SCRATCH}/work" "${SCRATCH}/images" "${SCRATCH}/apptainer-cache" "${SCRATCH}/apptainer-tmp"
+          sudo chown -R "$(id -u):$(id -g)" "$SCRATCH"
+          {
+            echo "NXF_WORK=${SCRATCH}/work"
+            echo "NXF_SINGULARITY_CACHEDIR=${SCRATCH}/images"
+            echo "APPTAINER_CACHEDIR=${SCRATCH}/apptainer-cache"
+            echo "APPTAINER_TMPDIR=${SCRATCH}/apptainer-tmp"
+            # Without this, every image is stored twice: as OCI layers in the cache and as a SIF file
+            echo "APPTAINER_DISABLE_CACHE=true"
+          } >> "$GITHUB_ENV"
+          echo "Scratch dir (work + images): ${SCRATCH}"
+
+          SWAP_FILE=""
+          if (( OTHER_FREE >= 40 )); then
+            SWAP_FILE="${OTHER%/}/ci-swapfile"
+          elif (( SCRATCH_FREE >= 60 )); then
+            SWAP_FILE="${SCRATCH}/ci-swapfile"
+          fi
+          if [[ -n "$SWAP_FILE" ]]; then
+            sudo fallocate -l 16G "$SWAP_FILE"
+            sudo chmod 600 "$SWAP_FILE"
+            sudo mkswap "$SWAP_FILE" > /dev/null
+            sudo swapon "$SWAP_FILE"
+          else
+            echo "::warning::Not enough free disk for a 16 GB swap file; ISOCALL_ALIGN may be killed for lack of memory (exit 137)."
+          fi
           free -h
           swapon --show
+          df -h / /mnt 2> /dev/null || df -h /
 
       - name: Checkout code
         if: env.RUN_TEST == 'true'
@@ -701,7 +744,7 @@ jobs:
           if [[ "$CONTAINER_ENGINE" == "docker" ]]; then
             printf '%s\n' \
               "docker.enabled      = true" \
-              "docker.runOptions   = ''" \
+              "docker.runOptions   = '-u \$(id -u):\$(id -g) --memory-swap -1'" \
               "singularity.enabled = false" \
               "apptainer.enabled   = false" > "$CONFIG"
           else
@@ -735,17 +778,6 @@ jobs:
         uses: eWaterCycle/setup-apptainer@v2
         with:
           apptainer-version: ${{ env.APPTAINER_VERSION }}
-
-      # Restore-only: reuse the Stage 1 image cache instead of saving more multi-GB entries
-      # (the repository cache limit is 10 GB, shared with the FragPipe tools cache).
-      - name: Restore Singularity images from Stage 1 cache
-        if: env.RUN_TEST == 'true' && matrix.container_engine == 'singularity'
-        uses: actions/cache/restore@v4
-        with:
-          path: ${{ env.NXF_SINGULARITY_CACHEDIR }}
-          key: ${{ runner.os }}-singularity-${{ matrix.upstream_profile }}-${{ hashFiles('**/nextflow.config', '**/modules.config', 'modules/**/main.nf') }}
-          restore-keys: |
-            ${{ runner.os }}-singularity-${{ matrix.upstream_profile }}-
 
       - name: Restore FragPipe tools
         if: env.RUN_TEST == 'true' && env.USES_FRAGPIPE == 'true'
@@ -939,8 +971,8 @@ jobs:
           path: |
             .nextflow.log
             ${{ env.OUTDIR }}/pipeline_info/
-            work/**/.command.log
-            work/**/.command.err
+            ${{ env.NXF_WORK }}/**/.command.log
+            ${{ env.NXF_WORK }}/**/.command.err
           include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
@@ -960,7 +992,7 @@ jobs:
         if: always() && env.RUN_TEST == 'true'
         run: |
           echo "Cleaning up work directory to free space..."
-          sudo rm -rf work stage1_outputs || true
+          sudo rm -rf "${NXF_WORK:-work}" stage1_outputs || true
           df -h /
 
   # ---------------------------------------------------------------------------
