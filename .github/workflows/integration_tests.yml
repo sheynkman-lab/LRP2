@@ -329,6 +329,7 @@ jobs:
     needs: [fragpipe-setup]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 330
     strategy:
       fail-fast: false
       matrix:
@@ -457,7 +458,17 @@ jobs:
               "docker.enabled      = true" \
               "docker.runOptions   = '-u \$(id -u):\$(id -g) --memory-swap -1'" \
               "singularity.enabled = false" \
-              "apptainer.enabled   = false" > "$CONFIG"
+              "apptainer.enabled   = false" \
+              "" \
+              "// ProteoWizard's /wineprefix64 belongs to root and wine refuses a prefix owned by another" \
+              "// user. The image's sudo-based wine64_anyuser only works for UIDs that exist in the image," \
+              "// so msconvert runs as root, as the image intends. Docker uses the last -u it is given," \
+              "// and containerOptions come after docker.runOptions." \
+              "process {" \
+              "    withName: 'MSCONVERT_MZML' {" \
+              "        containerOptions = '-u 0:0'" \
+              "    }" \
+              "}" > "$CONFIG"
           else
             # autoMounts lets Nextflow bind each task's work dir and staged inputs.
             # --no-home/--cleanenv keep the runner's home dir and env (e.g. JAVA_HOME) out of containers.
@@ -473,7 +484,9 @@ jobs:
           # like process_high (e.g. 45 GB for ISOCALL_ALIGN) don't exceed the 4-CPU / 16 GB runner.
           MAX_CPUS=$(nproc)
           MAX_MEM_GB=$(awk '/^MemTotal:/ { printf "%d", $2 / 1048576 }' /proc/meminfo)
-          echo "process.resourceLimits = [cpus: ${MAX_CPUS}, memory: ${MAX_MEM_GB}.GB]" >> "$CONFIG"
+          # time: tasks that request longer are capped at 3 h, so a hung task fails with its own
+          # name (exit 140) instead of silently stalling the job until GitHub's 6 h limit.
+          echo "process.resourceLimits = [cpus: ${MAX_CPUS}, memory: ${MAX_MEM_GB}.GB, time: 3.h]" >> "$CONFIG"
           echo "NXF_CI_CONFIG=${CONFIG}" >> "$GITHUB_ENV"
           echo "Nextflow CI config (${CONFIG}):"
           cat "$CONFIG"
@@ -626,6 +639,7 @@ jobs:
     # Run even if some Stage 1 legs failed; each entry point only needs its own upstream artifact.
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 240
     strategy:
       fail-fast: false
       matrix:
@@ -746,7 +760,17 @@ jobs:
               "docker.enabled      = true" \
               "docker.runOptions   = '-u \$(id -u):\$(id -g) --memory-swap -1'" \
               "singularity.enabled = false" \
-              "apptainer.enabled   = false" > "$CONFIG"
+              "apptainer.enabled   = false" \
+              "" \
+              "// ProteoWizard's /wineprefix64 belongs to root and wine refuses a prefix owned by another" \
+              "// user. The image's sudo-based wine64_anyuser only works for UIDs that exist in the image," \
+              "// so msconvert runs as root, as the image intends. Docker uses the last -u it is given," \
+              "// and containerOptions come after docker.runOptions." \
+              "process {" \
+              "    withName: 'MSCONVERT_MZML' {" \
+              "        containerOptions = '-u 0:0'" \
+              "    }" \
+              "}" > "$CONFIG"
           else
             printf '%s\n' \
               "singularity.enabled    = true" \
@@ -760,7 +784,9 @@ jobs:
           # like process_high (e.g. 45 GB for ISOCALL_ALIGN) don't exceed the 4-CPU / 16 GB runner.
           MAX_CPUS=$(nproc)
           MAX_MEM_GB=$(awk '/^MemTotal:/ { printf "%d", $2 / 1048576 }' /proc/meminfo)
-          echo "process.resourceLimits = [cpus: ${MAX_CPUS}, memory: ${MAX_MEM_GB}.GB]" >> "$CONFIG"
+          # time: tasks that request longer are capped at 3 h, so a hung task fails with its own
+          # name (exit 140) instead of silently stalling the job until GitHub's 6 h limit.
+          echo "process.resourceLimits = [cpus: ${MAX_CPUS}, memory: ${MAX_MEM_GB}.GB, time: 3.h]" >> "$CONFIG"
           echo "NXF_CI_CONFIG=${CONFIG}" >> "$GITHUB_ENV"
           echo "Nextflow CI config (${CONFIG}):"
           cat "$CONFIG"
