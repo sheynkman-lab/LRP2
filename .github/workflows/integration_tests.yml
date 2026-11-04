@@ -24,6 +24,15 @@ on:
       - "**/*.jpeg"
       - "CITATION.cff"
       - ".gitignore"
+  # Scheduled run on main, at most 6 days apart, at 06:13 UTC (1:13 am EST / 2:13 am EDT). This should
+  # catch breakage from outside the repo (':latest' images if any, registries, GENCODE URLs) and keeps
+  # the FragPipe tools cache in use (GitHub deletes caches not used for 7 days). Offset of 6 days is 
+  # because scheduled runs can start hours late, so a 7-day interval could occasionally lose it.
+  # NOTE: Cron can't count "every 6 days" so '*/6' in the day-of-month field fires on days
+  # 1, 7, 13, 19, 25 and 31 by default each month. Gaps are 6 days, except a 1-day gap after the 
+  # 31st (31st -> 1st) and 4-5 days at the end of February. Scheduled runs will always use main.
+  schedule:
+    - cron: '13 6 */6 * *'
   workflow_dispatch:
     inputs:
       fragpipe_token:
@@ -31,10 +40,11 @@ on:
         required: false
         type: string
 
-# Cancel if a newer run is started
+# A newer push to a pull request cancels that PR's older run. Runs on main (merges, the weekly
+# schedule, manual runs) are never cancelled, a second one will wait until the first finishes.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -50,6 +60,9 @@ env:
   # this prefix; restores pick the newest one. Bump the version to force a fresh download.
   FRAGPIPE_CACHE_PREFIX: Linux-fragpipe-tools-v2-
   APPTAINER_VERSION: "1.3.6"
+  # GENCODE release used by every test except the GRCh38.p13.v40 _PAR_Y tests. The full-pipeline
+  # matrix below lists it explicitly too (job names can't read env) so keeps the two in sync.
+  DEFAULT_GENOME: GRCh38.p14.v50
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -83,10 +96,10 @@ jobs:
           printf '%s\n' "docker.enabled = true" "singularity.enabled = false" "apptainer.enabled = false" \
             > "${RUNNER_TEMP}/inspect_docker.config"
           CONFIGS=(
-            "test_rna"
+            "test_rna --genome ${DEFAULT_GENOME}"
             "test_rna --genome GRCh38.p13.v40"
-            "test_dda --fragpipe_license_accept true"
-            "test_dia --fragpipe_license_accept true"
+            "test_dda --genome ${DEFAULT_GENOME} --fragpipe_license_accept true"
+            "test_dia --genome ${DEFAULT_GENOME} --fragpipe_license_accept true"
           )
           : > "${RUNNER_TEMP}/bad_containers.txt"
           : > "${RUNNER_TEMP}/resolved_images.tsv"
@@ -325,33 +338,38 @@ jobs:
   # Stage 1: Full pipeline tests with test_rna, test_dda, and test_dia profiles
   # ---------------------------------------------------------------------------
   full-pipeline-test:
-    name: "Full Pipeline: ${{ matrix.test_profile }}${{ matrix.genome_version && format(' ({0})', matrix.genome_version) || '' }} | ${{ matrix.container_engine }} | NXF ${{ matrix.NXF_VER }}"
+    name: "Full Pipeline Test ${{ matrix.n }}/12: ${{ matrix.test_profile }} | ${{ matrix.engine_label }} | ${{ matrix.genome }} | NXF ${{ matrix.NXF_VER }}"
     needs: [fragpipe-setup]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 330
     strategy:
       fail-fast: false
+      # One entry per test, in numbered order. 'genome' is always passed to --genome, so the GENCODE
+      # release in the job name is the one the test really uses. GRCh38.p14.v50 must match
+      # DEFAULT_GENOME at the top of this file (the S2/S5 entry-point tests start from these outputs).
+      # GRCh38.p13.v40 (GENCODE v25-v43 era) exercises _PAR_Y gene-ID handling (SANITIZE_PAR_IDS).
+      # container_engine is the lower-case value the steps test against; engine_label is for display.
       matrix:
-        test_profile: [test_rna, test_dda, test_dia]
-        container_engine: [docker, singularity]
-        NXF_VER:
-          - "25.04.0"
-        genome_version: [null]
         include:
-          # Add GENCODE V40 test for test_rna profile to test _PAR_Y ID handling
-          - test_profile: test_rna
-            container_engine: docker
-            NXF_VER: "25.04.0"
-            genome_version: "GRCh38.p13.v40"
-          - test_profile: test_rna
-            container_engine: singularity
-            NXF_VER: "25.04.0"
-            genome_version: "GRCh38.p13.v40"
+          - { n: 1,  test_profile: test_rna, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 2,  test_profile: test_rna, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 3,  test_profile: test_rna, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 4,  test_profile: test_rna, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p13.v40, NXF_VER: "25.04.0" }
+          - { n: 5,  test_profile: test_rna, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p13.v40, NXF_VER: "25.04.0" }
+          - { n: 6,  test_profile: test_rna, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p13.v40, NXF_VER: "25.04.0" }
+          - { n: 7,  test_profile: test_dda, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 8,  test_profile: test_dda, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 9,  test_profile: test_dda, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 10, test_profile: test_dia, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 11, test_profile: test_dia, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 12, test_profile: test_dia, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
     env:
+      TEST_NUMBER: ${{ matrix.n }}
       TEST_PROFILE: ${{ matrix.test_profile }}
       CONTAINER_ENGINE: ${{ matrix.container_engine }}
-      GENOME_VERSION: ${{ matrix.genome_version }}
+      ENGINE_LABEL: ${{ matrix.engine_label }}
+      GENOME_VERSION: ${{ matrix.genome }}
       NXF_VER: ${{ matrix.NXF_VER }}
       USES_FRAGPIPE: ${{ matrix.test_profile == 'test_dda' || matrix.test_profile == 'test_dia' }}
       FRAGPIPE_AVAILABLE: ${{ needs.fragpipe-setup.outputs.available == 'true' }}
@@ -361,9 +379,9 @@ jobs:
         run: |
           if [[ "$USES_FRAGPIPE" == "true" && "$FRAGPIPE_AVAILABLE" != "true" ]]; then
             echo "RUN_TEST=false" >> "$GITHUB_ENV"
-            echo "::warning::Skipping ${TEST_PROFILE} (${CONTAINER_ENGINE}): FragPipe tools are not available. See the 'FragPipe tools' job."
+            echo "::warning::Skipping Full Pipeline Test ${TEST_NUMBER}/12 (${TEST_PROFILE} | ${ENGINE_LABEL} | ${GENOME_VERSION}): FragPipe tools are not available. See the 'FragPipe tools' job."
             {
-              echo "## Test Skipped: ${TEST_PROFILE} | ${CONTAINER_ENGINE}"
+              echo "## Test Skipped: Full Pipeline Test ${TEST_NUMBER}/12: ${TEST_PROFILE} | ${ENGINE_LABEL} | ${GENOME_VERSION}"
               echo ""
               echo "FragPipe tools were not available. See the **FragPipe tools: restore or download** job summary."
             } >> "$GITHUB_STEP_SUMMARY"
@@ -442,6 +460,27 @@ jobs:
         with:
           version: ${{ matrix.NXF_VER }}
 
+      # Miniforge, not Miniconda: Miniconda's 'defaults' channel requires accepting Anaconda's terms
+      # of service, which stops non-interactive CI. Same approach as the nf-core pipeline template.
+      - name: Set up Conda (Miniforge)
+        if: env.RUN_TEST == 'true' && matrix.container_engine == 'conda'
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          channels: conda-forge,bioconda
+          channel-priority: strict
+          conda-solver: libmamba
+          auto-update-conda: false
+
+      # Nextflow calls 'conda' itself, from plain (non-login) shells, so it must be on PATH.
+      - name: Put conda on PATH for Nextflow
+        if: env.RUN_TEST == 'true' && matrix.container_engine == 'conda'
+        run: |
+          CONDA_ROOT=$(realpath "${CONDA:?setup-miniconda did not set CONDA}")
+          echo "${CONDA_ROOT}/condabin" >> "$GITHUB_PATH"
+          "${CONDA_ROOT}/condabin/conda" --version
+          "${CONDA_ROOT}/condabin/conda" config --show channels channel_priority
+
       # The container engine is enabled through this config instead of -profile docker/singularity,
       # so runOptions from nextflow.config's engine profiles are not loaded.
       # Docker runOptions:
@@ -469,7 +508,7 @@ jobs:
               "        containerOptions = '-u 0:0'" \
               "    }" \
               "}" > "$CONFIG"
-          else
+          elif [[ "$CONTAINER_ENGINE" == "singularity" ]]; then
             # autoMounts lets Nextflow bind each task's work dir and staged inputs.
             # --no-home/--cleanenv keep the runner's home dir and env (e.g. JAVA_HOME) out of containers.
             printf '%s\n' \
@@ -479,6 +518,21 @@ jobs:
               "apptainer.enabled      = false" \
               "docker.enabled         = false" > "$CONFIG"
             mkdir -p "$NXF_SINGULARITY_CACHEDIR"
+          else
+            # Conda: each module's environment.yml is built into an env on the scratch disk (envs and
+            # the package download cache are several GB). Envs aren't cached between runs: they
+            # would compete with the FragPipe tools cache for the repository's 10 GB limit.
+            CONDA_DIR="$(dirname "$NXF_WORK")/conda"
+            mkdir -p "${CONDA_DIR}/envs" "${CONDA_DIR}/pkgs"
+            echo "CONDA_PKGS_DIRS=${CONDA_DIR}/pkgs" >> "$GITHUB_ENV"
+            printf '%s\n' \
+              "conda.enabled          = true" \
+              "conda.channels         = ['conda-forge', 'bioconda']" \
+              "conda.cacheDir         = '${CONDA_DIR}/envs'" \
+              "conda.createTimeout    = '1 h'" \
+              "docker.enabled         = false" \
+              "singularity.enabled    = false" \
+              "apptainer.enabled      = false" > "$CONFIG"
           fi
           # Cap every process's cpus/memory request at what this runner actually has, so labels
           # like process_high (e.g. 45 GB for ISOCALL_ALIGN) don't exceed the 4-CPU / 16 GB runner.
@@ -525,24 +579,23 @@ jobs:
           df -h /
           if command -v docker > /dev/null; then docker --version; fi
           if command -v apptainer > /dev/null; then apptainer --version; fi
+          if [[ "$CONTAINER_ENGINE" == "conda" ]]; then conda --version; fi
           nextflow -version
           if [[ -d fragpipe_tools ]]; then ls -lR fragpipe_tools; fi
 
-      - name: Run full pipeline test - ${{ matrix.test_profile }} with ${{ matrix.container_engine }}
+      - name: Run Full Pipeline Test ${{ matrix.n }}/12 - ${{ matrix.test_profile }} with ${{ matrix.engine_label }}
         id: run_test
         if: env.RUN_TEST == 'true'
         env:
           FRAGPIPE_TOKEN_INPUT: ${{ inputs.fragpipe_token }}
           FRAGPIPE_TOKEN_SECRET: ${{ secrets.FRAGPIPE_TOKEN }}
         run: |
-          OUTDIR="test_results_${TEST_PROFILE}_${CONTAINER_ENGINE}${GENOME_VERSION:+_${GENOME_VERSION}}"
+          OUTDIR="test_results_${TEST_PROFILE}_${CONTAINER_ENGINE}_${GENOME_VERSION}"
           echo "OUTDIR=${OUTDIR}" >> "$GITHUB_ENV"
-          LABEL="${TEST_PROFILE}${GENOME_VERSION:+ (${GENOME_VERSION})} | ${CONTAINER_ENGINE}"
+          LABEL="Full Pipeline Test ${TEST_NUMBER}/12: ${TEST_PROFILE} | ${ENGINE_LABEL} | ${GENOME_VERSION} | NXF ${NXF_VER}"
 
-          args=(run "$GITHUB_WORKSPACE" -profile "$TEST_PROFILE" --outdir "$OUTDIR" -c "$NXF_CI_CONFIG")
-          if [[ -n "$GENOME_VERSION" ]]; then
-            args+=(--genome "$GENOME_VERSION")
-          fi
+          args=(run "$GITHUB_WORKSPACE" -profile "$TEST_PROFILE" --genome "$GENOME_VERSION"
+                --outdir "$OUTDIR" -c "$NXF_CI_CONFIG")
           if [[ "$USES_FRAGPIPE" == "true" ]]; then
             args+=(--fragpipe_license_accept true)
             # Tools come from fragpipe_tools/ (restored above). A token is passed too when one
@@ -555,7 +608,7 @@ jobs:
           fi
 
           echo "=========================================="
-          echo "Running: ${LABEL} | NXF ${NXF_VER}"
+          echo "Running: ${LABEL}"
           echo "Start time: $(date -u)"
           echo "=========================================="
 
@@ -566,10 +619,10 @@ jobs:
 
           echo "End time: $(date -u) | Exit code: ${EXIT_CODE}"
           if [[ "$EXIT_CODE" -eq 0 ]]; then
-            echo "::notice::Full pipeline test PASSED: ${LABEL}"
+            echo "::notice::PASSED: ${LABEL}"
             RESULT="Passed"
           else
-            echo "::error::Full pipeline test FAILED: ${LABEL}"
+            echo "::error::FAILED: ${LABEL}"
             RESULT="Failed"
           fi
           {
@@ -590,7 +643,7 @@ jobs:
         if: steps.run_test.outcome == 'success' && matrix.container_engine == 'docker'
         uses: actions/upload-artifact@v4
         with:
-          name: full-pipeline-outputs-${{ matrix.test_profile }}${{ matrix.genome_version && format('-{0}', matrix.genome_version) || '' }}
+          name: full-pipeline-outputs-${{ matrix.test_profile }}-${{ matrix.genome }}
           path: |
             ${{ env.OUTDIR }}/
             !${{ env.OUTDIR }}/**/*.jar
@@ -601,7 +654,7 @@ jobs:
         if: failure() && steps.run_test.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
-          name: logs-full-pipeline-${{ matrix.test_profile }}${{ matrix.genome_version && format('-{0}', matrix.genome_version) || '' }}-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
+          name: logs-full-pipeline-test${{ matrix.n }}-${{ matrix.test_profile }}-${{ matrix.container_engine }}-${{ matrix.genome }}-${{ matrix.NXF_VER }}
           path: |
             .nextflow.log
             ${{ env.OUTDIR }}/pipeline_info/
@@ -615,7 +668,7 @@ jobs:
         if: steps.run_test.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: reports-full-pipeline-${{ matrix.test_profile }}${{ matrix.genome_version && format('-{0}', matrix.genome_version) || '' }}-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
+          name: reports-full-pipeline-test${{ matrix.n }}-${{ matrix.test_profile }}-${{ matrix.container_engine }}-${{ matrix.genome }}-${{ matrix.NXF_VER }}
           path: |
             ${{ env.OUTDIR }}/pipeline_info/execution_report*.html
             ${{ env.OUTDIR }}/pipeline_info/execution_timeline*.html
@@ -821,7 +874,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: full-pipeline-outputs-${{ matrix.upstream_profile }}
+          name: full-pipeline-outputs-${{ matrix.upstream_profile }}-${{ env.DEFAULT_GENOME }}
           path: stage1_outputs/
 
       # A missing artifact means the '<profile> | docker' Stage 1 job failed. That failure already
@@ -830,11 +883,11 @@ jobs:
         if: env.RUN_TEST == 'true' && steps.download_upstream.outcome != 'success'
         run: |
           echo "RUN_TEST=false" >> "$GITHUB_ENV"
-          echo "::warning::Skipping ${ENTRY_POINT} entry point (${CONTAINER_ENGINE}): artifact 'full-pipeline-outputs-${UPSTREAM_PROFILE}' was not produced because the '${UPSTREAM_PROFILE} | docker' Stage 1 job failed. Fix that job first."
+          echo "::warning::Skipping ${ENTRY_POINT} entry point (${CONTAINER_ENGINE}): artifact 'full-pipeline-outputs-${UPSTREAM_PROFILE}-${DEFAULT_GENOME}' was not produced because the '${UPSTREAM_PROFILE} | Docker | ${DEFAULT_GENOME}' Stage 1 test failed. Fix that test first."
           {
             echo "## Test Skipped: ${ENTRY_POINT} Entry Point | ${CONTAINER_ENGINE}"
             echo ""
-            echo "Upstream artifact \`full-pipeline-outputs-${UPSTREAM_PROFILE}\` was not produced because the **${UPSTREAM_PROFILE} | docker** Stage 1 job failed."
+            echo "Upstream artifact \`full-pipeline-outputs-${UPSTREAM_PROFILE}-${DEFAULT_GENOME}\` was not produced because the **${UPSTREAM_PROFILE} | Docker | ${DEFAULT_GENOME}** Stage 1 test failed."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run ${{ matrix.entry_point }} entry point test with ${{ matrix.container_engine }}
@@ -874,7 +927,7 @@ jobs:
                 --input test_data/run_rna_only/samplesheet_rna_only.csv
                 --S2_custom_gtf "$S2_GTF"
                 --S2_custom_counts "$S2_COUNTS"
-                --genome GRCh38.p14.v49
+                --genome "$DEFAULT_GENOME"
                 --dataset_name lrptest_s2
               )
               ;;
@@ -929,7 +982,7 @@ jobs:
                 --input "$SHEET"
                 --S5_custom_protein_fasta "$S5_PROTEIN_FASTA"
                 --S5_custom_cds_gtf "$S5_CDS_GTF"
-                --genome GRCh38.p14.v49
+                --genome "$DEFAULT_GENOME"
                 --dataset_name lrptest_s5
                 --protein_search fragpipe
                 --fragpipe_license_accept true
