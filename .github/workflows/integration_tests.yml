@@ -41,7 +41,7 @@ on:
         type: string
 
 # A newer push to a pull request cancels that PR's older run. Runs on main (merges, the weekly
-# schedule, manual runs) are never cancelled, a second one will wait until the first finishes.
+# schedule, manual runs) are never cancelled; a second one waits until the first finishes.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -61,7 +61,7 @@ env:
   FRAGPIPE_CACHE_PREFIX: Linux-fragpipe-tools-v2-
   APPTAINER_VERSION: "1.3.6"
   # GENCODE release used by every test except the GRCh38.p13.v40 _PAR_Y tests. The full-pipeline
-  # matrix below lists it explicitly too (job names can't read env) so keeps the two in sync.
+  # matrix below lists it explicitly too (job names can't read env); keep the two in sync.
   DEFAULT_GENOME: GRCh38.p14.v50
 
 jobs:
@@ -612,10 +612,32 @@ jobs:
           echo "Start time: $(date -u)"
           echo "=========================================="
 
-          set +e
-          nextflow "${args[@]}"
-          EXIT_CODE=$?
-          set -e
+          # Downloads of remote inputs (GENCODE from EBI, container images) sometimes fail on a
+          # transient network error (e.g. "Can't stage file ... reason: Connection refused"). Nextflow
+          # itself retries only 3 times within about a second by default, so here we just stagger retries
+          # with resume, up to 3 attempts in total. Any other
+          # failure, including a missing file (404), is not retried.
+          transient_network_failure() {
+            grep -qE "Can't stage file|Unable to stage foreign file|Failed to pull singularity image|Error response from daemon" "$1" &&
+              grep -qiE "connection refused|connection reset|connection timed out|read timed out|i/o timeout|handshake timeout|unknownhost|temporary failure in name resolution|remote host terminated|unexpected eof|too many requests|service unavailable|bad gateway|gateway time-?out|status ?code:? ?(429|502|503|504)" "$1"
+          }
+          MAX_ATTEMPTS=3
+          attempt=1
+          while true; do
+            set +e
+            nextflow "${args[@]}" 2>&1 | tee "${RUNNER_TEMP}/nextflow_console.log"
+            EXIT_CODE=${PIPESTATUS[0]}
+            set -e
+            if (( EXIT_CODE == 0 || attempt >= MAX_ATTEMPTS )) \
+               || ! transient_network_failure "${RUNNER_TEMP}/nextflow_console.log"; then
+              break
+            fi
+            WAIT=$(( attempt * ${RETRY_WAIT_SECONDS:-120} ))
+            echo "::warning::Attempt ${attempt}/${MAX_ATTEMPTS} failed on a network error while downloading inputs; resuming in ${WAIT}s."
+            sleep "$WAIT"
+            attempt=$(( attempt + 1 ))
+            [[ " ${args[*]} " == *" -resume "* ]] || args+=(-resume)
+          done
 
           echo "End time: $(date -u) | Exit code: ${EXIT_CODE}"
           if [[ "$EXIT_CODE" -eq 0 ]]; then
@@ -1017,10 +1039,32 @@ jobs:
           echo "Start time: $(date -u)"
           echo "=========================================="
 
-          set +e
-          nextflow "${args[@]}"
-          EXIT_CODE=$?
-          set -e
+          # Downloads of remote inputs (GENCODE from EBI, container images) sometimes fail on a
+          # transient network error, e.g. "Can't stage file ... reason: Connection refused". Nextflow
+          # itself retries only 3 times within about a second. Here a run that failed that way waits and
+          # is resumed (-resume reuses every finished task), up to 3 attempts in total. Any other
+          # failure, including a missing file (404), is not retried.
+          transient_network_failure() {
+            grep -qE "Can't stage file|Unable to stage foreign file|Failed to pull singularity image|Error response from daemon" "$1" &&
+              grep -qiE "connection refused|connection reset|connection timed out|read timed out|i/o timeout|handshake timeout|unknownhost|temporary failure in name resolution|remote host terminated|unexpected eof|too many requests|service unavailable|bad gateway|gateway time-?out|status ?code:? ?(429|502|503|504)" "$1"
+          }
+          MAX_ATTEMPTS=3
+          attempt=1
+          while true; do
+            set +e
+            nextflow "${args[@]}" 2>&1 | tee "${RUNNER_TEMP}/nextflow_console.log"
+            EXIT_CODE=${PIPESTATUS[0]}
+            set -e
+            if (( EXIT_CODE == 0 || attempt >= MAX_ATTEMPTS )) \
+               || ! transient_network_failure "${RUNNER_TEMP}/nextflow_console.log"; then
+              break
+            fi
+            WAIT=$(( attempt * ${RETRY_WAIT_SECONDS:-120} ))
+            echo "::warning::Attempt ${attempt}/${MAX_ATTEMPTS} failed on a network error while downloading inputs; resuming in ${WAIT}s."
+            sleep "$WAIT"
+            attempt=$(( attempt + 1 ))
+            [[ " ${args[*]} " == *" -resume "* ]] || args+=(-resume)
+          done
 
           echo "End time: $(date -u) | Exit code: ${EXIT_CODE}"
           if [[ "$EXIT_CODE" -eq 0 ]]; then
