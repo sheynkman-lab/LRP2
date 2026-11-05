@@ -25,9 +25,12 @@ process SQANTI_QC {
     def prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    
-    source /conda/miniconda3/etc/profile.d/conda.sh
-    conda activate sqanti3
+    # NOTE: anaconesalab/sqanti3 image keeps SQANTI3 in a conda env of its own, so under -profile conda,
+    # Nextflow has already activated this module's environment.yml and that path doesn't exist.
+    if [ -f /conda/miniconda3/etc/profile.d/conda.sh ]; then
+        source /conda/miniconda3/etc/profile.d/conda.sh
+        conda activate sqanti3
+    fi
 
     # Decompress GTF if it's gzipped
     ISOFORMS_INPUT="$isoforms_gtf"
@@ -51,7 +54,7 @@ process SQANTI_QC {
         --report skip \\
         --fl $flnc_count \\
         $args
-    
+
     # Fix single-sample column naming to use "FL.{sample_id}", which is consistent with formatting used for multi-sample runs
     TAB=\$'\\t'
     NUM_COLS=\$(head -1 $flnc_count | awk -F'[,\t]' '{print NF}')
@@ -63,12 +66,13 @@ process SQANTI_QC {
             mv ${prefix}.transcriptome_classification.tmp.txt ${prefix}.transcriptome_classification.txt
         fi
     fi
-    
+
     mv ${prefix}.transcriptome_classification.txt ${prefix}.transcriptome.SQANTI_classification.txt
     mv ${prefix}.transcriptome_corrected.gtf ${prefix}.transcriptome.gtf
     mv ${prefix}.transcriptome_corrected.fasta ${prefix}.transcriptome.fasta
     mv ${prefix}.transcriptome_junctions.txt ${prefix}.transcriptome.junctions.txt
-    
+
+    # Keep this in step with the container tag above and the version in environment.yml
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         sqanti3: 6.0.1
