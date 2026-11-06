@@ -151,6 +151,9 @@ classify_multiexonic_utr = function(tss, strand, junc_chain, gc_chains) {
   # Split the concatenated chains
   gc_chains = str_split(gc_chains, "\\|\\|\\|")[[1]]
   
+  # Anchor on coordinate boundaries: in "s1-e1_s2-e2", a run of junctions is always flanked by "-"
+  junc_pattern = paste0("-", junc_chain, "-")
+  
   status = "novel"
   
   for (gc_chain in gc_chains) {
@@ -159,13 +162,13 @@ classify_multiexonic_utr = function(tss, strand, junc_chain, gc_chains) {
     if (is.na(gc_chain)) next
     
     # Check if junction chain is detected
-    match_result = str_detect(gc_chain, fixed(junc_chain))
+    match_result = str_detect(gc_chain, fixed(junc_pattern))
     if (is.na(match_result) || !match_result) next
     
     # Junction chain matches - check if TSS protrudes beyond reference
     if (strand == "+") {
-      prefix  = str_split(gc_chain, fixed(junc_chain))[[1]][1]
-      coords  = str_split(prefix, "_|-")[[1]][1]
+      prefix  = str_split(gc_chain, fixed(junc_pattern))[[1]][1]
+      coords  = str_split(prefix, "_|-")[[1]]
       gc_5end = as.integer(coords[length(coords)])
       
       if (is.na(gc_5end)) next
@@ -176,9 +179,9 @@ classify_multiexonic_utr = function(tss, strand, junc_chain, gc_chains) {
         return("perfect_subset")
       }
     } else {
-      suffix  = str_split(gc_chain, fixed(junc_chain))[[1]][2]
-      coords  = str_split(suffix, "_|-")[[1]][1]
-      gc_5end = as.integer(coords[2])
+      suffix  = str_split(gc_chain, fixed(junc_pattern))[[1]][2]
+      coords  = str_split(suffix, "_|-")[[1]]
+      gc_5end = as.integer(coords[1])
       
       if (is.na(gc_5end)) next
       
@@ -467,8 +470,8 @@ utr_chains = tibble(
         coords = str_extract_all(utr_chain, "\\d+")
         sapply(coords, function(x) {
           if (length(x) <= 2) return("")
-          junctions = as.numeric(x[2:(length(x)-1)])
-          paste(junctions, collapse = "_")
+          # pair each exon end with the next exon start ("e_s"), then join the pairs with "-"
+          paste(paste0(x[seq(2, length(x) - 1, 2)], "_", x[seq(3, length(x) - 1, 2)]), collapse = "-")
         })
       }
     )
@@ -542,6 +545,7 @@ utr_info = utr_info %>%
 
 # Classify multiexonic UTRs (needs rowwise for junction matching)
 multi_idx = which(utr_info$utr_exon_status == "multiexonic")
+utr_info$multi_class = NA_character_
 
 if (length(multi_idx) > 0) {
   multi_results = utr_info[multi_idx, ] %>%
@@ -552,7 +556,6 @@ if (length(multi_idx) > 0) {
     ungroup() %>%
     pull(multi_class)
   
-  utr_info$multi_class            = NA_character_
   utr_info$multi_class[multi_idx] = multi_results
 }
 
