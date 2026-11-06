@@ -68,7 +68,6 @@
 
 suppressPackageStartupMessages({
   library(GenomicRanges)
-  library(GenomicFeatures)
   library(Biostrings)
   library(tidyverse)
   library(magrittr)
@@ -351,7 +350,10 @@ gtf_to_bed12 <- function(gtf_path, output_bed, color_by = NULL, track_name = NUL
 cat("\n--- STEP 1: Processing GENCODE reference ---\n")
 
 # Load GENCODE GTF
-gencode_gtf = import(gencode_gtf_path) %>% as.data.frame()
+gencode_gtf = import(gencode_gtf_path,
+                     feature.type = c("exon", "CDS"),
+                     colnames     = c("type", "gene_id", "transcript_id", "gene_name")) %>%
+  as.data.frame()
 
 # Identify protein-coding transcripts (have CDS)
 pc_transcripts = gencode_gtf %>%
@@ -387,10 +389,6 @@ gencode_chains = gencode_exons %>%
 cat("\n--- STEP 2: Processing Sample transcripts ---\n")
 
 sample_gtf = import(sample_cds_gtf_path) %>% as.data.frame()
-
-# Create TxDb and extract 5' UTRs directly
-txdb      = makeTxDbFromGFF(sample_cds_gtf_path, format = "gtf")
-utr_by_tx = fiveUTRsByTranscript(txdb, use.names = TRUE)
 
 # Get transcript metadata (gene name, chromosome, strand)
 tx_metadata = sample_gtf %>%
@@ -447,21 +445,26 @@ exon_junctions = sample_gtf %>%
   )
 
 # Convert 5' UTR GRangesList to tibble with stats
-utr_stats = tibble(
-  transcript_id    = names(utr_by_tx),
-  num_5utr_exons   = lengths(utr_by_tx),
-  utr_length       = sum(width(utr_by_tx))
-)
+# 5' UTR = the parts of each exon upstream of the CDS start (nterm)
+utr_exons = sample_gtf %>%
+  filter(type == "exon") %>%
+  select(transcript_id, strand, start, end) %>%
+  inner_join(select(sample_cds, transcript_id, nterm), by = "transcript_id") %>%
+  mutate(
+    end   = if_else(strand == "+", pmin(end, nterm - 1L), end),
+    start = if_else(strand == "-", pmax(start, nterm + 1L), start)
+  ) %>%
+  filter(start <= end)
+
+utr_stats = utr_exons %>%
+  group_by(transcript_id) %>%
+  summarise(num_5utr_exons = n(), utr_length = sum(end - start + 1L), .groups = "drop")
 
 # Create chain strings for 5' UTRs
-utr_chains = tibble(
-  transcript_id = names(utr_by_tx),
-  utr_chain = sapply(utr_by_tx, function(gr) {
-    if (length(gr) == 0) return("")
-    gr = sort(gr)
-    paste(paste0(start(gr), "-", end(gr)), collapse = "_")
-  })
-) %>%
+utr_chains = utr_exons %>%
+  arrange(transcript_id, start) %>%
+  group_by(transcript_id) %>%
+  summarise(utr_chain = paste(paste0(start, "-", end), collapse = "_"), .groups = "drop") %>%
   mutate(
     junc_chain = case_when(
       utr_chain == "" ~ "",
@@ -1081,8 +1084,7 @@ hc_collapsed = hc_orf_groups %>%
 write_tsv(hc_collapsed, file.path(output_dir, paste0(basename, ".predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt")))
 
 # write a corresponding ORF centric gtf
-gtf = import(sample_cds_gtf_path) %>%
-  as.data.frame()
+gtf = sample_gtf
 
 new_orf_attributes = hc_collapsed %>% 
   mutate(avg_orf_cpm = rowMeans(across(contains("cpm")), na.rm = TRUE)) %>%
