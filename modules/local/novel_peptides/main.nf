@@ -3,7 +3,7 @@ process NOVEL_PEPTIDES {
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/jtllab/lrp2-lite:latest"
+    container "docker.io/jtllab/lrp2-lite:latest"
 
     input:
     tuple val(meta), path(fragpipe_peptide_file), path(reference_fasta), path(custom_gtf), path(custom_fasta), path(gencode_gtf), path(gencode_fasta)

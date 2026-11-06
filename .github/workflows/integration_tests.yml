@@ -1,0 +1,1161 @@
+name: Integration Tests
+on:
+  pull_request:
+    branches:
+      - '**'
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "**/*.png"
+      - "**/*.svg"
+      - "**/*.jpg"
+      - "**/*.jpeg"
+      - "CITATION.cff"
+      - ".gitignore"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "**/*.png"
+      - "**/*.svg"
+      - "**/*.jpg"
+      - "**/*.jpeg"
+      - "CITATION.cff"
+      - ".gitignore"
+  # Scheduled run on main, at most 6 days apart, at 06:13 UTC (1:13 am EST / 2:13 am EDT). This should
+  # catch breakage from outside the repo (':latest' images if any, registries, GENCODE URLs) and keeps
+  # the FragPipe tools cache in use (GitHub deletes caches not used for 7 days). Offset of 6 days is 
+  # because scheduled runs can start hours late, so a 7-day interval could occasionally lose it.
+  # NOTE: Cron can't count "every 6 days" so '*/6' in the day-of-month field fires on days
+  # 1, 7, 13, 19, 25 and 31 by default each month. Gaps are 6 days, except a 1-day gap after the 
+  # 31st (31st -> 1st) and 4-5 days at the end of February. Scheduled runs will always use main.
+  schedule:
+    - cron: '13 6 */6 * *'
+  workflow_dispatch:
+    inputs:
+      fragpipe_token:
+        description: 'FragPipe token (6 digits, expires ~20 min after it is emailed). Only needed when the FragPipe tools cache is empty or expired. Run from main so every branch can use the cache.'
+        required: false
+        type: string
+
+# A newer push to a pull request cancels that PR's older run. Runs on main (merges, the weekly
+# schedule, manual runs) are never cancelled; a second one waits until the first finishes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+# bash with -eo pipefail (the default "bash -e" has no pipefail)
+defaults:
+  run:
+    shell: bash
+
+env:
+  NXF_ANSI_LOG: false
+  # Prefix for the FragPipe tools cache. Each successful download saves a new entry under
+  # this prefix; restores pick the newest one. Bump the version to force a fresh download.
+  FRAGPIPE_CACHE_PREFIX: Linux-fragpipe-tools-v2-
+  APPTAINER_VERSION: "1.3.6"
+  # GENCODE release used by every test except the GRCh38.p13.v40 _PAR_Y tests. The full-pipeline
+  # matrix below lists it explicitly too (job names can't read env); keep the two in sync.
+  DEFAULT_GENOME: GRCh38.p14.v50
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Fast checks that catch configuration bugs in seconds instead of mid-pipeline
+  # ---------------------------------------------------------------------------
+  static-checks:
+    name: Static checks
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: "25.04.0"
+
+      # Resolves the container each process would actually use under Docker, for every test
+      # configuration, so engine ternaries are judged by the branch Docker really takes (a
+      # docker:// string in the Singularity branch is fine). Also covers withName/withLabel
+      # overrides and images built from params. Docker rejects docker:// ("invalid reference
+      # format"); Nextflow adds that prefix itself for Singularity.
+      - name: Resolved Docker images must not use docker://
+        run: |
+          printf '%s\n' "docker.enabled = true" "singularity.enabled = false" "apptainer.enabled = false" \
+            > "${RUNNER_TEMP}/inspect_docker.config"
+          CONFIGS=(
+            "test_rna --genome ${DEFAULT_GENOME}"
+            "test_rna --genome GRCh38.p13.v40"
+            "test_dda --genome ${DEFAULT_GENOME} --fragpipe_license_accept true"
+            "test_dia --genome ${DEFAULT_GENOME} --fragpipe_license_accept true"
+          )
+          : > "${RUNNER_TEMP}/bad_containers.txt"
+          : > "${RUNNER_TEMP}/resolved_images.tsv"
+          for spec in "${CONFIGS[@]}"; do
+            read -r -a words <<< "$spec"
+            profile="${words[0]}"
+            out="${RUNNER_TEMP}/inspect_${profile}.json"
+            echo "::group::nextflow inspect -profile ${spec}"
+            if ! nextflow -q inspect "$GITHUB_WORKSPACE" -profile "$profile" "${words[@]:1}" \
+                 --outdir "${RUNNER_TEMP}/inspect_outdir" -c "${RUNNER_TEMP}/inspect_docker.config" \
+                 -format json > "$out" 2> "${out}.err"; then
+              cat "${out}.err"
+              echo "::endgroup::"
+              echo "::warning::Could not inspect '${spec}' (see log group); its containers were not checked here."
+              continue
+            fi
+            # stdout can contain println output before the JSON, so parse from the JSON object onward
+            python3 -I - "$out" "$spec" "${RUNNER_TEMP}/resolved_images.tsv" \
+              >> "${RUNNER_TEMP}/bad_containers.txt" <<'PY'
+          import json, sys
+          text = open(sys.argv[1]).read()
+          start = text.find('{\n    "processes"')
+          procs = json.loads(text[start:])["processes"] if start >= 0 else []
+          print(f"{len(procs)} processes inspected", file=sys.stderr)
+          with open(sys.argv[3], "a") as images:
+              for p in procs:
+                  image = p.get("container") or ""
+                  if image.startswith("docker://"):
+                      print(f"{p['name']}: {image}   (profile: {sys.argv[2]})")
+                  elif image:
+                      images.write(f"{image}\t{p['name']}\n")
+          PY
+            echo "::endgroup::"
+          done
+          if [[ -s "${RUNNER_TEMP}/bad_containers.txt" ]]; then
+            echo "::error::These processes resolve to a docker:// image under Docker, which fails with 'invalid reference format'. Drop the prefix and give the full registry path (e.g. 'docker.io/library/ubuntu:22.04'); Nextflow adds docker:// itself for Singularity."
+            sort -u "${RUNNER_TEMP}/bad_containers.txt"
+            exit 1
+          fi
+          echo "Every process resolves to a Docker-compatible image name."
+
+      # The pipeline sets a default registry (quay.io), which Nextflow prepends to any image
+      # without one: 'ubuntu:22.04' becomes 'quay.io/ubuntu:22.04', which does not exist.
+      # Check every resolved image against its registry without pulling it.
+      - name: Every resolved image exists in its registry
+        run: |
+          if [[ ! -s "${RUNNER_TEMP}/resolved_images.tsv" ]]; then
+            echo "::warning::No resolved images to check (inspect produced none)."
+            exit 0
+          fi
+          missing=0
+          while IFS=$'\t' read -r image procs; do
+            err=""
+            for attempt in 1 2 3; do
+              if err=$(docker manifest inspect "$image" 2>&1 > /dev/null); then
+                err=""
+                break
+              fi
+              # A definite "doesn't exist" answer: no point retrying
+              if grep -qiE 'not found|manifest unknown|no such manifest|404|denied|unauthorized' <<< "$err"; then
+                break
+              fi
+              sleep $((attempt * 5))
+            done
+            if [[ -z "$err" ]]; then
+              echo "OK       ${image}"
+            elif grep -qiE 'not found|manifest unknown|no such manifest|404|denied|unauthorized' <<< "$err"; then
+              echo "::error::Image not found: ${image} (used by: ${procs}). If the module names the image without a registry, Nextflow prepends the pipeline's default registry; write it in full instead, e.g. 'docker.io/library/ubuntu:22.04' or 'docker.io/<user>/<image>:<tag>'."
+              missing=1
+            else
+              echo "::warning::Could not check ${image} (registry error, not a missing image): $(head -n 1 <<< "$err")"
+            fi
+          done < <(sort -u "${RUNNER_TEMP}/resolved_images.tsv" \
+                   | awk -F'\t' '{ procs[$1] = procs[$1] ? procs[$1] ", " $2 : $2 } END { for (i in procs) print i "\t" procs[i] }' \
+                   | sort)
+          exit "$missing"
+
+      - name: Test data used by this workflow exists
+        run: |
+          missing=0
+          for f in \
+            test_data/run_rna_only/samplesheet_rna_only.csv \
+            test_data/run_fragpipe_rna_dda/samplesheet_fragpipe_rna.csv
+          do
+            if [[ -f "$f" ]]; then
+              echo "OK: $f"
+            else
+              echo "::error file=${f}::Test data file referenced by integration_tests.yml is missing: ${f}"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+  # ---------------------------------------------------------------------------
+  # Restore FragPipe tools from cache, or download them once with a token.
+  # Every FragPipe-dependent job restores from this single cache entry.
+  # The tools are licensed: they live only in the Actions cache (not downloadable
+  # through the UI/API) and are never uploaded as artifacts.
+  # ---------------------------------------------------------------------------
+  fragpipe-setup:
+    name: "FragPipe tools: restore or download"
+    runs-on: ubuntu-24.04
+    outputs:
+      available: ${{ steps.status.outputs.available }}
+    steps:
+      - name: Restore FragPipe tools from cache
+        uses: actions/cache/restore@v4
+        with:
+          path: fragpipe_tools
+          key: ${{ env.FRAGPIPE_CACHE_PREFIX }}${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ${{ env.FRAGPIPE_CACHE_PREFIX }}
+
+      - name: Validate cached tools
+        id: validate
+        run: |
+          valid=true
+          for pattern in "msfragger/MSFragger*.jar" "ionquant/IonQuant*.jar" "diatracer/diaTracer*.jar"; do
+            jar=$(compgen -G "fragpipe_tools/${pattern}" | head -n 1 || true)
+            if [[ -n "$jar" ]] && unzip -tqq "$jar" > /dev/null 2>&1; then
+              echo "OK: ${jar}"
+            else
+              echo "Missing or corrupt: fragpipe_tools/${pattern}"
+              valid=false
+            fi
+          done
+          echo "valid=${valid}" >> "$GITHUB_OUTPUT"
+
+      - name: Download FragPipe tools with token
+        id: download
+        if: steps.validate.outputs.valid != 'true'
+        env:
+          FRAGPIPE_TOKEN_INPUT: ${{ inputs.fragpipe_token }}
+          FRAGPIPE_TOKEN_SECRET: ${{ secrets.FRAGPIPE_TOKEN }}
+        run: |
+          TOKEN="${FRAGPIPE_TOKEN_INPUT:-${FRAGPIPE_TOKEN_SECRET:-}}"
+          if [[ -z "$TOKEN" ]]; then
+            echo "::warning::No valid FragPipe tools cache and no token (FRAGPIPE_TOKEN secret or workflow_dispatch input). FragPipe-dependent tests (test_dda, test_dia, S5) will be skipped."
+            echo "downloaded=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::add-mask::${TOKEN}"
+          if [[ ! "$TOKEN" =~ ^[0-9]{6}$ ]]; then
+            echo "::error::The FragPipe token must be exactly 6 digits."
+            exit 1
+          fi
+
+          BASE="https://msfragger-upgrader.nesvilab.org"
+          WORK="${RUNNER_TEMP}/fragpipe_download"
+          rm -rf fragpipe_tools "$WORK"
+          mkdir -p fragpipe_tools/msfragger fragpipe_tools/ionquant fragpipe_tools/diatracer "$WORK"
+
+          token_rejected() {
+            echo "::error::The ${1} download failed, so the FragPipe token was rejected (tokens expire about 20 minutes after being emailed). Request a new token, update the FRAGPIPE_TOKEN secret (or use the workflow_dispatch input), and re-run promptly."
+            exit 1
+          }
+
+          # fetch_tool <label> <server endpoint> <target subdir> <jar name pattern>
+          fetch_tool() {
+            local label="$1" endpoint="$2" subdir="$3" pattern="$4"
+            local version zip jar
+            version=$(curl -fsSL --retry 3 "${BASE}/${endpoint}/latest_version.php")
+            echo "Latest ${label} version: ${version}"
+            zip="${WORK}/${subdir}.zip"
+            curl -fsSL --retry 3 -o "$zip" \
+              "${BASE}/${endpoint}/download.php?token=${TOKEN}&download=${version// /%20}%24zip" \
+              || token_rejected "$label"
+            unzip -tqq "$zip" > /dev/null 2>&1 || token_rejected "$label"
+            unzip -qo "$zip" -d "${WORK}/${subdir}"
+            jar=$(find "${WORK}/${subdir}" -name "$pattern" -print -quit)
+            if [[ -z "$jar" ]]; then
+              echo "::error::No ${pattern} found inside the ${label} archive."
+              exit 1
+            fi
+            cp "$jar" "fragpipe_tools/${subdir}/"
+            echo "${label}: $(basename "$jar")"
+          }
+
+          fetch_tool MSFragger upgrader  msfragger 'MSFragger*.jar'
+          fetch_tool IonQuant  ionquant  ionquant  'IonQuant*.jar'
+          fetch_tool diaTracer diatracer diatracer 'diaTracer*.jar'
+
+          # Same versions.yml the FRAGPIPE_AUTHENTICATE module writes, so that a storeDir
+          # lookup in fragpipe_tools_dir finds every declared output.
+          jar_version() {
+            local f
+            f=$(basename "$(compgen -G "fragpipe_tools/$1/$2*.jar" | head -n 1)" .jar)
+            echo "${f#"$2"-}"
+          }
+          {
+            echo '"SHEYNKMANLAB_LRP2:LRP2:PROTEOMICS:FRAGPIPE_AUTHENTICATE":'
+            echo "    curl: $(curl --version | awk 'NR == 1 { print $2 }')"
+            echo "    msfragger: $(jar_version msfragger MSFragger)"
+            echo "    ionquant: $(jar_version ionquant IonQuant)"
+            echo "    diatracer: $(jar_version diatracer diaTracer)"
+          } > fragpipe_tools/versions.yml
+
+          rm -rf "$WORK"
+          ls -lR fragpipe_tools
+          echo "downloaded=true" >> "$GITHUB_OUTPUT"
+
+      - name: Save FragPipe tools to cache
+        if: steps.download.outputs.downloaded == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: fragpipe_tools
+          key: ${{ env.FRAGPIPE_CACHE_PREFIX }}${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Report FragPipe availability
+        id: status
+        if: always()
+        env:
+          CACHE_VALID: ${{ steps.validate.outputs.valid }}
+        run: |
+          available=true
+          for pattern in "msfragger/MSFragger*.jar" "ionquant/IonQuant*.jar" "diatracer/diaTracer*.jar"; do
+            compgen -G "fragpipe_tools/${pattern}" > /dev/null || available=false
+          done
+          echo "available=${available}" >> "$GITHUB_OUTPUT"
+          {
+            echo "## FragPipe tools"
+            echo ""
+            if [[ "$available" == "true" ]]; then
+              if [[ "$CACHE_VALID" == "true" ]]; then SOURCE="cache"; else SOURCE="fresh download"; fi
+              echo "Available (source: ${SOURCE})."
+            else
+              echo "**Not available** - test_dda, test_dia and S5 are skipped."
+              echo ""
+              echo "To enable them: request a FragPipe token, then either update the FRAGPIPE_TOKEN"
+              echo "secret and re-run within ~20 minutes, or run this workflow manually on main and"
+              echo "paste the token into the fragpipe_token input."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Stage 1: Full pipeline tests with test_rna, test_dda, and test_dia profiles
+  # ---------------------------------------------------------------------------
+  full-pipeline-test:
+    name: "Full Pipeline Test ${{ matrix.n }}/12: ${{ matrix.test_profile }} | ${{ matrix.engine_label }} | ${{ matrix.genome }} | NXF ${{ matrix.NXF_VER }}"
+    needs: [fragpipe-setup]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      # One entry per test, in numbered order. 'genome' is always passed to --genome, so the GENCODE
+      # release in the job name is the one the test really uses. GRCh38.p14.v50 must match
+      # DEFAULT_GENOME at the top of this file (the S2/S5 entry-point tests start from these outputs).
+      # GRCh38.p13.v40 (GENCODE v25-v43 era) exercises _PAR_Y gene-ID handling (SANITIZE_PAR_IDS).
+      # container_engine is the lower-case value the steps test against; engine_label is for display.
+      matrix:
+        include:
+          - { n: 1,  test_profile: test_rna, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 2,  test_profile: test_rna, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 3,  test_profile: test_rna, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 4,  test_profile: test_rna, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p13.v40, NXF_VER: "25.04.0" }
+          - { n: 5,  test_profile: test_rna, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p13.v40, NXF_VER: "25.04.0" }
+          - { n: 6,  test_profile: test_rna, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p13.v40, NXF_VER: "25.04.0" }
+          - { n: 7,  test_profile: test_dda, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 8,  test_profile: test_dda, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 9,  test_profile: test_dda, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 10, test_profile: test_dia, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 11, test_profile: test_dia, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 12, test_profile: test_dia, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+    env:
+      TEST_NUMBER: ${{ matrix.n }}
+      TEST_PROFILE: ${{ matrix.test_profile }}
+      CONTAINER_ENGINE: ${{ matrix.container_engine }}
+      ENGINE_LABEL: ${{ matrix.engine_label }}
+      GENOME_VERSION: ${{ matrix.genome }}
+      NXF_VER: ${{ matrix.NXF_VER }}
+      USES_FRAGPIPE: ${{ matrix.test_profile == 'test_dda' || matrix.test_profile == 'test_dia' }}
+      FRAGPIPE_AVAILABLE: ${{ needs.fragpipe-setup.outputs.available == 'true' }}
+
+    steps:
+      - name: Decide whether this test can run
+        run: |
+          if [[ "$USES_FRAGPIPE" == "true" && "$FRAGPIPE_AVAILABLE" != "true" ]]; then
+            echo "RUN_TEST=false" >> "$GITHUB_ENV"
+            echo "::warning::Skipping Full Pipeline Test ${TEST_NUMBER}/12 (${TEST_PROFILE} | ${ENGINE_LABEL} | ${GENOME_VERSION}): FragPipe tools are not available. See the 'FragPipe tools' job."
+            {
+              echo "## Test Skipped: Full Pipeline Test ${TEST_NUMBER}/12: ${TEST_PROFILE} | ${ENGINE_LABEL} | ${GENOME_VERSION}"
+              echo ""
+              echo "FragPipe tools were not available. See the **FragPipe tools: restore or download** job summary."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "RUN_TEST=true" >> "$GITHUB_ENV"
+          fi
+
+      # The root disk cannot hold the human reference, task work dirs, every container image and
+      # Apptainer's layer cache at once ("no space left on device"). This step frees preinstalled
+      # software, puts the Nextflow work dir and all image storage on whichever of / and /mnt has
+      # more room, and adds swap on the other disk: pbmm2 indexing the full human genome
+      # (--preset ISOSEQ) needs more than the runner's 16 GB of RAM.
+      - name: Prepare disks (free space, scratch dir, swap)
+        if: env.RUN_TEST == 'true'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift \
+            /usr/local/share/powershell /usr/local/share/chromium /opt/microsoft /opt/az || true
+          sudo docker image prune --all --force > /dev/null 2>&1 || true
+
+          avail_gb() { df -BG --output=avail "$1" 2> /dev/null | tail -n 1 | tr -dc '0-9'; }
+          ROOT_FREE=$(avail_gb /)
+          MNT_FREE=0
+          if mountpoint -q /mnt; then MNT_FREE=$(avail_gb /mnt); fi
+          echo "Free space after cleanup: / = ${ROOT_FREE} GB, /mnt = ${MNT_FREE} GB"
+
+          if (( MNT_FREE > ROOT_FREE )); then
+            SCRATCH=/mnt/ci;               SCRATCH_FREE=$MNT_FREE;  OTHER=/;    OTHER_FREE=$ROOT_FREE
+          else
+            SCRATCH="${RUNNER_TEMP}/ci";   SCRATCH_FREE=$ROOT_FREE; OTHER=/mnt; OTHER_FREE=$MNT_FREE
+          fi
+          sudo mkdir -p "${SCRATCH}/work" "${SCRATCH}/images" "${SCRATCH}/apptainer-cache" "${SCRATCH}/apptainer-tmp"
+          sudo chown -R "$(id -u):$(id -g)" "$SCRATCH"
+          {
+            echo "NXF_WORK=${SCRATCH}/work"
+            echo "NXF_SINGULARITY_CACHEDIR=${SCRATCH}/images"
+            echo "APPTAINER_CACHEDIR=${SCRATCH}/apptainer-cache"
+            echo "APPTAINER_TMPDIR=${SCRATCH}/apptainer-tmp"
+            # Without this, every image is stored twice: as OCI layers in the cache and as a SIF file
+            echo "APPTAINER_DISABLE_CACHE=true"
+          } >> "$GITHUB_ENV"
+          echo "Scratch dir (work + images): ${SCRATCH}"
+
+          SWAP_FILE=""
+          if (( OTHER_FREE >= 40 )); then
+            SWAP_FILE="${OTHER%/}/ci-swapfile"
+          elif (( SCRATCH_FREE >= 60 )); then
+            SWAP_FILE="${SCRATCH}/ci-swapfile"
+          fi
+          if [[ -n "$SWAP_FILE" ]]; then
+            sudo fallocate -l 16G "$SWAP_FILE"
+            sudo chmod 600 "$SWAP_FILE"
+            sudo mkswap "$SWAP_FILE" > /dev/null
+            sudo swapon "$SWAP_FILE"
+          else
+            echo "::warning::Not enough free disk for a 16 GB swap file; ISOCALL_ALIGN may be killed for lack of memory (exit 137)."
+          fi
+          free -h
+          swapon --show
+          df -h / /mnt 2> /dev/null || df -h /
+
+      - name: Checkout code
+        if: env.RUN_TEST == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        if: env.RUN_TEST == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Nextflow
+        if: env.RUN_TEST == 'true'
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: ${{ matrix.NXF_VER }}
+
+      # Miniforge, not Miniconda: Miniconda's 'defaults' channel requires accepting Anaconda's terms
+      # of service, which stops non-interactive CI. Same approach as the nf-core pipeline template.
+      - name: Set up Conda (Miniforge)
+        if: env.RUN_TEST == 'true' && matrix.container_engine == 'conda'
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          channels: conda-forge,bioconda
+          channel-priority: strict
+          conda-solver: libmamba
+          auto-update-conda: false
+
+      # Nextflow calls 'conda' itself, from plain (non-login) shells, so it must be on PATH.
+      - name: Put conda on PATH for Nextflow
+        if: env.RUN_TEST == 'true' && matrix.container_engine == 'conda'
+        run: |
+          CONDA_ROOT=$(realpath "${CONDA:?setup-miniconda did not set CONDA}")
+          echo "${CONDA_ROOT}/condabin" >> "$GITHUB_PATH"
+          "${CONDA_ROOT}/condabin/conda" --version
+          "${CONDA_ROOT}/condabin/conda" config --show channels channel_priority
+
+      # The container engine is enabled through this config instead of -profile docker/singularity,
+      # so runOptions from nextflow.config's engine profiles are not loaded.
+      # Docker runOptions:
+      #   -u $(id -u):$(id -g)  run as the runner's user, like Singularity does. Images that set their
+      #                         own USER (e.g. sqanti3) otherwise can't write the task directory.
+      #   --memory-swap -1      Nextflow passes --memory <task.memory> to docker run, a hard limit
+      #                         Singularity doesn't have; this lets the container use swap past it.
+      - name: Write Nextflow container-engine config
+        if: env.RUN_TEST == 'true'
+        run: |
+          CONFIG="${RUNNER_TEMP}/ci_${CONTAINER_ENGINE}.config"
+          if [[ "$CONTAINER_ENGINE" == "docker" ]]; then
+            printf '%s\n' \
+              "docker.enabled      = true" \
+              "docker.runOptions   = '-u \$(id -u):\$(id -g) --memory-swap -1'" \
+              "singularity.enabled = false" \
+              "apptainer.enabled   = false" \
+              "" \
+              "// ProteoWizard's /wineprefix64 belongs to root and wine refuses a prefix owned by another" \
+              "// user. The image's sudo-based wine64_anyuser only works for UIDs that exist in the image," \
+              "// so msconvert runs as root, as the image intends. Docker uses the last -u it is given," \
+              "// and containerOptions come after docker.runOptions." \
+              "process {" \
+              "    withName: 'MSCONVERT_MZML' {" \
+              "        containerOptions = '-u 0:0'" \
+              "    }" \
+              "}" > "$CONFIG"
+          elif [[ "$CONTAINER_ENGINE" == "singularity" ]]; then
+            # autoMounts lets Nextflow bind each task's work dir and staged inputs.
+            # --no-home/--cleanenv keep the runner's home dir and env (e.g. JAVA_HOME) out of containers.
+            printf '%s\n' \
+              "singularity.enabled    = true" \
+              "singularity.autoMounts = true" \
+              "singularity.runOptions = '--no-home --cleanenv'" \
+              "apptainer.enabled      = false" \
+              "docker.enabled         = false" > "$CONFIG"
+            mkdir -p "$NXF_SINGULARITY_CACHEDIR"
+          else
+            # Conda: each module's environment.yml is built into an env on the scratch disk (envs and
+            # the package download cache are several GB). Envs aren't cached between runs: they
+            # would compete with the FragPipe tools cache for the repository's 10 GB limit.
+            CONDA_DIR="$(dirname "$NXF_WORK")/conda"
+            mkdir -p "${CONDA_DIR}/envs" "${CONDA_DIR}/pkgs"
+            echo "CONDA_PKGS_DIRS=${CONDA_DIR}/pkgs" >> "$GITHUB_ENV"
+            printf '%s\n' \
+              "conda.enabled          = true" \
+              "conda.channels         = ['conda-forge', 'bioconda']" \
+              "conda.cacheDir         = '${CONDA_DIR}/envs'" \
+              "conda.createTimeout    = '1 h'" \
+              "docker.enabled         = false" \
+              "singularity.enabled    = false" \
+              "apptainer.enabled      = false" > "$CONFIG"
+          fi
+          # Cap every process's cpus/memory request at what this runner actually has, so labels
+          # like process_high (e.g. 45 GB for ISOCALL_ALIGN) don't exceed the 4-CPU / 16 GB runner.
+          MAX_CPUS=$(nproc)
+          MAX_MEM_GB=$(awk '/^MemTotal:/ { printf "%d", $2 / 1048576 }' /proc/meminfo)
+          # time: tasks that request longer are capped at 3 h, so a hung task fails with its own
+          # name (exit 140) instead of silently stalling the job until GitHub's 6 h limit.
+          echo "process.resourceLimits = [cpus: ${MAX_CPUS}, memory: ${MAX_MEM_GB}.GB, time: 3.h]" >> "$CONFIG"
+          echo "NXF_CI_CONFIG=${CONFIG}" >> "$GITHUB_ENV"
+          echo "Nextflow CI config (${CONFIG}):"
+          cat "$CONFIG"
+
+      # Ubuntu 24.04 uses AppArmor to block unprivileged user namespaces, which Apptainer needs to
+      # start containers ("Failed to create container process: Operation not permitted").
+      - name: Allow unprivileged user namespaces for Apptainer
+        if: env.RUN_TEST == 'true' && matrix.container_engine == 'singularity'
+        run: |
+          if [[ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          unshare --user --map-root-user true && echo "Unprivileged user namespaces are available."
+
+      - name: Set up Apptainer
+        if: env.RUN_TEST == 'true' && matrix.container_engine == 'singularity'
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: ${{ env.APPTAINER_VERSION }}
+
+      - name: Restore FragPipe tools
+        if: env.RUN_TEST == 'true' && env.USES_FRAGPIPE == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: fragpipe_tools
+          key: ${{ env.FRAGPIPE_CACHE_PREFIX }}${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ${{ env.FRAGPIPE_CACHE_PREFIX }}
+          fail-on-cache-miss: true
+
+      - name: Display resource information
+        if: env.RUN_TEST == 'true'
+        run: |
+          echo "CPUs: $(nproc)"
+          free -h
+          df -h /
+          if command -v docker > /dev/null; then docker --version; fi
+          if command -v apptainer > /dev/null; then apptainer --version; fi
+          if [[ "$CONTAINER_ENGINE" == "conda" ]]; then conda --version; fi
+          nextflow -version
+          if [[ -d fragpipe_tools ]]; then ls -lR fragpipe_tools; fi
+
+      - name: Run Full Pipeline Test ${{ matrix.n }}/12 - ${{ matrix.test_profile }} with ${{ matrix.engine_label }}
+        id: run_test
+        if: env.RUN_TEST == 'true'
+        env:
+          FRAGPIPE_TOKEN_INPUT: ${{ inputs.fragpipe_token }}
+          FRAGPIPE_TOKEN_SECRET: ${{ secrets.FRAGPIPE_TOKEN }}
+        run: |
+          OUTDIR="test_results_${TEST_PROFILE}_${CONTAINER_ENGINE}_${GENOME_VERSION}"
+          echo "OUTDIR=${OUTDIR}" >> "$GITHUB_ENV"
+          LABEL="Full Pipeline Test ${TEST_NUMBER}/12: ${TEST_PROFILE} | ${ENGINE_LABEL} | ${GENOME_VERSION} | NXF ${NXF_VER}"
+
+          args=(run "$GITHUB_WORKSPACE" -profile "$TEST_PROFILE" --genome "$GENOME_VERSION"
+                --outdir "$OUTDIR" -c "$NXF_CI_CONFIG")
+          if [[ "$USES_FRAGPIPE" == "true" ]]; then
+            args+=(--fragpipe_license_accept true)
+            # Tools come from fragpipe_tools/ (restored above). A token is passed too when one
+            # exists; if it is still fresh, FRAGPIPE_AUTHENTICATE can use it as a fallback.
+            TOKEN="${FRAGPIPE_TOKEN_INPUT:-${FRAGPIPE_TOKEN_SECRET:-}}"
+            if [[ -n "$TOKEN" ]]; then
+              echo "::add-mask::${TOKEN}"
+              args+=(--fragpipe_token "$TOKEN")
+            fi
+          fi
+
+          echo "=========================================="
+          echo "Running: ${LABEL}"
+          echo "Start time: $(date -u)"
+          echo "=========================================="
+
+          # Downloads of remote inputs (GENCODE from EBI, container images) sometimes fail on a
+          # transient network error (e.g. "Can't stage file ... reason: Connection refused"). Nextflow
+          # itself retries only 3 times within about a second by default, so here we just stagger retries
+          # with resume, up to 3 attempts in total. Any other
+          # failure, including a missing file (404), is not retried.
+          transient_network_failure() {
+            grep -qE "Can't stage file|Unable to stage foreign file|Failed to pull singularity image|Error response from daemon" "$1" &&
+              grep -qiE "connection refused|connection reset|connection timed out|read timed out|i/o timeout|handshake timeout|unknownhost|temporary failure in name resolution|remote host terminated|unexpected eof|too many requests|service unavailable|bad gateway|gateway time-?out|status ?code:? ?(429|502|503|504)" "$1"
+          }
+          MAX_ATTEMPTS=3
+          attempt=1
+          while true; do
+            set +e
+            nextflow "${args[@]}" 2>&1 | tee "${RUNNER_TEMP}/nextflow_console.log"
+            EXIT_CODE=${PIPESTATUS[0]}
+            set -e
+            if (( EXIT_CODE == 0 || attempt >= MAX_ATTEMPTS )) \
+               || ! transient_network_failure "${RUNNER_TEMP}/nextflow_console.log"; then
+              break
+            fi
+            WAIT=$(( attempt * ${RETRY_WAIT_SECONDS:-120} ))
+            echo "::warning::Attempt ${attempt}/${MAX_ATTEMPTS} failed on a network error while downloading inputs; resuming in ${WAIT}s."
+            sleep "$WAIT"
+            attempt=$(( attempt + 1 ))
+            [[ " ${args[*]} " == *" -resume "* ]] || args+=(-resume)
+          done
+
+          echo "End time: $(date -u) | Exit code: ${EXIT_CODE}"
+          if [[ "$EXIT_CODE" -eq 0 ]]; then
+            echo "::notice::PASSED: ${LABEL}"
+            RESULT="Passed"
+          else
+            echo "::error::FAILED: ${LABEL}"
+            RESULT="Failed"
+          fi
+          {
+            echo "## Test ${RESULT}: ${LABEL}"
+            echo ""
+            echo "**Nextflow Version:** ${NXF_VER}"
+            echo "**Finished:** $(date -u)"
+            if [[ "$EXIT_CODE" -ne 0 ]]; then
+              echo ""
+              echo "Check the job log and the logs-full-pipeline-* artifact for details."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$EXIT_CODE"
+
+      # Docker-run outputs feed the Stage 2 entry-point tests. JARs are excluded so no
+      # licensed FragPipe component can end up in a downloadable artifact.
+      - name: Upload pipeline outputs as artifacts
+        if: steps.run_test.outcome == 'success' && matrix.container_engine == 'docker'
+        uses: actions/upload-artifact@v4
+        with:
+          name: full-pipeline-outputs-${{ matrix.test_profile }}-${{ matrix.genome }}
+          path: |
+            ${{ env.OUTDIR }}/
+            !${{ env.OUTDIR }}/**/*.jar
+          retention-days: 7
+
+      # .nextflow.log and .command.* are hidden files, which upload-artifact skips unless told otherwise.
+      - name: Upload pipeline logs on failure
+        if: failure() && steps.run_test.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-full-pipeline-test${{ matrix.n }}-${{ matrix.test_profile }}-${{ matrix.container_engine }}-${{ matrix.genome }}-${{ matrix.NXF_VER }}
+          path: |
+            .nextflow.log
+            ${{ env.OUTDIR }}/pipeline_info/
+            ${{ env.NXF_WORK }}/**/.command.log
+            ${{ env.NXF_WORK }}/**/.command.err
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload execution reports on success
+        if: steps.run_test.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-full-pipeline-test${{ matrix.n }}-${{ matrix.test_profile }}-${{ matrix.container_engine }}-${{ matrix.genome }}-${{ matrix.NXF_VER }}
+          path: |
+            ${{ env.OUTDIR }}/pipeline_info/execution_report*.html
+            ${{ env.OUTDIR }}/pipeline_info/execution_timeline*.html
+            ${{ env.OUTDIR }}/multiqc/multiqc_report.html
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Clean up work directory
+        if: always() && env.RUN_TEST == 'true'
+        run: |
+          echo "Cleaning up work directory to free space..."
+          sudo rm -rf "${NXF_WORK:-work}" || true
+          df -h /
+
+  # ---------------------------------------------------------------------------
+  # Stage 2: Entry point tests (S2, S4, S5) using Stage 1 docker outputs
+  # ---------------------------------------------------------------------------
+  entry-point-test:
+    name: "${{ matrix.entry_point }} Entry Point: ${{ matrix.container_engine }} | NXF ${{ matrix.NXF_VER }}"
+    needs: [fragpipe-setup, full-pipeline-test]
+    # Run even if some Stage 1 legs failed; each entry point only needs its own upstream artifact.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      matrix:
+        entry_point: [S2, S4, S5]
+        container_engine: [docker, singularity]
+        NXF_VER:
+          - "25.04.0"
+        include:
+          - entry_point: S2
+            slug: s2
+            upstream_profile: test_rna
+          - entry_point: S4
+            slug: s4
+            upstream_profile: test_rna
+          - entry_point: S5
+            slug: s5
+            upstream_profile: test_dda
+    env:
+      ENTRY_POINT: ${{ matrix.entry_point }}
+      CONTAINER_ENGINE: ${{ matrix.container_engine }}
+      UPSTREAM_PROFILE: ${{ matrix.upstream_profile }}
+      NXF_VER: ${{ matrix.NXF_VER }}
+      USES_FRAGPIPE: ${{ matrix.entry_point == 'S5' }}
+      FRAGPIPE_AVAILABLE: ${{ needs.fragpipe-setup.outputs.available == 'true' }}
+
+    steps:
+      - name: Decide whether this test can run
+        run: |
+          if [[ "$USES_FRAGPIPE" == "true" && "$FRAGPIPE_AVAILABLE" != "true" ]]; then
+            echo "RUN_TEST=false" >> "$GITHUB_ENV"
+            echo "::warning::Skipping ${ENTRY_POINT} entry point (${CONTAINER_ENGINE}): FragPipe tools are not available."
+            {
+              echo "## Test Skipped: ${ENTRY_POINT} Entry Point | ${CONTAINER_ENGINE}"
+              echo ""
+              echo "FragPipe tools were not available. See the **FragPipe tools: restore or download** job summary."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "RUN_TEST=true" >> "$GITHUB_ENV"
+          fi
+
+      # The root disk cannot hold the human reference, task work dirs, every container image and
+      # Apptainer's layer cache at once ("no space left on device"). This step frees preinstalled
+      # software, puts the Nextflow work dir and all image storage on whichever of / and /mnt has
+      # more room, and adds swap on the other disk: pbmm2 indexing the full human genome
+      # (--preset ISOSEQ) needs more than the runner's 16 GB of RAM.
+      - name: Prepare disks (free space, scratch dir, swap)
+        if: env.RUN_TEST == 'true'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift \
+            /usr/local/share/powershell /usr/local/share/chromium /opt/microsoft /opt/az || true
+          sudo docker image prune --all --force > /dev/null 2>&1 || true
+
+          avail_gb() { df -BG --output=avail "$1" 2> /dev/null | tail -n 1 | tr -dc '0-9'; }
+          ROOT_FREE=$(avail_gb /)
+          MNT_FREE=0
+          if mountpoint -q /mnt; then MNT_FREE=$(avail_gb /mnt); fi
+          echo "Free space after cleanup: / = ${ROOT_FREE} GB, /mnt = ${MNT_FREE} GB"
+
+          if (( MNT_FREE > ROOT_FREE )); then
+            SCRATCH=/mnt/ci;               SCRATCH_FREE=$MNT_FREE;  OTHER=/;    OTHER_FREE=$ROOT_FREE
+          else
+            SCRATCH="${RUNNER_TEMP}/ci";   SCRATCH_FREE=$ROOT_FREE; OTHER=/mnt; OTHER_FREE=$MNT_FREE
+          fi
+          sudo mkdir -p "${SCRATCH}/work" "${SCRATCH}/images" "${SCRATCH}/apptainer-cache" "${SCRATCH}/apptainer-tmp"
+          sudo chown -R "$(id -u):$(id -g)" "$SCRATCH"
+          {
+            echo "NXF_WORK=${SCRATCH}/work"
+            echo "NXF_SINGULARITY_CACHEDIR=${SCRATCH}/images"
+            echo "APPTAINER_CACHEDIR=${SCRATCH}/apptainer-cache"
+            echo "APPTAINER_TMPDIR=${SCRATCH}/apptainer-tmp"
+            # Without this, every image is stored twice: as OCI layers in the cache and as a SIF file
+            echo "APPTAINER_DISABLE_CACHE=true"
+          } >> "$GITHUB_ENV"
+          echo "Scratch dir (work + images): ${SCRATCH}"
+
+          SWAP_FILE=""
+          if (( OTHER_FREE >= 40 )); then
+            SWAP_FILE="${OTHER%/}/ci-swapfile"
+          elif (( SCRATCH_FREE >= 60 )); then
+            SWAP_FILE="${SCRATCH}/ci-swapfile"
+          fi
+          if [[ -n "$SWAP_FILE" ]]; then
+            sudo fallocate -l 16G "$SWAP_FILE"
+            sudo chmod 600 "$SWAP_FILE"
+            sudo mkswap "$SWAP_FILE" > /dev/null
+            sudo swapon "$SWAP_FILE"
+          else
+            echo "::warning::Not enough free disk for a 16 GB swap file; ISOCALL_ALIGN may be killed for lack of memory (exit 137)."
+          fi
+          free -h
+          swapon --show
+          df -h / /mnt 2> /dev/null || df -h /
+
+      - name: Checkout code
+        if: env.RUN_TEST == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        if: env.RUN_TEST == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Nextflow
+        if: env.RUN_TEST == 'true'
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: ${{ matrix.NXF_VER }}
+
+      - name: Write Nextflow container-engine config
+        if: env.RUN_TEST == 'true'
+        run: |
+          CONFIG="${RUNNER_TEMP}/ci_${CONTAINER_ENGINE}.config"
+          if [[ "$CONTAINER_ENGINE" == "docker" ]]; then
+            printf '%s\n' \
+              "docker.enabled      = true" \
+              "docker.runOptions   = '-u \$(id -u):\$(id -g) --memory-swap -1'" \
+              "singularity.enabled = false" \
+              "apptainer.enabled   = false" \
+              "" \
+              "// ProteoWizard's /wineprefix64 belongs to root and wine refuses a prefix owned by another" \
+              "// user. The image's sudo-based wine64_anyuser only works for UIDs that exist in the image," \
+              "// so msconvert runs as root, as the image intends. Docker uses the last -u it is given," \
+              "// and containerOptions come after docker.runOptions." \
+              "process {" \
+              "    withName: 'MSCONVERT_MZML' {" \
+              "        containerOptions = '-u 0:0'" \
+              "    }" \
+              "}" > "$CONFIG"
+          else
+            printf '%s\n' \
+              "singularity.enabled    = true" \
+              "singularity.autoMounts = true" \
+              "singularity.runOptions = '--no-home --cleanenv'" \
+              "apptainer.enabled      = false" \
+              "docker.enabled         = false" > "$CONFIG"
+            mkdir -p "$NXF_SINGULARITY_CACHEDIR"
+          fi
+          # Cap every process's cpus/memory request at what this runner actually has, so labels
+          # like process_high (e.g. 45 GB for ISOCALL_ALIGN) don't exceed the 4-CPU / 16 GB runner.
+          MAX_CPUS=$(nproc)
+          MAX_MEM_GB=$(awk '/^MemTotal:/ { printf "%d", $2 / 1048576 }' /proc/meminfo)
+          # time: tasks that request longer are capped at 3 h, so a hung task fails with its own
+          # name (exit 140) instead of silently stalling the job until GitHub's 6 h limit.
+          echo "process.resourceLimits = [cpus: ${MAX_CPUS}, memory: ${MAX_MEM_GB}.GB, time: 3.h]" >> "$CONFIG"
+          echo "NXF_CI_CONFIG=${CONFIG}" >> "$GITHUB_ENV"
+          echo "Nextflow CI config (${CONFIG}):"
+          cat "$CONFIG"
+
+      - name: Allow unprivileged user namespaces for Apptainer
+        if: env.RUN_TEST == 'true' && matrix.container_engine == 'singularity'
+        run: |
+          if [[ -f /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          unshare --user --map-root-user true && echo "Unprivileged user namespaces are available."
+
+      - name: Set up Apptainer
+        if: env.RUN_TEST == 'true' && matrix.container_engine == 'singularity'
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: ${{ env.APPTAINER_VERSION }}
+
+      - name: Restore FragPipe tools
+        if: env.RUN_TEST == 'true' && env.USES_FRAGPIPE == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: fragpipe_tools
+          key: ${{ env.FRAGPIPE_CACHE_PREFIX }}${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ${{ env.FRAGPIPE_CACHE_PREFIX }}
+          fail-on-cache-miss: true
+
+      - name: Download ${{ matrix.upstream_profile }} outputs from Stage 1
+        id: download_upstream
+        if: env.RUN_TEST == 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: full-pipeline-outputs-${{ matrix.upstream_profile }}-${{ env.DEFAULT_GENOME }}
+          path: stage1_outputs/
+
+      # A missing artifact means the '<profile> | docker' Stage 1 job failed. That failure already
+      # fails the run (see confirm-pass), so this job is skipped instead of adding a second red X.
+      - name: Skip if Stage 1 outputs are unavailable
+        if: env.RUN_TEST == 'true' && steps.download_upstream.outcome != 'success'
+        run: |
+          echo "RUN_TEST=false" >> "$GITHUB_ENV"
+          echo "::warning::Skipping ${ENTRY_POINT} entry point (${CONTAINER_ENGINE}): artifact 'full-pipeline-outputs-${UPSTREAM_PROFILE}-${DEFAULT_GENOME}' was not produced because the '${UPSTREAM_PROFILE} | Docker | ${DEFAULT_GENOME}' Stage 1 test failed. Fix that test first."
+          {
+            echo "## Test Skipped: ${ENTRY_POINT} Entry Point | ${CONTAINER_ENGINE}"
+            echo ""
+            echo "Upstream artifact \`full-pipeline-outputs-${UPSTREAM_PROFILE}-${DEFAULT_GENOME}\` was not produced because the **${UPSTREAM_PROFILE} | Docker | ${DEFAULT_GENOME}** Stage 1 test failed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run ${{ matrix.entry_point }} entry point test with ${{ matrix.container_engine }}
+        id: run_test
+        if: env.RUN_TEST == 'true'
+        env:
+          FRAGPIPE_TOKEN_INPUT: ${{ inputs.fragpipe_token }}
+          FRAGPIPE_TOKEN_SECRET: ${{ secrets.FRAGPIPE_TOKEN }}
+        run: |
+          OUTDIR="test_results_${ENTRY_POINT,,}_entry_${CONTAINER_ENGINE}"
+          echo "OUTDIR=${OUTDIR}" >> "$GITHUB_ENV"
+          LABEL="${ENTRY_POINT} Entry Point | ${CONTAINER_ENGINE}"
+
+          find_one() { find "$1" -name "$2" -print -quit 2> /dev/null || true; }
+          missing=0
+          # need <description> <value> <directory searched>
+          need() {
+            if [[ -z "$2" ]]; then
+              echo "::error::${ENTRY_POINT}: required input not found: ${1} (searched ${3})"
+              echo "Contents of ${3}:"
+              ls -R "$3" 2> /dev/null || echo "(directory not found)"
+              missing=1
+            else
+              echo "${1}: ${2}"
+            fi
+          }
+
+          args=(run "$GITHUB_WORKSPACE")
+          case "$ENTRY_POINT" in
+            S2)
+              S1_DIR="stage1_outputs/S1_PACBIO_ISOCALL/M5_ISOCALL_CALL"
+              S2_GTF=$(find_one "$S1_DIR" '*.gtf')
+              S2_COUNTS=$(find_one "$S1_DIR" '*_counts.tsv')
+              need "S2 GTF (*.gtf)" "$S2_GTF" "$S1_DIR"
+              need "S2 counts (*_counts.tsv)" "$S2_COUNTS" "$S1_DIR"
+              args+=(
+                --input test_data/run_rna_only/samplesheet_rna_only.csv
+                --S2_custom_gtf "$S2_GTF"
+                --S2_custom_counts "$S2_COUNTS"
+                --genome "$DEFAULT_GENOME"
+                --dataset_name lrptest_s2
+              )
+              ;;
+            S4)
+              S2_M3_DIR="stage1_outputs/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME"
+              S3_M4_DIR="stage1_outputs/S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION"
+              S4_GTF=$(find_one "$S2_M3_DIR" '*.filtered.gtf')
+              S4_COUNTS=$(find_one "$S2_M3_DIR" '*filtered_hashids_with_cpm.txt')
+              S4_ORF_COUNTS=$(find_one "$S3_M4_DIR" '*collapsed_high_confidence_ORF_hashids_with_cpm.txt')
+              need "S4 GTF (*.filtered.gtf)" "$S4_GTF" "$S2_M3_DIR"
+              need "S4 counts (*filtered_hashids_with_cpm.txt)" "$S4_COUNTS" "$S2_M3_DIR"
+              need "S4 ORF counts (*collapsed_high_confidence_ORF_hashids_with_cpm.txt)" "$S4_ORF_COUNTS" "$S3_M4_DIR"
+              args+=(
+                --S4_multisample_metadata test_data/run_rna_only/samplesheet_rna_only.csv
+                --S4_custom_gtf "$S4_GTF"
+                --S4_custom_counts "$S4_COUNTS"
+                --S4_custom_orf_counts "$S4_ORF_COUNTS"
+                --dataset_name lrptest_s4
+              )
+              ;;
+            S5)
+              # Protein-only samplesheet built from the test_dda samplesheet. It is written next to
+              # the source so relative sample paths resolve the same way.
+              SRC="test_data/run_fragpipe_rna_dda/samplesheet_fragpipe_rna.csv"
+              SHEET="$(dirname "$SRC")/samplesheet_protein_only_ci.csv"
+              if [[ ! -f "$SRC" ]]; then
+                echo "::error::Source samplesheet not found: ${SRC}"
+                exit 1
+              fi
+              awk -F',' '
+                { sub(/\r$/, "") }
+                NR == 1 { for (i = 1; i <= NF; i++) if ($i == "sample_type") col = i; print; next }
+                col && $col == "protein"
+              ' "$SRC" > "$SHEET"
+              N_PROTEIN=$(( $(wc -l < "$SHEET") - 1 ))
+              echo "Protein-only samplesheet (${N_PROTEIN} sample row(s)):"
+              cat "$SHEET"
+              if (( N_PROTEIN < 1 )); then
+                echo "::error::No rows with sample_type == protein in ${SRC}"
+                missing=1
+              fi
+
+              S2_M3_DIR="stage1_outputs/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME"
+              S3_M2_DIR="stage1_outputs/S3_PREDICTED_PROTEOME/M2_FILTER_CPAT"
+              S3_M4_DIR="stage1_outputs/S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION"
+              S5_PROTEIN_FASTA=$(find_one "$S3_M4_DIR" '*best_ORF.fa')
+              S5_CDS_GTF=$(find_one "$S3_M2_DIR" '*best_ORF.gtf')
+              S5_COUNTS=$(find_one "$S2_M3_DIR" '*all_hashids_with_cpm.txt')
+              need "S5 protein FASTA (*best_ORF.fa)" "$S5_PROTEIN_FASTA" "$S3_M4_DIR"
+              need "S5 CDS GTF (*best_ORF.gtf)" "$S5_CDS_GTF" "$S3_M2_DIR"
+              args+=(
+                --input "$SHEET"
+                --S5_custom_protein_fasta "$S5_PROTEIN_FASTA"
+                --S5_custom_cds_gtf "$S5_CDS_GTF"
+                --genome "$DEFAULT_GENOME"
+                --dataset_name lrptest_s5
+                --protein_search fragpipe
+                --fragpipe_license_accept true
+              )
+              if [[ -n "$S5_COUNTS" ]]; then
+                echo "S5 counts (*all_hashids_with_cpm.txt): ${S5_COUNTS}"
+                args+=(--S5_custom_counts "$S5_COUNTS")
+              else
+                echo "::warning::S5 counts (*all_hashids_with_cpm.txt) not found in ${S2_M3_DIR}; running without --S5_custom_counts"
+              fi
+              TOKEN="${FRAGPIPE_TOKEN_INPUT:-${FRAGPIPE_TOKEN_SECRET:-}}"
+              if [[ -n "$TOKEN" ]]; then
+                echo "::add-mask::${TOKEN}"
+                args+=(--fragpipe_token "$TOKEN")
+              fi
+              ;;
+            *)
+              echo "::error::Unknown entry point: ${ENTRY_POINT}"
+              exit 1
+              ;;
+          esac
+
+          if (( missing )); then
+            echo "::error::${ENTRY_POINT}: required Stage 1 outputs are missing (see above)."
+            exit 1
+          fi
+
+          args+=(--outdir "$OUTDIR" -c "$NXF_CI_CONFIG")
+
+          echo "=========================================="
+          echo "Running: ${LABEL} | NXF ${NXF_VER}"
+          echo "Start time: $(date -u)"
+          echo "=========================================="
+
+          # Downloads of remote inputs (GENCODE from EBI, container images) sometimes fail on a
+          # transient network error, e.g. "Can't stage file ... reason: Connection refused". Nextflow
+          # itself retries only 3 times within about a second. Here a run that failed that way waits and
+          # is resumed (-resume reuses every finished task), up to 3 attempts in total. Any other
+          # failure, including a missing file (404), is not retried.
+          transient_network_failure() {
+            grep -qE "Can't stage file|Unable to stage foreign file|Failed to pull singularity image|Error response from daemon" "$1" &&
+              grep -qiE "connection refused|connection reset|connection timed out|read timed out|i/o timeout|handshake timeout|unknownhost|temporary failure in name resolution|remote host terminated|unexpected eof|too many requests|service unavailable|bad gateway|gateway time-?out|status ?code:? ?(429|502|503|504)" "$1"
+          }
+          MAX_ATTEMPTS=3
+          attempt=1
+          while true; do
+            set +e
+            nextflow "${args[@]}" 2>&1 | tee "${RUNNER_TEMP}/nextflow_console.log"
+            EXIT_CODE=${PIPESTATUS[0]}
+            set -e
+            if (( EXIT_CODE == 0 || attempt >= MAX_ATTEMPTS )) \
+               || ! transient_network_failure "${RUNNER_TEMP}/nextflow_console.log"; then
+              break
+            fi
+            WAIT=$(( attempt * ${RETRY_WAIT_SECONDS:-120} ))
+            echo "::warning::Attempt ${attempt}/${MAX_ATTEMPTS} failed on a network error while downloading inputs; resuming in ${WAIT}s."
+            sleep "$WAIT"
+            attempt=$(( attempt + 1 ))
+            [[ " ${args[*]} " == *" -resume "* ]] || args+=(-resume)
+          done
+
+          echo "End time: $(date -u) | Exit code: ${EXIT_CODE}"
+          if [[ "$EXIT_CODE" -eq 0 ]]; then
+            echo "::notice::${LABEL} test PASSED"
+            RESULT="Passed"
+          else
+            echo "::error::${LABEL} test FAILED"
+            RESULT="Failed"
+          fi
+          {
+            echo "## Test ${RESULT}: ${LABEL}"
+            echo ""
+            echo "**Nextflow Version:** ${NXF_VER}"
+            echo "**Finished:** $(date -u)"
+            if [[ "$EXIT_CODE" -ne 0 ]]; then
+              echo ""
+              echo "Check the job log and the logs-${ENTRY_POINT,,}-entry-* artifact for details."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$EXIT_CODE"
+
+      - name: Upload pipeline logs on failure
+        if: failure() && steps.run_test.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.slug }}-entry-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
+          path: |
+            .nextflow.log
+            ${{ env.OUTDIR }}/pipeline_info/
+            ${{ env.NXF_WORK }}/**/.command.log
+            ${{ env.NXF_WORK }}/**/.command.err
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload execution reports on success
+        if: steps.run_test.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-${{ matrix.slug }}-entry-${{ matrix.container_engine }}-${{ matrix.NXF_VER }}
+          path: |
+            ${{ env.OUTDIR }}/pipeline_info/execution_report*.html
+            ${{ env.OUTDIR }}/pipeline_info/execution_timeline*.html
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Clean up work directory
+        if: always() && env.RUN_TEST == 'true'
+        run: |
+          echo "Cleaning up work directory to free space..."
+          sudo rm -rf "${NXF_WORK:-work}" stage1_outputs || true
+          df -h /
+
+  # ---------------------------------------------------------------------------
+  # Final confirmation job - every job must succeed; skipped FragPipe tests are flagged
+  # ---------------------------------------------------------------------------
+  confirm-pass:
+    name: All Integration Tests Passed
+    needs: [static-checks, fragpipe-setup, full-pipeline-test, entry-point-test]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check test results
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          FRAGPIPE_AVAILABLE: ${{ needs.fragpipe-setup.outputs.available }}
+        run: |
+          echo "Job results:"
+          jq -r 'to_entries[] | "  \(.key): \(.value.result)"' <<< "$NEEDS_JSON"
+
+          {
+            echo "## Integration Test Results"
+            echo ""
+            echo "| Job | Result |"
+            echo "|---|---|"
+            jq -r 'to_entries[] | "| \(.key) | \(.value.result) |"' <<< "$NEEDS_JSON"
+            echo ""
+            echo "Per-configuration details are in each job's summary above."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$FRAGPIPE_AVAILABLE" != "true" ]]; then
+            echo "::warning::FragPipe tools were unavailable: test_dda, test_dia and the S5 entry point were SKIPPED, not tested."
+            {
+              echo ""
+              echo "> **Warning:** FragPipe tools were unavailable, so test_dda, test_dia and the S5 entry point were **skipped**."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          NOT_SUCCESS=$(jq -r '[to_entries[] | select(.value.result != "success") | .key] | join(", ")' <<< "$NEEDS_JSON")
+          if [[ -n "$NOT_SUCCESS" ]]; then
+            echo "::error::These jobs did not succeed: ${NOT_SUCCESS}"
+            exit 1
+          fi
+          echo "All integration test jobs succeeded."
