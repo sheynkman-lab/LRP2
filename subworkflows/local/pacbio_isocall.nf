@@ -3,7 +3,8 @@
     IMPORT MODULES / SUBWORKFLOWS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { PBMM2_ALIGN as ISOCALL_ALIGN } from '../../modules/local/pbmm2_align/main'
+include { CHECK_BAM_ALIGNMENT            } from '../../modules/local/check_bam_alignment/main'
+include { PBMM2_ALIGN as ISOCALL_ALIGN   } from '../../modules/local/pbmm2_align/main'
 include { ISOCALL_PROFILE                } from '../../modules/local/isocall_profile/main'
 include { ISOCALL_MERGE                  } from '../../modules/local/isocall_merge/main'
 include { ISOCALL_PREP                   } from '../../modules/local/isocall_prep/main'
@@ -26,26 +27,71 @@ workflow PACBIO_ISOCALL {
 
     //
     // Samples come in as individual channel items, one per RNA sample
+    // Note: this is split by file type: FASTQ files vs BAM files.
+    // For BAM files, store the original path in meta for later .bai file lookup
     //
-    ch_flnc_bams = ch_samples
-        .map { meta, bam ->
-            [meta, file(bam)]
+    ch_samples
+        .map { meta, sample_path ->
+            def sample_file = file(sample_path)
+            def meta_with_original = meta + [original_bam_path: sample_path.toString()]
+            [meta_with_original, sample_file]
         }
+        .branch { _meta, sample_file ->
+            fastq: sample_file.toString() =~ /\.(fastq|fastq\.gz|fq|fq\.gz)$/
+            bam: sample_file.toString() =~ /\.bam$/
+        }
+        .set { ch_input_split }
 
     //
-    // MODULE: Align each FLNC BAM to reference genome
+    // PROCESS: Check all BAM files to determine if they're already pbmm2-aligned by checking PG header for pbmm2
+    //
+    CHECK_BAM_ALIGNMENT (
+        ch_input_split.bam
+    )
+    ch_versions = ch_versions.mix(CHECK_BAM_ALIGNMENT.out.versions)
+
+    //
+    // Split BAMs into two channels based on alignment status
+    //
+    CHECK_BAM_ALIGNMENT.out.check
+        .branch { _meta, _bam, is_aligned ->
+            aligned: is_aligned.trim() == "true"
+            unaligned: is_aligned.trim() == "false"
+        }
+        .set { ch_bam_split }
+
+    //
+    // Combine all files that need alignment: FASTQ files + unaligned BAMs
+    //
+    ch_needs_alignment = ch_input_split.fastq
+        .mix(ch_bam_split.unaligned.map { meta, bam, _is_aligned -> [meta, bam] })
+
+    //
+    // MODULE: Align FASTQ files and unaligned BAMs to reference genome
     //
     ISOCALL_ALIGN (
-        ch_flnc_bams,
+        ch_needs_alignment,
         reference_fasta
     )
     ch_versions = ch_versions.mix(ISOCALL_ALIGN.out.versions)
 
     //
+    // Extract pre-aligned BAMs (alignment check already logged in CHECK_BAM_ALIGNMENT)
+    //
+    ch_prealigned = ch_bam_split.aligned
+        .map { meta, bam, _is_aligned -> [meta, bam] }
+
+    //
+    // Combine pre-aligned BAMs with newly aligned files
+    //
+    ch_all_aligned_bams = ch_prealigned
+        .mix(ISOCALL_ALIGN.out.bam)
+
+    //
     // MODULE: Create junction chain profiles for each aligned BAM
     //
     ISOCALL_PROFILE (
-        ISOCALL_ALIGN.out.bam
+        ch_all_aligned_bams
     )
     ch_versions = ch_versions.mix(ISOCALL_PROFILE.out.versions)
 
@@ -61,7 +107,7 @@ workflow PACBIO_ISOCALL {
     // Collect all profiles and create a single meta for merged analysis
     //
     ch_all_profiles = ISOCALL_PROFILE.out.profile
-        .map { meta, profile -> profile }
+        .map { _meta, profile -> profile }
         .collect()
         .map { profiles ->
             def meta = [id: params.dataset_name]
@@ -88,9 +134,15 @@ workflow PACBIO_ISOCALL {
     ch_versions = ch_versions.mix(ISOCALL_CALL.out.versions)
 
     emit:
-    // ISOCALL_ALIGN outputs (per sample)
-    aligned_bam      = ISOCALL_ALIGN.out.bam                // [meta, *.aligned.bam]
-    aligned_bai      = ISOCALL_ALIGN.out.bai                // [meta, *.aligned.bam.bai]
+    // Combined aligned BAMs (both pre-aligned and newly aligned)
+    aligned_bam      = ch_all_aligned_bams                  // [meta, *.bam]
+    aligned_bai      = ch_prealigned
+        .map { meta, bam ->
+            // For pre-aligned BAMs, use the original path to find .bai file
+            def bai_path = meta.original_bam_path ? file("${meta.original_bam_path}.bai") : file("${bam}.bai")
+            [meta, bai_path]
+        }
+        .mix(ISOCALL_ALIGN.out.bai)                         // [meta, *.bam.bai]
 
     // ISOCALL_PROFILE outputs (per sample)
     profiles         = ISOCALL_PROFILE.out.profile          // [meta, *_profile.gz]

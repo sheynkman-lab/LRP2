@@ -1,0 +1,55 @@
+name: check_bam_alignment
+description: Check if a BAM file is already aligned with pbmm2 by examining the @PG header
+keywords:
+  - bam
+  - alignment
+  - pbmm2
+  - validation
+  - header
+tools:
+  - samtools:
+      description: Tools for manipulating next-generation sequencing data
+      homepage: http://www.htslib.org/
+      documentation: http://www.htslib.org/doc/samtools.html
+      tool_dev_url: https://github.com/samtools/samtools
+      licence: ["MIT"]
+      identifier: ""
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'test' ]
+    - bam:
+        type: file
+        description: BAM file to check for pbmm2 alignment
+        pattern: "*.bam"
+        ontologies: []
+output:
+  check:
+    - - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'test' ]
+      - bam:
+          type: file
+          description: The input BAM file (passed through)
+          pattern: "*.bam"
+          ontologies: []
+      - stdout:
+          type: string
+          description: Alignment status ("true" if pbmm2-aligned, "false" otherwise)
+          pattern: "true|false"
+          ontologies: []
+  versions:
+    - versions.yml:
+        type: file
+        description: File containing software version
+        pattern: "versions.yml"
+        ontologies:
+          - edam: http://edamontology.org/format_3750
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"
