@@ -11,3 +11,4 @@ dependencies:
   - bioconda::bioconductor-rtracklayer
   - conda-forge::r-tidyverse
   - conda-forge::r-magrittr
+  - conda-forge::r-optparse=1.7.5
