@@ -272,7 +272,6 @@ workflow LRP2 {
             // SUBWORKFLOW: Run PacBio IsoCall analysis (normal mode)
             //
             // IsoCall requires config TOML and gzipped GTF reference for ISOCALL_PREP
-            ch_isocall_config = channel.value(file("${projectDir}/bin/isocall_config.toml"))
 
             PACBIO_ISOCALL (
                 ch_rna_samples_filtered,
