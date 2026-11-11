@@ -1,0 +1,87 @@
+name: sqanti_qc
+description: Run SQANTI3 quality control on long-read transcriptomes
+keywords:
+  - transcriptome
+  - quality control
+  - long-read
+  - isoforms
+tools:
+  - sqanti3:
+      description: |
+        SQANTI3 is a tool for the quality control of long-read defined transcriptomes.
+        It annotates and classifies transcripts with reference to a reference genome annotation.
+      homepage: https://github.com/ConesaLab/SQANTI3
+      documentation: https://github.com/ConesaLab/SQANTI3/wiki
+      licence: ["BSD-3-Clause"]
+input:
+  - - meta:
+        type: map
+        description: |
+          Groovy Map containing sample information
+          e.g. [ id:'sample1' ]
+    - isoforms_gtf:
+        type: file
+        description: GTF or GFF file containing isoform annotations
+        pattern: "*.{gtf,gff,gtf.gz}"
+    - flnc_count:
+        type: file
+        description: Full-length non-chimeric read count file
+        pattern: "*.{csv,txt}"
+  - - reference_gtf:
+        type: file
+        description: Reference genome annotation in GTF format
+        pattern: "*.gtf"
+  - - reference_fasta:
+        type: file
+        description: Reference genome sequence in FASTA format
+        pattern: "*.{fa,fasta}"
+output:
+  - classification:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'sample1' ]
+      - "*.transcriptome.SQANTI_classification.txt":
+          type: file
+          description: SQANTI3 classification file with transcript annotations
+          pattern: "*.transcriptome.SQANTI_classification.txt"
+  - corrected_gtf:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'sample1' ]
+      - "*.transcriptome.gtf":
+          type: file
+          description: SQANTI3-corrected GTF file
+          pattern: "*.transcriptome.gtf"
+  - corrected_fasta:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'sample1' ]
+      - "*.transcriptome.fasta":
+          type: file
+          description: SQANTI3-corrected FASTA file
+          pattern: "*.transcriptome.fasta"
+  - junctions:
+      - meta:
+          type: map
+          description: |
+            Groovy Map containing sample information
+            e.g. [ id:'sample1' ]
+      - "*.transcriptome.junctions.txt":
+          type: file
+          description: SQANTI3 junctions file
+          pattern: "*.transcriptome.junctions.txt"
+  - versions:
+      - versions.yml:
+          type: file
+          description: File containing software versions
+          pattern: "versions.yml"
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

@@ -18,7 +18,7 @@ dependencies:
   - pandas
   - scikit-learn
   - pip:
-    - rpy2>=3.5.0
-    - torch>=2.0.0
-    - pyro-ppl>=1.8.0
-    - tqdm
+      - rpy2>=3.5.0
+      - torch>=2.0.0
+      - pyro-ppl>=1.8.0
+      - tqdm

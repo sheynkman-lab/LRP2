@@ -19,7 +19,7 @@ from dataclasses import dataclass
 @dataclass
 class LeafcutterFit:
     """
-    Stores the result of fitting the LeafCutter differential splicing model to one cluster. 
+    Stores the result of fitting the LeafCutter differential splicing model to one cluster.
     """
     beta: torch.Tensor
     conc: torch.Tensor
@@ -28,10 +28,10 @@ class LeafcutterFit:
 
 class LeafCutterModel(pyro.nn.PyroModule):
     """
-    The LeafCutter differential splicing model for one cluster. 
+    The LeafCutter differential splicing model for one cluster.
     """
-    
-    def __init__(self, P, J, eps = 1e-8, gamma_shape = 1.0001, gamma_rate = 1e-4, beta_scale = np.inf, multiconc = True): 
+
+    def __init__(self, P, J, eps = 1e-8, gamma_shape = 1.0001, gamma_rate = 1e-4, beta_scale = np.inf, multiconc = True):
         """
         Initialize the LeafCutterModel.
 
@@ -39,9 +39,9 @@ class LeafCutterModel(pyro.nn.PyroModule):
             P (int): Number of covariates.
             J (int): Number of junctions.
             eps (float): A small constant to prevent numerical issues.
-            gamma_shape (float): Shape parameter for the gamma distribution used for the concentration prior. 
-            gamma_rate (float): Rate parameter for the gamma distribution used for the concentration prior. 
-            beta_scale (float): prior std for coefficients. 
+            gamma_shape (float): Shape parameter for the gamma distribution used for the concentration prior.
+            gamma_rate (float): Rate parameter for the gamma distribution used for the concentration prior.
+            beta_scale (float): prior std for coefficients.
             multiconc (bool): Indicates whether to use a separate concentration parameter for each junction.
 
         """
@@ -50,54 +50,54 @@ class LeafCutterModel(pyro.nn.PyroModule):
         self.J = J
         self.eps = eps
         self.multinomial = gamma_shape is None
-        if not self.multinomial: 
+        if not self.multinomial:
             conc_prior = dist.Gamma(gamma_shape,gamma_rate)
             self.conc_prior = conc_prior.expand([self.J]).to_event(1) \
                 if multiconc else conc_prior
         self.beta_scale = beta_scale
-       
-    def forward(self, x, y): 
+
+    def forward(self, x, y):
         """
-        Run the generative process. 
+        Run the generative process.
 
         Args:
             x (torch.Tensor): Input data representing covariates.
-            y (torch.Tensor): Observed data, i.e. junction counts. 
+            y (torch.Tensor): Observed data, i.e. junction counts.
         """
-        
+
         with pyro.plate("covariates", self.P): # beta is P (covariates) x J (junctions)
             beta_dist = dist.Normal(0.0,self.beta_scale) if np.isfinite(self.beta_scale) else dist.ImproperUniform(constraints.real, (), ())
-            b_param = pyro.sample("beta", beta_dist.expand([self.P, self.J]).to_event(1)) 
+            b_param = pyro.sample("beta", beta_dist.expand([self.P, self.J]).to_event(1))
 
         logits = x @ b_param
-        
-        if self.multinomial: 
+
+        if self.multinomial:
             logits_norm = logits - logits.logsumexp(1, keepdims = True)
             pyro.factor("multinomial", (y * logits_norm).sum())
         else:
             conc_param = pyro.sample("conc", self.conc_prior)
             a = logits.softmax(1) * conc_param + self.eps
             sum_a = a.sum(1)
-            
+
             # manual implementation of the likelihood is faster since it avoids calculating normalization constants
             pyro.factor("dm", (sum_a.lgamma() + (a+y).lgamma().sum(1) - (sum_a + y.sum(1)).lgamma() - a.lgamma().sum(1)).sum())
-            
+
             #y_dist = dist.DirichletMultinomial(a, total_count = y.sum(1))
             #with pyro.plate("data", y.shape[0]):
             #    return pyro.sample("obs", y_dist, obs=y)
 
 class BaseGuide():
     """
-    Has common functionality for the different possible guides, shouldn't be used directly. 
+    Has common functionality for the different possible guides, shouldn't be used directly.
     """
-    
+
     def __init__(self, init_beta, multinomial = False, init_conc = None, multiconc = True, conc_max = 300.):
         self.multiconc = multiconc
         self.conc_max = conc_max
         (P,J) = init_beta.shape
         torch_types = { "device" : init_beta.device, "dtype" : init_beta.dtype }
         self.multinomial = multinomial
-        if not multinomial: 
+        if not multinomial:
             default_init_conc = torch.full([J],10.,**torch_types) if multiconc else torch.tensor(10.,**torch_types)
             self.init_conc = default_init_conc if (init_conc is None) else init_conc
 
@@ -105,25 +105,25 @@ class BaseGuide():
     def conc(self):
         if self.multinomial: return torch.inf
         return pyro.param("conc_loc", lambda: self.init_conc.clone().detach(), constraint=constraints.interval(0., self.conc_max))
-    
+
     @property
     def beta(self):
         raise NotImplementedError("Subclasses should implement this!")
-    
+
     def __call__(self, x, y): # ok i think this acutally incorporates the constraint
-        if not self.multinomial: 
+        if not self.multinomial:
             conc_param = pyro.param("conc_loc", lambda: self.init_conc.clone().detach(), constraint=constraints.interval(0., self.conc_max))
-            pyro.sample("conc", dist.Delta(self.conc, event_dim = 1 if self.multiconc else 0)) # do we need to adjust for the constraint manually here? 
+            pyro.sample("conc", dist.Delta(self.conc, event_dim = 1 if self.multiconc else 0)) # do we need to adjust for the constraint manually here?
         beta_param = self.beta
         with pyro.plate("covariates", beta_param.shape[0]):
             pyro.sample("beta", dist.Delta(beta_param, event_dim = 1))
 
-        
+
 class SimpleGuide(BaseGuide):
     """
-    Doesn't deal with the extra degree of freedom in beta. 
+    Doesn't deal with the extra degree of freedom in beta.
     """
-    
+
     def __init__(self, init_beta, **kwargs):
         super().__init__(init_beta, **kwargs)
         self.init_beta = init_beta
@@ -134,9 +134,9 @@ class SimpleGuide(BaseGuide):
 
 class CleverGuide(BaseGuide):
     """
-    This is the parametrization that the original LeafCutter R/Stan package used. 
+    This is the parametrization that the original LeafCutter R/Stan package used.
     """
-    
+
     def __init__(self, init_beta, **kwargs):
         super().__init__(init_beta, **kwargs)
         (P,J) = init_beta.shape
@@ -149,7 +149,7 @@ class CleverGuide(BaseGuide):
         assert(not beta_raw.isnan().any().item())
         beta_raw = beta_raw / beta_raw.sum(1, keepdim = True)
         assert(not beta_raw.isnan().any().item())
-        
+
         self.init_beta_raw = beta_raw
         self.init_beta_scale = beta_scale
 
@@ -162,24 +162,24 @@ class CleverGuide(BaseGuide):
     def beta(self):
         beta_raw_param = pyro.param("beta_raw", lambda: self.init_beta_raw.clone().detach(), constraint=constraints.simplex)
         beta_scale_param = pyro.param("beta_scale", lambda: self.init_beta_scale.clone().detach())
-        return beta_scale_param[:,None] * (beta_raw_param - 1./beta_raw_param.shape[1]) 
+        return beta_scale_param[:,None] * (beta_raw_param - 1./beta_raw_param.shape[1])
 
 class DamCleverGuide(BaseGuide):
     """
-    This is the more recently proposed approach in the Stan docs: https://mc-stan.org/docs/stan-users-guide/parameterizing-centered-vectors.html under `QR decomposition`. Originally proposed by Aaron J Goodman. 
+    This is the more recently proposed approach in the Stan docs: https://mc-stan.org/docs/stan-users-guide/parameterizing-centered-vectors.html under `QR decomposition`. Originally proposed by Aaron J Goodman.
     """
 
     def __init__(self, init_beta, **kwargs):
         super().__init__(init_beta, **kwargs)
         J = init_beta.shape[1]
-        
+
         A = torch.eye(J, dtype = init_beta.dtype, device = init_beta.device)
         A[-1,:-1] = -1.
-        A[-1,-1] = 0. 
+        A[-1,-1] = 0.
         self.A_qr = torch.linalg.qr(A).Q[:,:-1] # [J x (J-1)]
         # v = torch.eye(J-1) / (1.-1./J)
-        # A_qr @ v @ A_qr.t() # gives correct marginals! 
-        # beta_trans = A_qr @ (torch.randn(J-1) / np.sqrt(1.-1./J)) # sums to 0! 
+        # A_qr @ v @ A_qr.t() # gives correct marginals!
+        # beta_trans = A_qr @ (torch.randn(J-1) / np.sqrt(1.-1./J)) # sums to 0!
         self.init_beta_raw = torch.linalg.solve(self.A_qr.t() @ self.A_qr, self.A_qr.t() @ init_beta.t()).t()
 
     @property
@@ -187,25 +187,25 @@ class DamCleverGuide(BaseGuide):
         beta_raw_param = pyro.param("beta_raw", lambda: self.init_beta_raw.clone().detach()) # note this transform does not require a Jacobian since it is constant/linear
         return beta_raw_param @ self.A_qr.t()
 
-def brr_initialization(x, y): 
+def brr_initialization(x, y):
     """
-    Try to get a good initialization using Bayesian ridge regression per junction. 
+    Try to get a good initialization using Bayesian ridge regression per junction.
     """
     y_norm = torch.log( (y+1) / (y+1).sum(1, keepdim = True) ).cpu().numpy()
     x_np = x.cpu().numpy()
-    
+
     N,P = x.shape
     J = y_norm.shape[1]
     beta_mm = np.zeros([P,J])
     reg = linear_model.BayesianRidge()
-    for j in np.arange(y.shape[1]): 
+    for j in np.arange(y.shape[1]):
         reg.fit(x_np, y_norm[:,j])
         beta_mm[:,j] = reg.coef_
     beta_mm = torch.tensor(beta_mm, dtype = x.dtype, device = x.device)
-    
+
     return beta_mm - beta_mm.mean(1, keepdim = True)
 
-def rr_initialization(x, y, regularizer = 0.001): 
+def rr_initialization(x, y, regularizer = 0.001):
     """
     Try to get a good initialization for beta by moment matching. V slightly slower than BRR overall.
     """
@@ -213,18 +213,18 @@ def rr_initialization(x, y, regularizer = 0.001):
     # get estimate by moment matching
     I = torch.eye(x.shape[1], dtype = x.dtype, device = x.device)
     beta_mm = torch.linalg.solve( x.t() @ x + regularizer * I, x.t() @ y_norm )
-    
+
     return beta_mm - beta_mm.mean(1, keepdim = True)
 
-def fit_multinomial_glm(x, y, beta_init = None, fitter = fit_with_lbfgs, guide_type = DamCleverGuide): 
+def fit_multinomial_glm(x, y, beta_init = None, fitter = fit_with_lbfgs, guide_type = DamCleverGuide):
     """
     Try to get a good initialization for beta by moment matching. V slightly slower than BRR overall.
     """
     [N,P]=x.shape
     J = y.shape[1]
     pyro.clear_param_store()
-    
-    if beta_init is None: 
+
+    if beta_init is None:
         beta_init = torch.zeros(P, J, device = x.device, dtype = x.dtype)
 
     multinomial_model = LeafCutterModel(P, J, None, gamma_shape = None)
@@ -232,7 +232,7 @@ def fit_multinomial_glm(x, y, beta_init = None, fitter = fit_with_lbfgs, guide_t
     losses = fitter(multinomial_model, guide, [x, y])
     return guide.beta
 
-def fit_dm_glm(x, y, beta_init, conc_max = 3000., concShape=1.0001, concRate=1e-4, multiconc = True, fitter = fit_with_lbfgs, guide_type = DamCleverGuide, eps = 1.0e-8): 
+def fit_dm_glm(x, y, beta_init, conc_max = 3000., concShape=1.0001, concRate=1e-4, multiconc = True, fitter = fit_with_lbfgs, guide_type = DamCleverGuide, eps = 1.0e-8):
     """
     Fits a Dirichlet Multinomial generalized linear model.
 
@@ -246,7 +246,7 @@ def fit_dm_glm(x, y, beta_init, conc_max = 3000., concShape=1.0001, concRate=1e-
         multiconc (bool, optional): Whether to use multiple concentration parameters. Defaults to True.
         fitter (function, optional): The fitting function to use. Defaults to fit_with_lbfgs.
         guide_type (class, optional): The type of guide to use. Defaults to DamCleverGuide.
-        eps (float): small pseudocount added to DM parameter for numerical stability. 
+        eps (float): small pseudocount added to DM parameter for numerical stability.
 
     Returns:
         LeafcutterFit: An object containing fitted model parameters, losses, and exit status.
@@ -255,22 +255,22 @@ def fit_dm_glm(x, y, beta_init, conc_max = 3000., concShape=1.0001, concRate=1e-
 
     (N,P) = x.shape
     J = y.shape[1]
-    
+
     model = LeafCutterModel(P, J, gamma_shape = concShape, gamma_rate = concRate, multiconc = multiconc, eps = eps)
     guide = guide_type(beta_init, multiconc = multiconc, conc_max = conc_max)
     losses, exit_status = fitter(model, guide, [x, y])
 
     return LeafcutterFit(
-            beta = guide.beta.clone().detach(), 
+            beta = guide.beta.clone().detach(),
             conc = guide.conc.clone().detach(),
             loss = losses[-1],
             exit_status = exit_status
-        ) 
+        )
 
 def simple_simulation(N, P, J, total_count = 100, conc = 10.):
     """
-    Very simple simulation of data for one cluster. 
-    
+    Very simple simulation of data for one cluster.
+
     Args:
         N (int): Number of samples.
         P (int): Number of covariates.
@@ -290,14 +290,14 @@ def simple_simulation(N, P, J, total_count = 100, conc = 10.):
     x[:,0] = 1. # intercept
     b = torch.randn((P,J))
     xb = x @ b
-    g = torch.softmax( x @ b, 1 ) 
+    g = torch.softmax( x @ b, 1 )
     true_beta_norm = b - b.mean(1, keepdim = True)
     dm = dist.DirichletMultinomial(g * conc, total_count = total_count)
     y = dm.sample()
     return(x,y,true_beta_norm,g)
 
 
-def dirichlet_multinomial_anova(x_full, x_null, y, init = "brr", **kwargs): 
+def dirichlet_multinomial_anova(x_full, x_null, y, init = "brr", **kwargs):
     """
     Perform Dirichlet-Multinomial ANOVA analysis.
 
@@ -305,7 +305,7 @@ def dirichlet_multinomial_anova(x_full, x_null, y, init = "brr", **kwargs):
         x_full (torch.Tensor): Full (i.e. alternative hypothesis) covariate data.
         x_null (torch.Tensor): Null (i.e. null hypothesis) covariate data.
         y (torch.Tensor): Observed junction counts
-        init (str): initialization strategy. One of "brr" (Bayesian ridge regression), "rr" (ridge regression), "mult" (multinomial logistic regression) or "0" (set to 0). 
+        init (str): initialization strategy. One of "brr" (Bayesian ridge regression), "rr" (ridge regression), "mult" (multinomial logistic regression) or "0" (set to 0).
         concShape (float): Shape parameter for concentration priors (default: 1.0001).
         concRate (float): Rate parameter for concentration priors (default: 1e-4).
         multiconc (bool): Indicates whether to use separate concentration parameters for each junction (default: False).
@@ -321,26 +321,26 @@ def dirichlet_multinomial_anova(x_full, x_null, y, init = "brr", **kwargs):
             - full_fit (object): Result of fitting the full model.
             - refit_null_flag (bool): Flag indicating if the null model was refitted based on the full model.
     """
-    
+
     (N,P_full) = x_full.shape
     (N,P_null) = x_null.shape
     J = y.shape[1]
-    
+
     torch_types = { "device" : y.device, "dtype" : y.dtype }
-    
-    def get_init(x,y): 
+
+    def get_init(x,y):
         if init == "brr":
             return brr_initialization(x,y)
-        elif init == "rr": 
+        elif init == "rr":
             return rr_initialization(x,y)
         elif init == "mult": # doesn't speed things up
             mult_kwargs = { k:v for k,v in kwargs.items() if k in ["fit_with_lbfgs", "guide_type"]}
-            return fit_multinomial_glm(x_null, y, **mult_kwargs) 
-        elif init == "0": 
+            return fit_multinomial_glm(x_null, y, **mult_kwargs)
+        elif init == "0":
             return torch.zeros(x.shape[1], J, **torch_types)
-        else: 
+        else:
             raise Exception(f"Unknown initialization strategy {init}")
-   
+
     t0 = time.time()
     beta_init_null = get_init(x_null, y)
     t_null_init = time.time() - t0

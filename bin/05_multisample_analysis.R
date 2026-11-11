@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 #' Multi-sample Differential Expression and Usage Analysis
-#' 
+#'
 #' Performs differential expression (DE) and differential usage (DU) analyses
 #' at the gene, transcript, and ORF levels for two-group comparisons.
 #'
@@ -13,7 +13,7 @@
 #' DU analyses (DRIMSeq):
 #'   - Differential Transcript Usage (DTU)
 #'   - Differential ORF Usage (DU ORF)
-#'   
+#'
 #' Inputs:
 #' - Transcript-level count matrix with CPM (from sqanti_transcript)
 #' - ORF-level count matrix with CPM (collapsed to unique ORFs from protein classication)
@@ -23,8 +23,8 @@
 #'
 #' Outputs:
 #'   - DGE/DTE/DE_ORF edgeR results, raw and normalized CPM matrices
-#'   - DTU/DU_ORF DRIMSeq summaries with proportions and delta usage  
-#'    
+#'   - DTU/DU_ORF DRIMSeq summaries with proportions and delta usage
+#'
 
 
 # =============================================================================
@@ -396,22 +396,22 @@ sample_table = data.frame(
 #counts_drimseq = head(x = as.data.frame(counts_drimseq), n = 200)
 d = dmDSdata(counts = as.data.frame(counts_drimseq), samples = sample_table)
 
-cat(sprintf("Before filtering: %d genes, %d transcripts\n", 
-            length(unique(counts(d)$gene_id)), 
+cat(sprintf("Before filtering: %d genes, %d transcripts\n",
+            length(unique(counts(d)$gene_id)),
             nrow(counts(d))))
 
 n_small = min(table(group))
 #cat("min_feature_prop value: ", opt$drimseq_min_isoform_prop, " class: ", class(opt$drimseq_min_isoform_prop))
 #cat("min_samps_feature_prop: ", n_small, " class: ", class(n_small))
 
-d = dmFilter(d, 
+d = dmFilter(d,
              min_samps_gene_expr    = nrow(sample_table)/2, # requires gene to be expressed in half of samples
              min_gene_expr          = opt$drimseq_min_gene_expr, # based on gene level counts
              min_samps_feature_prop = n_small, # isoform
              min_feature_prop       = opt$drimseq_min_isoform_prop) # isoform
 
-cat(sprintf("After filtering: %d genes, %d transcripts\n", 
-            length(unique(counts(d)$gene_id)), 
+cat(sprintf("After filtering: %d genes, %d transcripts\n",
+            length(unique(counts(d)$gene_id)),
             nrow(counts(d))))
 
 # Design, fit, and test
@@ -429,9 +429,9 @@ d = dmTest(d, coef = expected_coef)
 
 # Extract results
 dtu_gene_results = results(d) %>%
-  dplyr::rename(lr_gene         = lr, 
+  dplyr::rename(lr_gene         = lr,
                 df_gene         = df,
-                pvalue_gene     = pvalue, 
+                pvalue_gene     = pvalue,
                 adj_pvalue_gene = adj_pvalue)
 
 dtu_tx_results = results(d, level = "feature") %>%
@@ -442,9 +442,9 @@ dtu_tx_results = results(d, level = "feature") %>%
                 adj_pvalue_transcript = adj_pvalue)
 
 # Get proportions from DRIMSeq and calculate means and deltas
-transript_usage_table = transcript_cpms %>% 
+transript_usage_table = transcript_cpms %>%
   group_by(reference_gene_id, gene_name) %>%
-  mutate(across(ends_with("_cpm"), 
+  mutate(across(ends_with("_cpm"),
                 ~ . / sum(., na.rm = TRUE),
                 .names = "{.col}_prop")) %>%
   ungroup() %>%
@@ -453,17 +453,17 @@ transript_usage_table = transcript_cpms %>%
 props = proportions(d) %>% fix_drimseq_names(sample_names) # these are calculated per group not per sample
 
 props_long = props %>%
-  pivot_longer(cols = -c(gene_id, feature_id), 
-               names_to = "sample_id", 
+  pivot_longer(cols = -c(gene_id, feature_id),
+               names_to = "sample_id",
                values_to = "proportion") %>%
-  left_join(sample_table, by = "sample_id") %>% 
+  left_join(sample_table, by = "sample_id") %>%
   distinct(gene_id, feature_id, proportion, group)
 
 group_props = props_long %>%
-  pivot_wider(names_from = group, 
+  pivot_wider(names_from = group,
               values_from = proportion,
               names_prefix = "group_prop_") %>%
-  mutate(delta_proportion = .data[[paste0("group_prop_", levels(group)[2])]] - 
+  mutate(delta_proportion = .data[[paste0("group_prop_", levels(group)[2])]] -
            .data[[paste0("group_prop_", levels(group)[1])]])
 
 dtu_summary = dtu_tx_results %>%
@@ -473,9 +473,9 @@ dtu_summary = dtu_tx_results %>%
   select(isoform_id, reference_transcript_id, any_of("transcript_name"), hash_id, lr_transcript, pvalue_transcript, adj_pvalue_transcript, ends_with("_cpm"), ends_with("_prop"), starts_with("group_prop_"), delta_proportion,
          gene_id, gene_name, lr_gene, df_gene, pvalue_gene, adj_pvalue_gene)
 # Summary
-cat(sprintf("Genes with DTU (adj_pvalue < 0.05): %d\n", 
+cat(sprintf("Genes with DTU (adj_pvalue < 0.05): %d\n",
             sum(dtu_gene_results$adj_pvalue_gene < 0.05, na.rm = TRUE)))
-cat(sprintf("Transcripts with differential usage (adj_pvalue < 0.05): %d\n", 
+cat(sprintf("Transcripts with differential usage (adj_pvalue < 0.05): %d\n",
             sum(dtu_tx_results$adj_pvalue_transcript < 0.05, na.rm = TRUE)))
 
 # Save results
@@ -502,19 +502,19 @@ sample_table_orf = data.frame(
 # Create and filter DRIMSeq object
 d_orf = dmDSdata(counts = as.data.frame(counts_drimseq_orf), samples = sample_table_orf)
 
-cat(sprintf("Before filtering (ORF DU): %d genes, %d ORFs\n", 
-            length(unique(counts(d_orf)$gene_id)), 
+cat(sprintf("Before filtering (ORF DU): %d genes, %d ORFs\n",
+            length(unique(counts(d_orf)$gene_id)),
             nrow(counts(d_orf))))
 
 n_small = min(table(group))
-d_orf = dmFilter(d_orf, 
+d_orf = dmFilter(d_orf,
                  min_samps_gene_expr = nrow(sample_table)/2,
                  min_gene_expr = opt$drimseq_min_gene_expr,
                  min_samps_feature_prop = n_small,
                  min_feature_prop = opt$drimseq_min_isoform_prop)
 
-cat(sprintf("After filtering (ORF DU): %d genes, %d ORFs\n", 
-            length(unique(counts(d_orf)$gene_id)), 
+cat(sprintf("After filtering (ORF DU): %d genes, %d ORFs\n",
+            length(unique(counts(d_orf)$gene_id)),
             nrow(counts(d_orf))))
 
 # Design, fit, and test
@@ -526,9 +526,9 @@ d_orf = dmTest(d_orf, coef = expected_coef)
 
 # Extract results
 dpu_gene_results = results(d_orf) %>%
-  dplyr::rename(lr_gene         = lr, 
+  dplyr::rename(lr_gene         = lr,
                 df_gene         = df,
-                pvalue_gene     = pvalue, 
+                pvalue_gene     = pvalue,
                 adj_pvalue_gene = adj_pvalue)
 
 dpu_orf_results = results(d_orf, level = "feature") %>%
@@ -539,9 +539,9 @@ dpu_orf_results = results(d_orf, level = "feature") %>%
                 adj_pvalue_orf = adj_pvalue)
 
 # Get proportions from DRIMSeq and calculate means and deltas
-orf_usage_table = orf_cpms %>% 
+orf_usage_table = orf_cpms %>%
   group_by(gene_id) %>%
-  mutate(across(ends_with("_cpm"), 
+  mutate(across(ends_with("_cpm"),
                 ~ . / sum(., na.rm = TRUE),
                 .names = "{.col}_prop")) %>%
   ungroup() %>%
@@ -550,17 +550,17 @@ orf_usage_table = orf_cpms %>%
 props_orf = proportions(d_orf) %>% fix_drimseq_names(sample_names)
 
 props_orf_long = props_orf %>%
-  pivot_longer(cols = -c(gene_id, feature_id), 
-               names_to = "sample_id", 
+  pivot_longer(cols = -c(gene_id, feature_id),
+               names_to = "sample_id",
                values_to = "proportion") %>%
-  left_join(sample_table, by = "sample_id") %>% 
+  left_join(sample_table, by = "sample_id") %>%
   distinct(gene_id, feature_id, proportion, group)
 
 group_orf_props = props_orf_long %>%
-  pivot_wider(names_from = group, 
+  pivot_wider(names_from = group,
               values_from = proportion,
               names_prefix = "group_prop_") %>%
-  mutate(delta_proportion = .data[[paste0("group_prop_", levels(group)[2])]] - 
+  mutate(delta_proportion = .data[[paste0("group_prop_", levels(group)[2])]] -
            .data[[paste0("group_prop_", levels(group)[1])]])
 
 dpu_summary = dpu_orf_results %>%
@@ -571,9 +571,9 @@ dpu_summary = dpu_orf_results %>%
          gene_id, lr_gene, df_gene, pvalue_gene, adj_pvalue_gene)
 
 # Summary
-cat(sprintf("Genes with DPU (adj_pvalue < 0.05): %d\n", 
+cat(sprintf("Genes with DPU (adj_pvalue < 0.05): %d\n",
             sum(dpu_gene_results$adj_pvalue_gene < 0.05, na.rm = TRUE)))
-cat(sprintf("ORFs with differential usage (adj_pvalue < 0.05): %d\n", 
+cat(sprintf("ORFs with differential usage (adj_pvalue < 0.05): %d\n",
             sum(dpu_orf_results$adj_pvalue_orf < 0.05, na.rm = TRUE)))
 
 # Save results

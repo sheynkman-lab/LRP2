@@ -3,7 +3,9 @@ process SANITIZE_PAR_IDS {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/jtllab/lrp2-lite:latest"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://docker.io/jtllab/lrp2-lite:latest' :
+        'docker.io/jtllab/lrp2-lite:latest' }"
 
     input:
     tuple val(meta), path(gtf)
