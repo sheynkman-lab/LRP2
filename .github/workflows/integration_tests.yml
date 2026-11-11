@@ -767,13 +767,20 @@ jobs:
       - name: Prepare disks (free space, scratch dir, swap)
         if: env.RUN_TEST == 'true'
         run: |
+          # Remove large pre-installed tools and packages
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
             /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift \
-            /usr/local/share/powershell /usr/local/share/chromium /opt/microsoft /opt/az || true
-          # More aggressive Docker cleanup, clean apt cache and logs
+            /usr/local/share/powershell /usr/local/share/chromium /opt/microsoft /opt/az \
+            /usr/lib/google-cloud-sdk /usr/local/share/vcpkg /usr/local/lib/node_modules || true
+          # Aggressive Docker cleanup - remove all images, containers, volumes
           sudo docker system prune --all --volumes --force > /dev/null 2>&1 || true
+          # Clean package manager caches and logs
           sudo apt-get clean || true
-          sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /var/log/* || true
+          sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /var/log/* \
+            /tmp/* /var/tmp/* || true
+          # Report disk space after cleanup
+          echo "Disk space after cleanup:"
+          df -h / | grep -v Filesystem || true
 
           avail_gb() { df -BG --output=avail "$1" 2> /dev/null | tail -n 1 | tr -dc '0-9'; }
           ROOT_FREE=$(avail_gb /)
