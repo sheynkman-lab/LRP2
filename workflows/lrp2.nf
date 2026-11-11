@@ -340,10 +340,11 @@ workflow LRP2 {
         // SUBWORKFLOW: Run predicted proteome analysis
         //
         // Log species information
-        if (params.genome && params.gencode_refs?.containsKey(params.genome)) {
+        def using_local_refs_species = (params.local_reference_gtf && params.local_reference_fasta)
+        if (!using_local_refs_species && params.genome && params.gencode_refs?.containsKey(params.genome)) {
             log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Auto-detected species from genome ${params.genome}: ${params.species}${colors.reset}-"
         } else if (params.species) {
-            log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Species: ${params.species}${colors.reset}-"
+            log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} Using custom reference with species: ${params.species}${colors.reset}-"
         }
 
         // Determine species-specific CPAT files
@@ -406,8 +407,10 @@ workflow LRP2 {
     //}
     
     // Resolve GENCODE protein FASTA from --genome (e.g., GRCh38.p14.v49)
+    // Skip if using local references (custom GTF/FASTA)
+    def using_local_refs = (params.local_reference_gtf && params.local_reference_fasta)
     def gencode_protein_fasta_path = null
-    if (params.gencode_refs?.containsKey(params.genome)) {
+    if (!using_local_refs && params.gencode_refs?.containsKey(params.genome)) {
       gencode_protein_fasta_path = params.gencode_refs[params.genome].protein_fasta
       log.info "-${colors.purple}[sheynkmanlab/lrp2]${colors.cyan} GENCODE protein FASTA resolved from --genome ${params.genome}: ${gencode_protein_fasta_path}${colors.reset}-"
     }
