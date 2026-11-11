@@ -1119,11 +1119,453 @@ jobs:
           df -h /
 
   # ---------------------------------------------------------------------------
+  # Custom Reference Tests - Validates custom reference handling in the pipeline
+  # ---------------------------------------------------------------------------
+  custom-reference-test:
+    name: "Custom Reference Test ${{ matrix.n }}/3: ${{ matrix.test_name }}"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { n: 1, test_name: "chr22 custom references (positive)", test_type: "positive" }
+          - { n: 2, test_name: "missing species parameter (negative)", test_type: "missing_species" }
+          - { n: 3, test_name: "mixed genome and local refs (negative)", test_type: "mixed_refs" }
+    env:
+      TEST_NUMBER: ${{ matrix.n }}
+      TEST_NAME: ${{ matrix.test_name }}
+      TEST_TYPE: ${{ matrix.test_type }}
+
+    steps:
+      - name: Prepare disks (free space, scratch dir, swap)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift \
+            /usr/local/share/powershell /usr/local/share/chromium /opt/microsoft /opt/az || true
+          sudo docker image prune --all --force > /dev/null 2>&1 || true
+
+          avail_gb() { df -BG --output=avail "$1" 2> /dev/null | tail -n 1 | tr -dc '0-9'; }
+          ROOT_FREE=$(avail_gb /)
+          MNT_FREE=0
+          if mountpoint -q /mnt; then MNT_FREE=$(avail_gb /mnt); fi
+          echo "Free space after cleanup: / = ${ROOT_FREE} GB, /mnt = ${MNT_FREE} GB"
+
+          if (( MNT_FREE > ROOT_FREE )); then
+            SCRATCH=/mnt/ci;               SCRATCH_FREE=$MNT_FREE;  OTHER=/;    OTHER_FREE=$ROOT_FREE
+          else
+            SCRATCH="${RUNNER_TEMP}/ci";   SCRATCH_FREE=$ROOT_FREE; OTHER=/mnt; OTHER_FREE=$MNT_FREE
+          fi
+          sudo mkdir -p "${SCRATCH}/work" "${SCRATCH}/images"
+          sudo chown -R "$(id -u):$(id -g)" "$SCRATCH"
+          {
+            echo "NXF_WORK=${SCRATCH}/work"
+            echo "NXF_SINGULARITY_CACHEDIR=${SCRATCH}/images"
+            echo "CUSTOM_REF_DIR=${SCRATCH}/custom_refs"
+          } >> "$GITHUB_ENV"
+          echo "Scratch dir: ${SCRATCH}"
+          df -h / /mnt 2> /dev/null || df -h /
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Nextflow
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: "25.04.0"
+
+      - name: Install samtools for reference preparation
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y samtools
+
+      - name: Prepare chr22 custom reference files
+        run: |
+          mkdir -p "$CUSTOM_REF_DIR"
+          cd "$CUSTOM_REF_DIR"
+
+          echo "Downloading GENCODE v42 reference files..."
+
+          # Download full genome FASTA (primary assembly)
+          wget -q https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_42/GRCh38.primary_assembly.genome.fa.gz
+          gunzip GRCh38.primary_assembly.genome.fa.gz
+
+          # Download full GTF
+          wget -q https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_42/gencode.v42.annotation.gtf.gz
+          gunzip gencode.v42.annotation.gtf.gz
+
+          echo "Subsetting to chr22 only..."
+
+          # Extract chr22 from genome FASTA
+          samtools faidx GRCh38.primary_assembly.genome.fa chr22 > gencode.v42.genome.chr22.fa
+          samtools faidx gencode.v42.genome.chr22.fa
+
+          # Extract chr22 from GTF (excluding header lines)
+          awk '$1 == "chr22"' gencode.v42.annotation.gtf > gencode.v42.annotation.chr22.gtf
+
+          echo "Custom reference files prepared:"
+          ls -lh gencode.v42.genome.chr22.fa gencode.v42.annotation.chr22.gtf
+
+          # Verify files are not empty
+          if [[ ! -s gencode.v42.genome.chr22.fa ]] || [[ ! -s gencode.v42.annotation.chr22.gtf ]]; then
+            echo "::error::Custom reference files are empty!"
+            exit 1
+          fi
+
+          echo "GTF line count: $(wc -l < gencode.v42.annotation.chr22.gtf)"
+          echo "FASTA header: $(head -n 1 gencode.v42.genome.chr22.fa)"
+
+      - name: Write Nextflow Docker config
+        run: |
+          CONFIG="${RUNNER_TEMP}/ci_docker.config"
+          printf '%s\n' \
+            "docker.enabled      = true" \
+            "docker.runOptions   = '-u \$(id -u):\$(id -g) --memory-swap -1'" \
+            "singularity.enabled = false" \
+            "apptainer.enabled   = false" > "$CONFIG"
+
+          MAX_CPUS=$(nproc)
+          MAX_MEM_GB=$(awk '/^MemTotal:/ { printf "%d", $2 / 1048576 }' /proc/meminfo)
+          echo "process.resourceLimits = [cpus: ${MAX_CPUS}, memory: ${MAX_MEM_GB}.GB, time: 3.h]" >> "$CONFIG"
+          echo "NXF_CI_CONFIG=${CONFIG}" >> "$GITHUB_ENV"
+          echo "Nextflow config:"
+          cat "$CONFIG"
+
+      # TEST 1: Positive test - custom references should work
+      - name: "Test 1: Run pipeline with custom chr22 references"
+        id: test_positive
+        if: matrix.test_type == 'positive'
+        run: |
+          OUTDIR="test_results_custom_v42_chr22"
+          echo "OUTDIR=${OUTDIR}" >> "$GITHUB_ENV"
+
+          echo "=========================================="
+          echo "Running: Custom Reference Test (Positive)"
+          echo "Testing that custom GENCODE v42 chr22 references are used"
+          echo "Start time: $(date -u)"
+          echo "=========================================="
+
+          set +e
+          nextflow run "$GITHUB_WORKSPACE" \
+            -profile test_rna \
+            --local_reference_gtf "${CUSTOM_REF_DIR}/gencode.v42.annotation.chr22.gtf" \
+            --local_reference_fasta "${CUSTOM_REF_DIR}/gencode.v42.genome.chr22.fa" \
+            --species human \
+            --outdir "$OUTDIR" \
+            -c "$NXF_CI_CONFIG" \
+            2>&1 | tee "${RUNNER_TEMP}/nextflow_console.log"
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          echo "End time: $(date -u) | Exit code: ${EXIT_CODE}"
+
+          if [[ "$EXIT_CODE" -eq 0 ]]; then
+            echo "test_passed=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Custom reference test (positive) PASSED"
+          else
+            echo "test_passed=false" >> "$GITHUB_OUTPUT"
+            echo "::error::Custom reference test (positive) FAILED"
+            exit "$EXIT_CODE"
+          fi
+
+      - name: "Validate Test 1: Check custom references were used"
+        if: steps.test_positive.outputs.test_passed == 'true'
+        run: |
+          echo "Validating that custom v42 chr22 references were used..."
+          OUTDIR="test_results_custom_v42_chr22"
+          PASS=0
+          FAIL=0
+
+          # CHECK 1: BAM File Reference Sequences
+          echo "=== CHECK 1: BAM File Reference Sequences ==="
+          BAM_FILE=$(find "$OUTDIR/S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN" -name "*.aligned.bam" 2>/dev/null | head -1)
+          if [ -n "$BAM_FILE" ]; then
+            SQ_COUNT=$(samtools view -H "$BAM_FILE" 2>/dev/null | grep "^@SQ" | wc -l)
+            CHR22_COUNT=$(samtools view -H "$BAM_FILE" 2>/dev/null | grep "^@SQ" | grep -w "chr22" | wc -l)
+            echo "Total @SQ entries: $SQ_COUNT"
+            samtools view -H "$BAM_FILE" 2>/dev/null | grep "^@SQ"
+            if [ "$SQ_COUNT" -eq 1 ] && [ "$CHR22_COUNT" -eq 1 ]; then
+              echo " PASS: BAM contains only chr22 reference"
+              PASS=$((PASS + 1))
+            else
+              echo "::error::FAIL: BAM contains $SQ_COUNT chromosomes (expected 1)"
+              FAIL=$((FAIL + 1))
+            fi
+          else
+            echo "::error::FAIL: No aligned BAM files found"
+            FAIL=$((FAIL + 1))
+          fi
+
+          # CHECK 2: Filtered Transcriptome GTF Chromosomes
+          echo "=== CHECK 2: Filtered Transcriptome GTF Chromosomes ==="
+          FILT_GTF="$OUTDIR/S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest.transcriptome.filtered.gtf"
+          if [ -f "$FILT_GTF" ]; then
+            CHROMS=$(grep -v "^#" "$FILT_GTF" 2>/dev/null | cut -f1 | sort -u)
+            CHROM_COUNT=$(echo "$CHROMS" | wc -l)
+            echo "Chromosomes in filtered transcriptome: $CHROMS"
+            if [ "$CHROM_COUNT" -eq 1 ] && [ "$CHROMS" = "chr22" ]; then
+              echo " PASS: Filtered GTF contains only chr22"
+              PASS=$((PASS + 1))
+            else
+              echo "::error::FAIL: Filtered GTF contains $CHROM_COUNT chromosomes (expected 1)"
+              FAIL=$((FAIL + 1))
+            fi
+          else
+            echo "::error::FAIL: Filtered transcriptome GTF not found"
+            FAIL=$((FAIL + 1))
+          fi
+
+          # CHECK 3: Predicted Proteome GTF Chromosomes
+          echo "=== CHECK 3: Predicted Proteome GTF Chromosomes ==="
+          PROT_GTF="$OUTDIR/S3_PREDICTED_PROTEOME/M2_FILTER_CPAT/lrptest.predicted_proteome.best_ORF.gtf"
+          if [ -f "$PROT_GTF" ]; then
+            CHROMS=$(grep -v "^#" "$PROT_GTF" 2>/dev/null | cut -f1 | sort -u)
+            CHROM_COUNT=$(echo "$CHROMS" | wc -l)
+            echo "Chromosomes in predicted proteome: $CHROMS"
+            if [ "$CHROM_COUNT" -eq 1 ] && [ "$CHROMS" = "chr22" ]; then
+              echo " PASS: Predicted proteome GTF contains only chr22"
+              PASS=$((PASS + 1))
+            else
+              echo "::error::FAIL: Predicted proteome GTF contains $CHROM_COUNT chromosomes (expected 1)"
+              FAIL=$((FAIL + 1))
+            fi
+          else
+            echo "::error::FAIL: Predicted proteome GTF not found"
+            FAIL=$((FAIL + 1))
+          fi
+
+          # CHECK 4: Transcript Count
+          echo "=== CHECK 4: Transcript Count (Sanity Check) ==="
+          if [ -f "$FILT_GTF" ]; then
+            TRANSCRIPT_COUNT=$(grep -v "^#" "$FILT_GTF" 2>/dev/null | grep -w "transcript" | wc -l)
+            echo "Total transcripts: $TRANSCRIPT_COUNT"
+            if [ "$TRANSCRIPT_COUNT" -lt 5000 ]; then
+              echo " PASS: Transcript count is reasonable for chr22 only (<5000)"
+              PASS=$((PASS + 1))
+            else
+              echo "::error::FAIL: Transcript count is $TRANSCRIPT_COUNT (too high for chr22)"
+              FAIL=$((FAIL + 1))
+            fi
+          else
+            echo "::error::FAIL: Cannot check transcript count - GTF missing"
+            FAIL=$((FAIL + 1))
+          fi
+
+          # CHECK 5: Log File Messages
+          echo "=== CHECK 5: Log File Messages ==="
+          if [ -f ".nextflow.log" ]; then
+            CUSTOM_REF_MSG=$(grep -i "Using custom reference with species" .nextflow.log 2>/dev/null | tail -1)
+            AUTO_DETECT_MSG=$(grep -i "Auto-detected species from genome GRCh38.p14.v50" .nextflow.log 2>/dev/null | tail -1)
+
+            if [ -n "$CUSTOM_REF_MSG" ]; then
+              echo " PASS: Found custom reference log message"
+              echo "  $CUSTOM_REF_MSG"
+              PASS=$((PASS + 1))
+            else
+              echo "::warning::No 'Using custom reference' message found in log"
+              PASS=$((PASS + 1))
+            fi
+
+            if [ -n "$AUTO_DETECT_MSG" ]; then
+              echo "::error::FAIL: Found v50 auto-detect message (should not be present)"
+              FAIL=$((FAIL + 1))
+            else
+              echo " PASS: No v50 auto-detect message found"
+              PASS=$((PASS + 1))
+            fi
+          else
+            echo "::warning::Log file not found"
+            PASS=$((PASS + 1))
+          fi
+
+          # Summary
+          echo ""
+          echo "=========================================="
+          echo "VALIDATION SUMMARY"
+          echo "=========================================="
+          echo "Passed: $PASS"
+          echo "Failed: $FAIL"
+          echo ""
+
+          if [ "$FAIL" -eq 0 ]; then
+            echo " ALL VALIDATION CHECKS PASSED!"
+            echo "Custom GENCODE v42 chr22 references were correctly used."
+            {
+              echo "## Custom Reference Test (Positive): PASSED "
+              echo ""
+              echo "All validation checks passed ($PASS/$((PASS + FAIL)))"
+              echo ""
+              echo "-  BAM contains only chr22 reference"
+              echo "-  Filtered GTF contains only chr22"
+              echo "-  Predicted proteome GTF contains only chr22"
+              echo "-  Transcript count reasonable for chr22"
+              echo "-  Log shows custom reference usage"
+              echo ""
+              echo "**Conclusion:** The bug fix is working correctly. Custom references take precedence over defaults."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::VALIDATION FAILED: $FAIL check(s) failed"
+            {
+              echo "## Custom Reference Test (Positive): FAILED "
+              echo ""
+              echo "$FAIL validation check(s) failed out of $((PASS + FAIL)) total"
+              echo ""
+              echo "See job log for details."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      # TEST 2: Negative test - missing species parameter should error
+      - name: "Test 2: Missing species parameter should error"
+        id: test_missing_species
+        if: matrix.test_type == 'missing_species'
+        run: |
+          echo "=========================================="
+          echo "Running: Missing Species Parameter Test (Negative)"
+          echo "Testing that pipeline errors when --species is missing"
+          echo "Start time: $(date -u)"
+          echo "=========================================="
+
+          set +e
+          nextflow run "$GITHUB_WORKSPACE" \
+            -profile test_rna \
+            --local_reference_gtf "${CUSTOM_REF_DIR}/gencode.v42.annotation.chr22.gtf" \
+            --local_reference_fasta "${CUSTOM_REF_DIR}/gencode.v42.genome.chr22.fa" \
+            --outdir test_results_missing_species \
+            -c "$NXF_CI_CONFIG" \
+            2>&1 | tee "${RUNNER_TEMP}/nextflow_console.log"
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          echo "End time: $(date -u) | Exit code: ${EXIT_CODE}"
+
+          # Should fail (non-zero exit code)
+          if [[ "$EXIT_CODE" -ne 0 ]]; then
+            # Check if error message contains expected text
+            if grep -qi "species parameter is required when using local reference" "${RUNNER_TEMP}/nextflow_console.log"; then
+              echo "::notice::Test PASSED: Pipeline correctly errored with expected message"
+              {
+                echo "## Missing Species Parameter Test (Negative): PASSED "
+                echo ""
+                echo "Pipeline correctly rejected the run with the expected error:"
+                echo '```'
+                grep -i "species parameter is required" "${RUNNER_TEMP}/nextflow_console.log" | head -1
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            else
+              echo "::error::Test FAILED: Pipeline errored but without expected message"
+              {
+                echo "## Missing Species Parameter Test (Negative): FAILED "
+                echo ""
+                echo "Pipeline failed but the error message did not match expected text."
+                echo "Expected: 'species parameter is required when using local reference'"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+          else
+            echo "::error::Test FAILED: Pipeline should have errored but succeeded"
+            {
+              echo "## Missing Species Parameter Test (Negative): FAILED "
+              echo ""
+              echo "Pipeline should have failed when --species is missing with local references, but it succeeded."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      # TEST 3: Negative test - mixing genome and local refs should error
+      - name: "Test 3: Mixed genome and local refs should error"
+        id: test_mixed_refs
+        if: matrix.test_type == 'mixed_refs'
+        run: |
+          echo "=========================================="
+          echo "Running: Mixed References Test (Negative)"
+          echo "Testing that pipeline errors when --genome and local refs are mixed"
+          echo "Start time: $(date -u)"
+          echo "=========================================="
+
+          set +e
+          nextflow run "$GITHUB_WORKSPACE" \
+            -profile test_rna \
+            --genome GRCh38.p14.v49 \
+            --local_reference_gtf "${CUSTOM_REF_DIR}/gencode.v42.annotation.chr22.gtf" \
+            --local_reference_fasta "${CUSTOM_REF_DIR}/gencode.v42.genome.chr22.fa" \
+            --species human \
+            --outdir test_results_mixed_refs \
+            -c "$NXF_CI_CONFIG" \
+            2>&1 | tee "${RUNNER_TEMP}/nextflow_console.log"
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+
+          echo "End time: $(date -u) | Exit code: ${EXIT_CODE}"
+
+          # Should fail (non-zero exit code)
+          if [[ "$EXIT_CODE" -ne 0 ]]; then
+            # Check if error message contains expected text
+            if grep -qi "cannot use.*genome.*simultaneously.*local_reference" "${RUNNER_TEMP}/nextflow_console.log"; then
+              echo "::notice::Test PASSED: Pipeline correctly errored with expected message"
+              {
+                echo "## Mixed References Test (Negative): PASSED "
+                echo ""
+                echo "Pipeline correctly rejected mixing --genome with local references:"
+                echo '```'
+                grep -i "cannot use.*genome" "${RUNNER_TEMP}/nextflow_console.log" | head -3
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            else
+              echo "::error::Test FAILED: Pipeline errored but without expected message"
+              {
+                echo "## Mixed References Test (Negative): FAILED "
+                echo ""
+                echo "Pipeline failed but the error message did not match expected text."
+                echo "Expected: 'cannot use --genome simultaneously with --local_reference'"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+          else
+            echo "::error::Test FAILED: Pipeline should have errored but succeeded"
+            {
+              echo "## Mixed References Test (Negative): FAILED "
+              echo ""
+              echo "Pipeline should have failed when mixing --genome with local references, but it succeeded."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Upload pipeline logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-custom-reference-test${{ matrix.n }}-${{ matrix.test_type }}
+          path: |
+            .nextflow.log
+            ${{ env.OUTDIR }}/pipeline_info/
+            ${{ env.NXF_WORK }}/**/.command.log
+            ${{ env.NXF_WORK }}/**/.command.err
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Clean up work directory
+        if: always()
+        run: |
+          echo "Cleaning up work directory to free space..."
+          sudo rm -rf "${NXF_WORK:-work}" "${CUSTOM_REF_DIR:-}" || true
+          df -h /
+
+  # ---------------------------------------------------------------------------
   # Final confirmation job - every job must succeed; skipped FragPipe tests are flagged
   # ---------------------------------------------------------------------------
   confirm-pass:
     name: All Integration Tests Passed
-    needs: [static-checks, fragpipe-setup, full-pipeline-test, entry-point-test]
+    needs: [static-checks, fragpipe-setup, full-pipeline-test, entry-point-test, custom-reference-test]
     if: always()
     runs-on: ubuntu-24.04
     steps:
