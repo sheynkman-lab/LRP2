@@ -6,7 +6,7 @@ process ISOCALL_MERGE {
     container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
         'docker://jtllab/isocall:1.3.0-nextflow-fix' :
         'jtllab/isocall:1.3.0-nextflow-fix' }"
-        
+
 
     input:
     tuple val(meta), path(profiles)

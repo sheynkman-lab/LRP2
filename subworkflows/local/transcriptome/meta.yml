@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "transcriptome"
+description: Process and filter transcriptome using SQANTI3 QC, HashID generation, and quality filtering
+keywords:
+  - transcriptome
+  - sqanti3
+  - quality control
+  - filtering
+  - hashids
+components:
+  - sqanti/qc
+  - generate/hashids
+  - filter/transcriptome
+input:
+  - ch_samples:
+      type: channel
+      description: |
+        Channel containing collapsed isoforms and FLNC counts
+        Structure: [meta, collapsed_gff, flnc_counts]
+  - reference_gtf:
+      type: file
+      description: |
+        Reference GENCODE GTF file
+  - reference_fasta:
+      type: file
+      description: |
+        Reference GENCODE FASTA file
+  - sample_metadata:
+      type: file
+      description: |
+        Sample metadata CSV file
+  - filter_script:
+      type: file
+      description: |
+        R filtering script (02_filter_sqanti_transcripts.R)
+  - hashlib_script:
+      type: file
+      description: |
+        Python hashlib_id_generator script
+  - generate_hashids_script:
+      type: file
+      description: |
+        R script for generating hashids (00_generate_hashids.R)
+output:
+  - classification_filtered:
+      type: channel
+      description: |
+        Filtered SQANTI3 classification files
+  - corrected_gtf_filtered:
+      type: channel
+      description: |
+        Filtered and corrected GTF files
+  - corrected_fasta_filtered:
+      type: channel
+      description: |
+        Filtered and corrected FASTA files
+  - hashids_filtered:
+      type: channel
+      description: |
+        Filtered HashIDs with CPM values
+  - hashids_mapping:
+      type: channel
+      description: |
+        HashIDs mapping files
+  - versions:
+      type: file
+      description: |
+        File containing software versions
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

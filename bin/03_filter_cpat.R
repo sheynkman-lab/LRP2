@@ -1,13 +1,13 @@
 #!/usr/bin/env Rscript
 
 #' CPAT ORF Analysis Script - R Version
-#' 
+#'
 #' - Restores correct ID casing from CPAT's uppercased output using mapping file
 #' - Maps ORF start/end to genomic coordinates via exon structure
 #' - Checks for reference start codon matches
 #' - Scores and classifies ORFs (Clear Best, Plausible, Low Quality, No Stop Codon)
-#' - Generates GTF with CDS features for best ORFs 
-#' 
+#' - Generates GTF with CDS features for best ORFs
+#'
 #' Inputs:
 #' - CPAT ORF fasta
 #' - CPAT ORF probability tsv
@@ -18,7 +18,7 @@
 #' Outputs:
 #' - *.predicted_proteome.CPAT_ORFs_mapped.tsv: all ORFs with genomic coordinates and quality scores
 #' - *.predicted_proteome.best_ORF.gtf: GTF with exon and CDS features for best ORF per transcript
-#' 
+#'
 
 # =============================================================================
 # Load required libraries
@@ -93,10 +93,10 @@ stopifnot("Mapping file not found"        = file.exists(mapping_file))
 #' @param orf_fasta_file Path to ORF FASTA file
 #' @return Data frame with ID and has_stop_codon columns
 check_stop_codons <- function(orf_fasta_file) {
-  
+
   stop_codons <- c("TAG", "TAA", "TGA")
   orfs        <- readDNAStringSet(orf_fasta_file)
-  
+
   tibble(
     ID       = tolower(str_split_fixed(names(orfs), "\t", 2)[,1]),
     sequence = as.character(orfs)
@@ -115,15 +115,15 @@ check_stop_codons <- function(orf_fasta_file) {
 #' @param sample_fasta Sample transcript sequences
 #' @return Mapped ORF data with genomic coordinates
 map_orfs_to_genome <- function(orf_coords, sample_exons, gencode_gtf, full_fasta) {
-  
+
   # Count the number of upstream ORFs
   orf_coords %<>% left_join(full_fasta, by = "isoform_id") %>%
-    mutate(upstream_atgs = ifelse(!is.na(full_sequence), 
+    mutate(upstream_atgs = ifelse(!is.na(full_sequence),
                                   str_count(substr(full_sequence, 1, ORF_start - 1), "ATG"),
                                   Inf)
     ) %>%
     select(-full_sequence)
-  
+
   # Map ORF Start coordinates to genomic positions- strandedness here is tricky
   mapped_starts = orf_coords %>%
     left_join(sample_exons, by = c("isoform_id"), relationship = "many-to-many") %>%
@@ -135,7 +135,7 @@ map_orfs_to_genome <- function(orf_coords, sample_exons, gencode_gtf, full_fasta
            orf_start_offset = ORF_start - prior_length  # position within this exon
     ) %>%
     select(-start, -end, -exon_length, -exon_number, -cumulative_length, -prior_length)
-  
+
   # Map ORF End coordinates to genomic positions
   mapped_complete = mapped_starts %>%
     left_join(sample_exons, by = c("isoform_id", "seqnames", "strand"), relationship = "many-to-many") %>%
@@ -148,19 +148,19 @@ map_orfs_to_genome <- function(orf_coords, sample_exons, gencode_gtf, full_fasta
       orf_end_offset = ORF_end - prior_length  # position within this exon
     ) %>%
     select(-start, -end, -exon_length, -exon_number, -cumulative_length, -prior_length)
-  
+
   # Check for GENCODE start codon matches- looking for any match here
   gencode_start_codons = gencode_gtf %>%
-    filter(type == "start_codon") %>% 
+    filter(type == "start_codon") %>%
     mutate(gencode_pos = ifelse(strand == "+", start, end)) %>%
     select(seqnames, strand, gencode_pos) %>%
     distinct() %>%
     mutate(gencode_match = TRUE)
-  
-  mapped_orfs = mapped_complete %>% 
+
+  mapped_orfs = mapped_complete %>%
     left_join(gencode_start_codons, by = c("seqnames", "strand", "orf_genomic_start" = "gencode_pos")) %>%
     mutate(gencode_match = ifelse(is.na(gencode_match), FALSE, gencode_match))
-  
+
   return(mapped_orfs)
 }
 
@@ -170,32 +170,32 @@ map_orfs_to_genome <- function(orf_coords, sample_exons, gencode_gtf, full_fasta
 #' @param mapped_orfs Data frame of mapped ORFs
 #' @return Data frame with best ORF per transcript
 call_best_orfs <- function(mapped_orfs) {
-  
+
   # ORF quality scoring parameters but these don't seem to be used
   #coding_threshold  # CPAT protein-coding threshold
   #atg_shift  <- 10          # Sigmoid parameters for ATG penalty
   #atg_growth <- 0.5
-  
+
   # per transcript, if there is a gencode match, pick the one with the fewest upstream ATGs
-  mapped_orfs %<>% 
-    mutate(#atg_penalty     = 1 - 1/(1 + exp(-atg_growth * (upstream_atgs - atg_shift))), 
+  mapped_orfs %<>%
+    mutate(#atg_penalty     = 1 - 1/(1 + exp(-atg_growth * (upstream_atgs - atg_shift))),
            #composite_score = Coding_prob * (1 - atg_penalty),
            orf_quality     = case_when(
              Coding_prob <= coding_threshold ~ "Low Quality ORF",
              !has_stop_codon & !gencode_match ~ "No Stop Codon",
              TRUE ~ "Plausible ORF"
            ))
-  
-  best_orfs = mapped_orfs %>% 
+
+  best_orfs = mapped_orfs %>%
     filter(orf_quality == "Plausible ORF") %>%
-    group_by(isoform_id) %>% 
+    group_by(isoform_id) %>%
     arrange(desc(gencode_match), upstream_atgs, desc(Coding_prob)) %>%
     slice_head(n = 1) %>%
     ungroup()
-  
+
   mapped_orfs %<>%
     mutate(orf_quality = ifelse(ID %in% best_orfs$ID, "Clear Best ORF", orf_quality))
-  
+
   return(mapped_orfs)
 }
 
@@ -205,7 +205,7 @@ call_best_orfs <- function(mapped_orfs) {
 #' @param sample_gtf Info on all exons
 #' @return Data frame with CDS start/end coordinates
 get_cds_coords <- function(best_orfs, sample_exons) {
-  
+
   # Join mapped ORFs with their exons- select all CDS exons
   cds_all = best_orfs %>%
     left_join(sample_exons, by = c("isoform_id", "seqnames", "strand")) %>%
@@ -217,7 +217,7 @@ get_cds_coords <- function(best_orfs, sample_exons) {
       is_last_orf_exon = (exon_number == max(exon_number))
     ) %>%
     ungroup()
-  
+
   # Trim first and last cds exons based on precise cds start and end
   cds_trimmed = cds_all %>%
     mutate(
@@ -233,7 +233,7 @@ get_cds_coords <- function(best_orfs, sample_exons) {
       )
     ) %>%
     select(ID, isoform_id, seqnames, exon_number, new_start, new_end, strand)
-  
+
   return(cds_trimmed)
 }
 
@@ -243,29 +243,29 @@ get_cds_coords <- function(best_orfs, sample_exons) {
 #' @param all_cds_exons Trimmed CDS exon coordinates
 #' @return GTF file of all transcripts with CDS features
 write_gtf_with_cds <- function(sample_gtf, all_cds_exons) {
-  
+
   # selecting type individually in case custom gtfs have more type columns- want to reset attributes column
-  #sample_gtf %<>% 
+  #sample_gtf %<>%
     #select(isoform_id = transcript_id, everything())
     #left_join(gene_mapping %>% select(isoform_id, gencode_gene_id = gene_id, any_of("gene_name"), orf_isoform_id), by = "isoform_id")
-  
+
   # Create transcript lines (one per transcript)
   transcript_lines = sample_gtf %>%
     filter(type == "transcript") %>%
     select(seqnames, type, start, end, strand, source, transcript_id, gene_id)
     #select(seqnames, type, start, end, strand, source, isoform_id, gencode_gene_id, any_of("gene_name"), orf_isoform_id)
-  
+
   # Create exon lines
   exon_lines = sample_gtf %>%
     filter(type == "exon") %>%
     select(seqnames, type, start, end, strand, source, transcript_id, gene_id)
-  
+
   # Create CDS lines
   cds_lines = all_cds_exons %>%
     #left_join(gene_mapping %>% select(isoform_id, gencode_gene_id = gene_id, any_of("gene_name"), orf_isoform_id), by = "isoform_id") %>%
     mutate(type = "CDS", source = sample_gtf$source[1]) %>%
     select(seqnames, type, start = new_start, end = new_end, strand, source, transcript_id = isoform_id, gene_id)
-  
+
   # combine types and add attribute column
   updated_gtf = bind_rows(transcript_lines, exon_lines, cds_lines) %>%
     arrange(transcript_id, start) %>%
@@ -276,15 +276,15 @@ write_gtf_with_cds <- function(sample_gtf, all_cds_exons) {
       } else {
         paste0('gene_id "', gene_id, '"; transcript_id "', transcript_id, '";')
       },
-      score = ".", 
+      score = ".",
       frame = "."
     ) %>%
     select(seqnames, source, type, start, end, score, strand, frame, attributes)
-  
+
   cat(paste0("Combined ", nrow(transcript_lines), " transcript lines, ",
-                 nrow(exon_lines), " exon lines, and ", 
+                 nrow(exon_lines), " exon lines, and ",
                  nrow(cds_lines), " CDS lines"))
-  
+
   return(updated_gtf)
 }
 
@@ -338,7 +338,7 @@ sample_exons %<>%
 # === STEP 3: Map ORFs to genomic coordinates ===
 cat("\nSTEP 3: Mapping ORFs to genome")
 
-stop_codon_status = check_stop_codons(cpat_fasta_file) # uses ORF (dna) fasta to return new column about stop codon 
+stop_codon_status = check_stop_codons(cpat_fasta_file) # uses ORF (dna) fasta to return new column about stop codon
 orf_coords        = left_join(cpat_results, stop_codon_status, by = "ID")
 mapped_orfs       = map_orfs_to_genome(orf_coords, sample_exons, gencode_gtf, full_fasta)
 
@@ -358,18 +358,18 @@ write_tsv(all_orfs, file.path(cpat_dir, paste0(basename, ".predicted_proteome.CP
 # === STEP 5: Write gtf for best ORFs, including CDS and exon types, no collapsing here ===
 cat("\nSTEP 5: Writing GTF of best ORFs with CDS and exon types")
 all_cds_exons = get_cds_coords(best_orfs, sample_exons)
-# gene_mapping %<>% 
+# gene_mapping %<>%
 #   left_join(select(best_orfs, isoform_id, orf_isoform_id)) %>%
 #   mutate(orf_isoform_id = ifelse(is.na(orf_isoform_id), "noORF", orf_isoform_id))
 
-all_cds_exons %<>% 
+all_cds_exons %<>%
   left_join(distinct(sample_gtf, transcript_id, gene_id), by = c("isoform_id" = "transcript_id"))
 updated_gtf = write_gtf_with_cds(sample_gtf, all_cds_exons)
 
-write.table(updated_gtf, file.path(cpat_dir, paste0(basename, ".predicted_proteome.best_ORF.gtf")), 
-            sep = "\t", 
-            quote = FALSE, 
-            row.names = FALSE, 
+write.table(updated_gtf, file.path(cpat_dir, paste0(basename, ".predicted_proteome.best_ORF.gtf")),
+            sep = "\t",
+            quote = FALSE,
+            row.names = FALSE,
             col.names = FALSE)
 
 # =============================================================================
@@ -393,9 +393,9 @@ percent_noORFs       = round((n_noORFs/starting_transcripts) * 100, 1)
 
 cat("\n=== CPAT FILTER ANALYSIS COMPLETE ===\n")
 cat(paste0("- CPAT called at least one ORF for ", n_transcripts_orfs, " / ", starting_transcripts, " (", percent_orfs,"%)", " transcripts.\n"))
-cat(paste0("- Based on coding potential, ", n_plausible_orfs, " / ", n_cpat_orfs, " (", percent_plausible,"%)"," of CPAT ORFs were classified as plausible ORFs.\n")) 
-cat(paste0("- ", n_noORFs, " / ", starting_transcripts, " (", percent_noORFs,"%)", " transcripts do not have a plausible ORF.\n")) 
-cat(paste0("- After further filtering, a 'Clear Best ORF' was identified for ", n_best_orfs, " / ", starting_transcripts, " (", percent_best,"%)", " transcripts.\n")) 
+cat(paste0("- Based on coding potential, ", n_plausible_orfs, " / ", n_cpat_orfs, " (", percent_plausible,"%)"," of CPAT ORFs were classified as plausible ORFs.\n"))
+cat(paste0("- ", n_noORFs, " / ", starting_transcripts, " (", percent_noORFs,"%)", " transcripts do not have a plausible ORF.\n"))
+cat(paste0("- After further filtering, a 'Clear Best ORF' was identified for ", n_best_orfs, " / ", starting_transcripts, " (", percent_best,"%)", " transcripts.\n"))
 
 cat("\n=== CPAT FILTER OUTPUT FILES ===\n")
 cat(paste0("All CPAT ORFs with Quality Metrics: ", basename, ".predicted_proteome.all_cpat_orfs_mapped.tsv\n"))

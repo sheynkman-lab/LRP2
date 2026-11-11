@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "pacbio_isocall"
+description: Process PacBio Iso-Seq data using IsoCall workflow for isoform calling
+keywords:
+  - isoseq
+  - pacbio
+  - isoform calling
+  - long-read
+components:
+  - pbmm2/align
+  - isocall/profile
+  - isocall/merge
+  - isocall/prep
+  - isocall/call
+input:
+  - ch_samples:
+      type: channel
+      description: |
+        Channel containing FLNC BAM files with metadata
+        Structure: [meta, flnc_bam]
+  - reference_fasta:
+      type: file
+      description: |
+        Reference genome FASTA file
+  - reference_gtf_gz:
+      type: file
+      description: |
+        Reference genome GTF file (gzipped, for ISOCALL_PREP)
+  - config_toml:
+      type: file
+      description: |
+        IsoCall configuration TOML file
+output:
+  - isoforms:
+      type: channel
+      description: |
+        Called isoforms from IsoCall
+  - flnc_counts:
+      type: channel
+      description: |
+        Full-length non-chimeric read counts
+  - versions:
+      type: file
+      description: |
+        File containing software versions
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

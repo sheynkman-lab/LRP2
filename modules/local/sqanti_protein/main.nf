@@ -3,7 +3,9 @@ process SQANTI_PROTEIN {
     label 'process_long'
 
     conda "${moduleDir}/environment.yml"
-    container 'docker://docker.io/anaconesalab/sqanti3:v5.5.4'
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://docker.io/anaconesalab/sqanti3:v5.5.4' :
+        'docker.io/anaconesalab/sqanti3:v5.5.4' }"
 
     input:
     tuple val(meta), path(cds_gtf)

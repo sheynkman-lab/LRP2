@@ -3,7 +3,9 @@ process LEAFCUTTER_LONGREAD {
     label 'process_high'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/jtllab/leafcutter-longread:latest"
+    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
+        'docker://docker.io/jtllab/leafcutter-longread:latest' :
+        'docker.io/jtllab/leafcutter-longread:latest' }"
 
     input:
     tuple val(meta), path(filtered_gtf), path(transcript_counts)
@@ -63,7 +65,7 @@ process LEAFCUTTER_LONGREAD {
     # Run differential splicing if script is provided
     # Note: leafcutter_ds.py requires the 'leafcutter' Python package which should be available in the PYTHONPATH from the bin directory
     if [ -f "${leafcutter_ds_script}" ]; then
-    
+
         # Filter groups file to only include samples from the two groups being compared since leafcutter_ds.py only supports pairwise comparisons
         awk -v ctrl="${control_group}" -v exper="${experimental_group}" '\$2 == ctrl || \$2 == exper' ${prefix}.lr_leafcutter.groups_file.txt > ${prefix}.lr_leafcutter.filtered_groups_file.txt
         n_control=\$(awk -v ctrl="${control_group}" '\$2 == ctrl' ${prefix}.lr_leafcutter.filtered_groups_file.txt | wc -l)
@@ -94,7 +96,7 @@ process LEAFCUTTER_LONGREAD {
         else
             echo "WARNING: Insufficient number of samples for differential splicing analysis! "
             echo "         leafcutter-longread requires at least ${min_samp_group} samples per group."
-            echo "         Found only \$n_control ${control_group} and \$n_experimental ${experimental_group} samples." 
+            echo "         Found only \$n_control ${control_group} and \$n_experimental ${experimental_group} samples."
             echo "         Please adjust your sample groups or reduce the minimum samples per group threshold to run differential splicing analysis."
         fi
     else

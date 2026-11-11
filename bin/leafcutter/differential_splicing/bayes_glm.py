@@ -18,7 +18,7 @@ from leafcutter.differential_splicing.bb_glm import brr_initialization
 
 pyro.enable_validation(False) # for binomial mixture https://github.com/pyro-ppl/pyro/issues/3419
 
-def convertr(hyperparam, name, device = "cpu"): 
+def convertr(hyperparam, name, device = "cpu"):
     #return pyro.sample(name, hyperparam) if (type(hyperparam) != float) else torch.tensor(hyperparam, device = device)
     is_dist = isinstance(hyperparam, pyro.distributions.Distribution)
     return pyro.sample(name, hyperparam) if (is_dist) else (
@@ -31,17 +31,17 @@ def simulate_data(
     J = 200, # junctions
     conc = 10,
     prop_non_full = 0.5
-): 
+):
     x_null = torch.randn([N,P-1])
     half_N = N // 2
     column = torch.cat([torch.zeros(half_N), torch.ones(N - half_N)]).unsqueeze(1)
     x_full = torch.cat([x_null, column], dim=1)
-    
+
     b = torch.rand([P,J]).sign() * (torch.randn((P,J)) + 1.)
     g_full = (x_full @ b).sigmoid()
     g_null = (x_null @ b[:-1,:]).sigmoid()
     is_full = torch.rand(J) < prop_non_full
-    b[-1,~is_full] = 0. 
+    b[-1,~is_full] = 0.
     #g = (x_full @ b).sigmoid()
     g = torch.where(is_full, g_full, g_null)
     n = dist.Poisson(100).sample([N,J])
@@ -50,32 +50,32 @@ def simulate_data(
     return x_null, x_full, y, n, is_full, b
 
 class BayesianBetaBinomialModel(pyro.nn.PyroModule):
-    
-    def __init__(self, eps = 1e-8, gamma_shape = 2., gamma_rate = 0.2, beta_scale = 1., multiconc = True): 
+
+    def __init__(self, eps = 1e-8, gamma_shape = 2., gamma_rate = 0.2, beta_scale = 1., multiconc = True):
         """
         Initialize the BayesianBetaBinomialModel.
 
-        For gamma_shape, gamma_rate, beta_scale, and prior_prob if the parameter is a distribution object, then it will be 
-        learned under that prior. 
+        For gamma_shape, gamma_rate, beta_scale, and prior_prob if the parameter is a distribution object, then it will be
+        learned under that prior.
 
         Args:
             P (int): Number of covariates.
             J (int): Number of junctions.
             eps (float): A small constant to prevent numerical issues.
-            gamma_shape (float): Shape parameter for the gamma distribution used for the concentration prior. 
-            gamma_rate (float): Rate parameter for the gamma distribution used for the concentration prior. 
-            beta_scale (float): prior std for coefficients. 
+            gamma_shape (float): Shape parameter for the gamma distribution used for the concentration prior.
+            gamma_rate (float): Rate parameter for the gamma distribution used for the concentration prior.
+            beta_scale (float): prior std for coefficients.
             multiconc (bool): Indicates whether to use a separate concentration parameter for each junction.
 
         """
-        super().__init__() 
+        super().__init__()
         assert(multiconc)
         self.eps = eps
         self.binomial = gamma_shape is None
         self.gamma_shape = gamma_shape
         self.gamma_rate = gamma_rate
         self.multiconc = multiconc
-        self.beta_scale = beta_scale # maybe this should be learned per covariate? 
+        self.beta_scale = beta_scale # maybe this should be learned per covariate?
 
     def forward(self, x, y, n):
 
@@ -109,7 +109,7 @@ class BayesianBetaBinomialModel(pyro.nn.PyroModule):
 
             with pyro.plate("N", N):
                 pyro.sample("obs", bb, obs=y.T)
-            
+
     def fit(self, x, y, n, beta_init = None, lr=0.01, iterations = 500):
 
         N, J = y.shape
@@ -118,11 +118,11 @@ class BayesianBetaBinomialModel(pyro.nn.PyroModule):
         if beta_init is None:
             beta_init = brr_initialization(x, y, n)
 
-        init_dic = { # TODO: GPU 
+        init_dic = { # TODO: GPU
             "beta": beta_init,
-            "conc": torch.full([J], 10.), 
-            "gamma_shape" : 2., 
-            "gamma_rate" : 0.2, 
+            "conc": torch.full([J], 10.),
+            "gamma_shape" : 2.,
+            "gamma_rate" : 0.2,
             "beta_scale" : torch.std(beta_init)
         }
 
@@ -153,7 +153,7 @@ def bin_then_bb_glm(x, y, n, lr = 0.01, iterations = 500, gamma_shape = 2., num_
     final_elbo = pyro.infer.Trace_ELBO(num_particles = num_particles)(bb_glm, guide)(x, y, n).item()
     return losses+bb_losses, final_elbo, guide.median()["beta"], guide.median()["conc"]
 
-def estimate_marginal_posterior(logw, alpha, pi = None): 
+def estimate_marginal_posterior(logw, alpha, pi = None):
 
     num_samples = logw.shape[0]
     if alpha == 1.: # variational inference
@@ -176,18 +176,18 @@ def effective_sample_size(logw):
     log_numerator = 2. * logw.logsumexp(0)
     log_denominator = (2.*logw).logsumexp(0)
     return torch.exp(log_numerator - log_denominator)
-        
+
 class SpikeAndSlabModel(pyro.nn.PyroModule):
-    
+
     def __init__(
-            self, 
-            eps = 1e-8, 
-            gamma_shape = 2., 
-            gamma_rate = .2, 
-            beta_scale = 1., 
-            prior_prob = torch.tensor([0.9,0.1]), 
-            multiconc = True, 
-            per_hyp_conc = True): 
+            self,
+            eps = 1e-8,
+            gamma_shape = 2.,
+            gamma_rate = .2,
+            beta_scale = 1.,
+            prior_prob = torch.tensor([0.9,0.1]),
+            multiconc = True,
+            per_hyp_conc = True):
         """
         Initialize the BetaBinomialModel.
 
@@ -195,9 +195,9 @@ class SpikeAndSlabModel(pyro.nn.PyroModule):
             P (int): Number of covariates.
             J (int): Number of junctions.
             eps (float): A small constant to prevent numerical issues.
-            gamma_shape (float): Shape parameter for the gamma distribution used for the concentration prior. 
-            gamma_rate (float): Rate parameter for the gamma distribution used for the concentration prior. 
-            beta_scale (float): prior std for coefficients. 
+            gamma_shape (float): Shape parameter for the gamma distribution used for the concentration prior.
+            gamma_rate (float): Rate parameter for the gamma distribution used for the concentration prior.
+            beta_scale (float): prior std for coefficients.
             multiconc (bool): Indicates whether to use a separate concentration parameter for each junction.
             prior_prob (float): Probability vector P(null), P(full) or K=2 Dirichlet prior
             per_hyp_conc (bool): Indicates whether to use a separate concentration parameter for each hypothesis.
@@ -251,7 +251,7 @@ class SpikeAndSlabModel(pyro.nn.PyroModule):
             conc_dist = dist.Gamma(gamma_shape, gamma_rate)
             if self.per_hyp_conc:
                 conc_param = pyro.sample("conc", conc_dist.expand([2,J]))[:,None,:] # 2 x J
-            else: 
+            else:
                 conc_param = pyro.sample("conc", conc_dist.expand([J])) # J
             #print(conc_param.shape)
 
@@ -273,18 +273,18 @@ class SpikeAndSlabModel(pyro.nn.PyroModule):
                 pyro.sample("obs", mixture, obs=y.T)
 
     def fit(
-        self, 
+        self,
         x_null,
-        x_full, 
-        y, 
-        n, 
-        beta_null_init = None, 
-        beta_full_init = None, 
-        conc_null_init = None, 
+        x_full,
+        y,
+        n,
+        beta_null_init = None,
+        beta_full_init = None,
+        conc_null_init = None,
         conc_full_init = None,
-        alpha = 1., 
-        num_particles = 1, 
-        lr=0.01, 
+        alpha = 1.,
+        num_particles = 1,
+        lr=0.01,
         iterations = 1000
         ):
 
@@ -293,7 +293,7 @@ class SpikeAndSlabModel(pyro.nn.PyroModule):
         losses_null = None
         if beta_null_init is None:
             print("Fitting null model")
-            losses_null, final_elbo, beta_null_init, conc_null_init = bin_then_bb_glm(x_null, y, n, lr = lr, iterations = iterations // 2) 
+            losses_null, final_elbo, beta_null_init, conc_null_init = bin_then_bb_glm(x_null, y, n, lr = lr, iterations = iterations // 2)
 
         losses_full = None
         if beta_full_init is None:
@@ -308,13 +308,13 @@ class SpikeAndSlabModel(pyro.nn.PyroModule):
 
         if self.per_hyp_conc:
             conc_init = torch.stack([conc_null_init, conc_full_init])
-        else: 
+        else:
             conc_init = conc_null_init
 
-        init_dic = { # TODO: GPU 
+        init_dic = { # TODO: GPU
             "beta_full": beta_full_init,
             "beta_null": beta_null_init,
-            "conc": conc_init, 
+            "conc": conc_init,
             "mixing_probs" : torch.tensor([0.9,0.1])
         }
 
@@ -332,28 +332,28 @@ class SpikeAndSlabModel(pyro.nn.PyroModule):
             guide.add(AutoDiagonalNormal(
                 poutine.block(self, expose = ['mixing_probs']),
                 init_loc_fn = init_to_value(values=init_dic)))
-        
+
         if isinstance(self.beta_full_scale, torch.distributions.Distribution):
-            guide.add(AutoDiagonalNormal( 
+            guide.add(AutoDiagonalNormal(
                 poutine.block(self, expose = ['beta_full_scale']),
                 init_loc_fn = init_to_value(values=init_dic)))
         if isinstance(self.beta_null_scale, torch.distributions.Distribution):
-            guide.add(AutoDiagonalNormal( 
+            guide.add(AutoDiagonalNormal(
                 poutine.block(self, expose = ['beta_null_scale']),
                 init_loc_fn = init_to_value(values=init_dic)))
         if isinstance(self.gamma_shape, torch.distributions.Distribution):
-            guide.add(AutoDiagonalNormal( 
+            guide.add(AutoDiagonalNormal(
                 poutine.block(self, expose = ['gamma_shape']),
                 init_loc_fn = init_to_value(values=init_dic)))
         if isinstance(self.gamma_rate, torch.distributions.Distribution):
-            guide.add(AutoDiagonalNormal( 
+            guide.add(AutoDiagonalNormal(
                 poutine.block(self, expose = ['gamma_rate']),
                 init_loc_fn = init_to_value(values=init_dic)))
 
         self.guide = guide # AutoDiagonalNormal(self, init_loc_fn = init_to_value(values=init_dic))
 
         loss_func = pyro.infer.Trace_ELBO(num_particles = num_particles) if (
-            alpha == 1.) else pyro.infer.RenyiELBO(alpha=alpha, num_particles=num_particles) 
+            alpha == 1.) else pyro.infer.RenyiELBO(alpha=alpha, num_particles=num_particles)
 
         optim = pyro.optim.Adam({"lr": lr})
         svi = SVI(self, self.guide, optim, loss=loss_func)
@@ -367,7 +367,7 @@ class SpikeAndSlabModel(pyro.nn.PyroModule):
 
         return losses_null, losses_full, losses
 
-    def get_posterior_map(self, x_null, x_full, y, n): 
+    def get_posterior_map(self, x_null, x_full, y, n):
 
         N, J = y.shape
 
@@ -375,14 +375,14 @@ class SpikeAndSlabModel(pyro.nn.PyroModule):
         beta_full = guide_median["beta_full"]
         beta_null = guide_median["beta_null"]
         conc_param = guide_median["conc"]
-        
+
         mixing_probs = torch.tensor([0.9,0.1]) # TODO: learned
         mix = dist.Categorical(mixing_probs).expand([J])
-        
+
         logits_full = x_full @ beta_full
         logits_null = x_null @ beta_null
         logits_combined = torch.stack((logits_null, logits_full), dim=0)  # 2 x N x J
-        
+
         g = logits_combined.sigmoid()
 
         if self.per_hyp_conc:
@@ -392,11 +392,11 @@ class SpikeAndSlabModel(pyro.nn.PyroModule):
             concentration0=((1 - g) * conc_param + 1e-8).permute(2, 0, 1),
             total_count=n.T[:,None,:] # N x J -> J x 1 x N so broadcasts over components
         )
-        
+
         comp = dist.Independent(bb, reinterpreted_batch_ndims = 1)
 
         mixture = dist.MixtureSameFamily(mix, comp) # .to_event(1) this would get us just one log_prob
-        
+
         log_prob_x = mixture.component_distribution.log_prob(mixture._pad(y.T))  # [S, B, k]
         log_mix_prob = torch.log_softmax(mixture.mixture_distribution.logits, dim=-1)  # [B, k]
         log_prob = log_prob_x + log_mix_prob
@@ -408,8 +408,8 @@ class SpikeAndSlabModel(pyro.nn.PyroModule):
     def get_importance_sampling_weights(
         self,
         x_null,
-        x_full, 
-        y, 
+        x_full,
+        y,
         n,
         num_samples = 100,
         sample_conc = True
@@ -417,75 +417,74 @@ class SpikeAndSlabModel(pyro.nn.PyroModule):
         P_full = x_full.shape[1]
         P_null = x_null.shape[1]
         N, J = y.shape
-        
+
         conc = self.guide.median()["conc"]
-        
+
         logw = []
-        with torch.no_grad(): 
+        with torch.no_grad():
             for _ in range(num_samples):
                 guide_tr = poutine.trace(self.guide).get_trace()
                 conditioned_model = poutine.replay(lambda: self(x_null, x_full, y, n), guide_tr)
                 model_tr = poutine.trace(conditioned_model).get_trace()
-            
+
                 model_tr.nodes["obs"]["fn"].log_prob(model_tr.nodes["obs"]["value"]) # N x J
-            
+
                 beta_null = guide_tr.nodes["beta_null"]["value"]
                 beta_full = guide_tr.nodes["beta_full"]["value"]
-                
+
                 mixture = model_tr.nodes["obs"]["fn"]
                 logp_obs = mixture.component_distribution.log_prob(mixture._pad(y.T))  # [S, B, k]
-                #logp_mix = torch.log_softmax(mixture.mixture_distribution.logits, dim=-1)  # do we want to include this? 
+                #logp_mix = torch.log_softmax(mixture.mixture_distribution.logits, dim=-1)  # do we want to include this?
                 #log_prob = logp_obs + logp_mix # N x J x 2
-            
+
                 logp_beta_full = model_tr.nodes["beta_full"]["fn"].base_dist.log_prob(beta_full).sum(0)
                 logp_beta_null = model_tr.nodes["beta_null"]["fn"].base_dist.log_prob(beta_null).sum(0) # 2 x J
                 logp_beta = torch.stack([logp_beta_null,logp_beta_full]) # 2 x J
-            
-                logp = logp_obs.sum(0).T + logp_beta 
-            
-                q_beta_null = dist.Normal( 
+
+                logp = logp_obs.sum(0).T + logp_beta
+
+                q_beta_null = dist.Normal(
                     guide_tr.nodes['guide.0.loc']["value"].reshape([P_null, J]),
                     guide_tr.nodes['guide.0.scale']["value"].reshape([P_null, J])
                 )
-                logq_beta_null = q_beta_null.log_prob(beta_null).sum(0) # P_null x J 
-            
+                logq_beta_null = q_beta_null.log_prob(beta_null).sum(0) # P_null x J
+
                 assert(torch.allclose(guide_tr.nodes['_guide.1_latent']["value"].reshape([P_full, J]), beta_full))
-                q_beta_full = dist.Normal( 
+                q_beta_full = dist.Normal(
                     guide_tr.nodes['guide.1.loc']["value"].reshape([P_full, J]),
                     guide_tr.nodes['guide.1.scale']["value"].reshape([P_full, J])
                 )
-                logq_beta_full = q_beta_full.log_prob(beta_full).sum(0) # P_full x J 
+                logq_beta_full = q_beta_full.log_prob(beta_full).sum(0) # P_full x J
                 logq_beta = torch.stack([logq_beta_null,logq_beta_full]) # 2 x J
 
                 conc_shape = [2,J] if self.per_hyp_conc else [J]
-                # this is log-Normal so a bit more complex H[y] = H[x] + E[log|g'(x)'] where y=g(x)). Not handled properly? 
+                # this is log-Normal so a bit more complex H[y] = H[x] + E[log|g'(x)'] where y=g(x)). Not handled properly?
                 q_conc = dist.Normal(
                     guide_tr.nodes['guide.2.loc']["value"].reshape(conc_shape),
                     guide_tr.nodes['guide.2.scale']["value"].reshape(conc_shape)
                 )
-                
+
                 logq = logq_beta
-            
-                if sample_conc: 
+
+                if sample_conc:
                     log_conc = guide_tr.nodes['_guide.2_latent']["value"].reshape(conc_shape)
                     conc = guide_tr.nodes["conc"]["value"]
                     logq += q_conc.log_prob(log_conc) - log_conc # explicit Jacobian!?
                     logp += model_tr.nodes["conc"]["fn"].log_prob(conc)
-            
+
                 logw.append(logp - logq)
             logw = torch.stack(logw)
             pi = torch.log_softmax(mixture.mixture_distribution.logits, dim=-1)[0].T
         return logw, pi
 
     def estimate_marginal_posterior(
-        self, 
+        self,
         x_null,
-        x_full, 
-        y, 
+        x_full,
+        y,
         n,
         alpha = 0., # weirdly alpha=1. seems to be the best calibrated
         num_samples = 100
-    ): 
+    ):
         logw, pi = self.get_importance_sampling_weights(x_null, x_full, y, n, num_samples = num_samples)
         return estimate_marginal_posterior(logw, alpha, pi = pi)
-        

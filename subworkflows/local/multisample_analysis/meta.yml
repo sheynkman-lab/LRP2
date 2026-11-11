@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/subworkflows/yaml-schema.json
+name: "multisample_analysis"
+description: Perform multi-sample analysis including differential splicing and differential expression
+keywords:
+  - differential expression
+  - differential splicing
+  - leafcutter
+  - multi-sample
+components:
+  - leafcutter/longread
+  - differential/expression
+input:
+  - ch_transcripts:
+      type: channel
+      description: |
+        Channel containing filtered transcripts with metadata, GTF, and counts
+        Structure: [meta, filtered_gtf, transcript_counts]
+  - ch_orfs:
+      type: channel
+      description: |
+        Channel containing ORF counts with metadata
+        Structure: [meta, orf_counts]
+  - sample_metadata:
+      type: file
+      description: |
+        Sample metadata CSV file with sample information and groupings
+  - lr_leafcutter_script:
+      type: file
+      description: |
+        R script for leafcutter clustering
+  - leafcutter_ds_script:
+      type: file
+      description: |
+        Python script for leafcutter differential splicing
+  - multisample_script:
+      type: file
+      description: |
+        R script for multi-sample differential expression analysis
+  - min_samples_per_intron:
+      type: integer
+      description: |
+        Minimum number of samples per intron for leafcutter
+  - min_samples_per_group:
+      type: integer
+      description: |
+        Minimum number of samples per group
+  - min_usage_ratio:
+      type: number
+      description: |
+        Minimum usage ratio for differential splicing
+  - drimseq_min_gene_expr:
+      type: integer
+      description: |
+        Minimum gene expression threshold for DRIMSeq
+  - drimseq_min_isoform_prop:
+      type: number
+      description: |
+        Minimum isoform proportion for DRIMSeq
+  - dataset_name:
+      type: string
+      description: |
+        Dataset name for output file prefixing
+  - leafcutter_threads:
+      type: integer
+      description: |
+        Number of threads for leafcutter (null = use task.cpus)
+output:
+  - leafcutter_results:
+      type: channel
+      description: |
+        Leafcutter differential splicing results
+  - differential_expression_results:
+      type: channel
+      description: |
+        Differential expression analysis results
+  - versions:
+      type: file
+      description: |
+        File containing software versions
+authors:
+  - "@JTL-lab"
+maintainers:
+  - "@JTL-lab"

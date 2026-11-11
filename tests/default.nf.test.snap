@@ -1,0 +1,35 @@
+{
+    "-profile test": {
+        "content": [
+            null,
+            [
+                "pipeline_info"
+            ],
+            [
+                
+            ]
+        ],
+        "timestamp": "2026-09-18T16:01:12.142371208",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "26.04.6"
+        }
+    },
+    "-profile test_rna": {
+        "content": [
+            null,
+            [
+                "pipeline_info",
+                "pipeline_info/lrp2_software_versions.yml"
+            ],
+            [
+                
+            ]
+        ],
+        "timestamp": "2026-09-18T16:08:27.498662363",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "26.04.6"
+        }
+    }
+}
