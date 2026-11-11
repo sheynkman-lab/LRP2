@@ -400,7 +400,11 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
             /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift \
             /usr/local/share/powershell /usr/local/share/chromium /opt/microsoft /opt/az || true
-          sudo docker image prune --all --force > /dev/null 2>&1 || true
+          # More aggressive Docker cleanup
+          sudo docker system prune --all --volumes --force > /dev/null 2>&1 || true
+          # Clean apt cache and logs
+          sudo apt-get clean || true
+          sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /var/log/* || true
 
           avail_gb() { df -BG --output=avail "$1" 2> /dev/null | tail -n 1 | tr -dc '0-9'; }
           ROOT_FREE=$(avail_gb /)
@@ -766,7 +770,10 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
             /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift \
             /usr/local/share/powershell /usr/local/share/chromium /opt/microsoft /opt/az || true
-          sudo docker image prune --all --force > /dev/null 2>&1 || true
+          # More aggressive Docker cleanup, clean apt cache and logs
+          sudo docker system prune --all --volumes --force > /dev/null 2>&1 || true
+          sudo apt-get clean || true
+          sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /var/log/* || true
 
           avail_gb() { df -BG --output=avail "$1" 2> /dev/null | tail -n 1 | tr -dc '0-9'; }
           ROOT_FREE=$(avail_gb /)

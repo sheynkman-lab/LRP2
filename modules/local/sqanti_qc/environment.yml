@@ -4,4 +4,4 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - bioconda::sqanti3=6.0.1
+  - bioconda::sqanti3=6.1
