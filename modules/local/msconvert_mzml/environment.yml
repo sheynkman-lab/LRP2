@@ -1,7 +1,11 @@
-name: msconvert_mzml
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
+# msconvert reads vendor formats through Windows-only libraries (run under wine in the container)
+# and has no Conda package. 
+# With Conda, MSCONVERT_MZML uses ThermoRawFileParser instead, which converts Thermo .raw files only; 
+# other vendor formats need Docker or Singularity.
 channels:
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
-  # msconvert requires vendor libraries so should be run via Docker/Singularity... TBD
+  - bioconda::thermorawfileparser=1.4.5

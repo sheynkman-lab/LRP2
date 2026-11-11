@@ -23,15 +23,46 @@ process MSCONVERT_MZML {
     def peak_picking = task.ext.peak_picking ?: params.msconvert_peak_picking ?: true
     def peak_picking_filter = peak_picking ? '--filter "peakPicking true 1-"' : ''
     def output_name = "${prefix}.mzML"
+    // Conda only: options for ThermoRawFileParser (ext.args holds msconvert options, which it doesn't accept)
+    def args2 = task.ext.args2 ?: ''
+    def trfp_peak_picking = peak_picking ? '' : '--noPeakPicking'
 
     """
     exec > >(tee ${prefix}_S5_PROTEOMICS_M2_MSCONVERT_MZML_log.txt) 2>&1
 
-    wine msconvert \\
-        $raw_file \\
-        --outdir . \\
-        $peak_picking_filter \\
-        $args
+    # Docker/Singularity: msconvert from the ProteoWizard image (any vendor format), run under wine.
+    # Conda: msconvert's vendor libraries are Windows-only and have no Conda package, so this module's
+    # environment.yml provides ThermoRawFileParser instead. It reads Thermo .raw files only. The
+    # ProteoWizard image doesn't contain it, so container runs always take the msconvert branch.
+    if command -v ThermoRawFileParser > /dev/null 2>&1; then
+        case "$raw_file" in
+            *.raw|*.RAW) ;;
+            *)
+                echo "ERROR: with Conda, MSCONVERT_MZML converts Thermo .raw files only (ThermoRawFileParser)." >&2
+                echo "       '$raw_file' is another format: run with Docker or Singularity, or supply mzML files." >&2
+                exit 1
+                ;;
+        esac
+        echo "Converting $raw_file with ThermoRawFileParser (Conda)"
+        # --format=2: indexed mzML, msconvert's default output. Peaks are centroided with the
+        # vendor algorithm unless --noPeakPicking is given, like msconvert's "peakPicking true 1-".
+        ThermoRawFileParser \\
+            --input=$raw_file \\
+            --output=${output_name} \\
+            --format=2 \\
+            $trfp_peak_picking \\
+            $args2
+        CONVERTER_NAME="thermorawfileparser"
+        CONVERTER_VERSION=\$(ThermoRawFileParser --version 2>&1 | grep -oE '[0-9]+(\\.[0-9]+)+' | head -n 1 || true)
+    else
+        wine msconvert \\
+            $raw_file \\
+            --outdir . \\
+            $peak_picking_filter \\
+            $args
+        CONVERTER_NAME="msconvert"
+        CONVERTER_VERSION=\$(msconvert 2>&1 | grep -oP 'ProteoWizard release: \\K[0-9.]+' || true)
+    fi
 
     # Rename output to include prefix (sample name)
     # msconvert uses the input filename, so we need to rename
@@ -42,7 +73,7 @@ process MSCONVERT_MZML {
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        msconvert: \$(msconvert 2>&1 | grep -oP 'ProteoWizard release: \\K[0-9.]+' || echo "unknown")
+        \${CONVERTER_NAME}: \${CONVERTER_VERSION:-unknown}
     END_VERSIONS
     """
 

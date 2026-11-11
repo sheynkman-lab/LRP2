@@ -76,9 +76,14 @@ process FRAGPIPE {
         cp ${protein_fasta} database_with_decoys.fasta
     else
         echo "No decoys found - generating decoys with philosopher..."
+        # Docker/Singularity: Philosopher is in /fragpipe_bin. 
+        # Conda: it is on PATH.
         PHILOSOPHER=\$(find /fragpipe_bin -name "philosopher*" -type f -executable 2>/dev/null | head -1)
         if [ -z "\$PHILOSOPHER" ]; then
-            echo "ERROR: Philosopher not found in FragPipe installation"
+            PHILOSOPHER=\$(command -v philosopher 2>/dev/null || true)
+        fi
+        if [ -z "\$PHILOSOPHER" ]; then
+            echo "ERROR: Philosopher not found in FragPipe installation or PATH"
             exit 1
         fi
 
@@ -169,16 +174,27 @@ process FRAGPIPE {
     echo ""
 
     # Find FragPipe executable
-    if command -v fragpipe &> /dev/null; then
-        FRAGPIPE_CMD="fragpipe"
+    # Conda: bioconda's 'fragpipe' on PATH is a wrapper that exits unless it is given --msfragger_key
+    # and --ionquant_key for bioconda's own MSFragger/IonQuant packages. This pipeline supplies the
+    # licensed JARs through --config-tools-folder instead (FRAGPIPE_AUTHENTICATE), so we call the real
+    # launcher the wrapper would call.
+    CONDA_FRAGPIPE=\$(find "\${CONDA_PREFIX:-/nonexistent}/share" -path "*/fragpipe-*/bin/fragpipe" -type f 2>/dev/null | head -1)
+    if [ -n "\$CONDA_FRAGPIPE" ]; then
+        FRAGPIPE_CMD="\$CONDA_FRAGPIPE"
+        FRAGPIPE_PYTHON="\${CONDA_PREFIX}/bin/python"
     elif [ -f "/fragpipe_bin/fragpipe-24.0/fragpipe-24.0/bin/fragpipe" ]; then
         FRAGPIPE_CMD="/fragpipe_bin/fragpipe-24.0/fragpipe-24.0/bin/fragpipe"
+        FRAGPIPE_PYTHON=""
     elif [ -d "/fragpipe_bin" ]; then
         FRAGPIPE_CMD=\$(find /fragpipe_bin -name "fragpipe" -type f -executable 2>/dev/null | head -1)
+        FRAGPIPE_PYTHON=""
         if [ -z "\$FRAGPIPE_CMD" ]; then
             echo "ERROR: FragPipe executable not found in /fragpipe_bin"
             exit 1
         fi
+    elif command -v fragpipe &> /dev/null; then
+        FRAGPIPE_CMD="fragpipe"
+        FRAGPIPE_PYTHON=""
     else
         echo "ERROR: FragPipe executable not found"
         exit 1
@@ -194,15 +210,29 @@ process FRAGPIPE {
     # Run FragPipe with explicit output handling and SIGPIPE protection
     set -o pipefail
     trap '' PIPE
-    \$FRAGPIPE_CMD --headless \\
-        --workflow \$WORK_DIR/workflow.workflow \\
-        --manifest \$WORK_DIR/manifest.fp-manifest \\
-        --workdir \$WORK_DIR/results \\
-        --config-tools-folder \$WORK_DIR/fragpipe_tools \\
-        --ram ${(task.memory.toGiga() * 0.7) as Integer} \\
-        --threads ${threads} \\
-        $args \\
-        2>&1 | tee fragpipe_execution.log
+    # Conda: pass --config-python so FragPipe uses the environment's Python for msconvert/easypqp/etc.
+    if [ -n "\$FRAGPIPE_PYTHON" ]; then
+        \$FRAGPIPE_CMD --headless \\
+            --workflow \$WORK_DIR/workflow.workflow \\
+            --manifest \$WORK_DIR/manifest.fp-manifest \\
+            --workdir \$WORK_DIR/results \\
+            --config-tools-folder \$WORK_DIR/fragpipe_tools \\
+            --config-python "\$FRAGPIPE_PYTHON" \\
+            --ram ${(task.memory.toGiga() * 0.7) as Integer} \\
+            --threads ${threads} \\
+            $args \\
+            2>&1 | tee fragpipe_execution.log
+    else
+        \$FRAGPIPE_CMD --headless \\
+            --workflow \$WORK_DIR/workflow.workflow \\
+            --manifest \$WORK_DIR/manifest.fp-manifest \\
+            --workdir \$WORK_DIR/results \\
+            --config-tools-folder \$WORK_DIR/fragpipe_tools \\
+            --ram ${(task.memory.toGiga() * 0.7) as Integer} \\
+            --threads ${threads} \\
+            $args \\
+            2>&1 | tee fragpipe_execution.log
+    fi
 
     FRAGPIPE_EXIT=\${PIPESTATUS[0]}
     echo "----------------------------------------------------------------------"

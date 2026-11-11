@@ -8,10 +8,16 @@ keywords:
   - msconvert
 tools:
   - msconvert:
-      description: ProteoWizard msconvert tool for converting mass spectrometry data formats
+      description: ProteoWizard msconvert tool for converting mass spectrometry data formats (used with Docker/Singularity)
       homepage: http://proteowizard.sourceforge.net/
       documentation: http://proteowizard.sourceforge.net/tools.shtml
       tool_dev_url: https://github.com/ProteoWizard/pwiz
+      licence: ["Apache-2.0"]
+  - thermorawfileparser:
+      description: Thermo RAW file parser for converting Thermo .raw files to mzML (used with Conda, supports Thermo files only)
+      homepage: https://github.com/compomics/ThermoRawFileParser
+      documentation: https://github.com/compomics/ThermoRawFileParser#usage
+      tool_dev_url: https://github.com/compomics/ThermoRawFileParser
       licence: ["Apache-2.0"]
 input:
   - meta:
