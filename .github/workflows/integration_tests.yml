@@ -389,15 +389,15 @@ jobs:
             echo "RUN_TEST=true" >> "$GITHUB_ENV"
           fi
 
+      - name: Checkout code
+        if: env.RUN_TEST == 'true'
+        uses: actions/checkout@v4
+
       # Prepare disks: free preinstalled software, choose scratch directory, add swap, start
       # Docker disk guard. The shared script sets NXF_WORK and image cache paths in GITHUB_ENV.
       - name: Prepare disks (free space, scratch dir, swap)
         if: env.RUN_TEST == 'true'
         run: bash .github/scripts/ci_prepare_disks.sh
-
-      - name: Checkout code
-        if: env.RUN_TEST == 'true'
-        uses: actions/checkout@v4
 
       - name: Set up Java
         if: env.RUN_TEST == 'true'
@@ -712,15 +712,15 @@ jobs:
             echo "RUN_TEST=true" >> "$GITHUB_ENV"
           fi
 
+      - name: Checkout code
+        if: env.RUN_TEST == 'true'
+        uses: actions/checkout@v4
+
       # Prepare disks: free preinstalled software, choose scratch directory, add swap, start
       # Docker disk guard. The shared script sets NXF_WORK and image cache paths in GITHUB_ENV.
       - name: Prepare disks (free space, scratch dir, swap)
         if: env.RUN_TEST == 'true'
         run: bash .github/scripts/ci_prepare_disks.sh
-
-      - name: Checkout code
-        if: env.RUN_TEST == 'true'
-        uses: actions/checkout@v4
 
       - name: Set up Java
         if: env.RUN_TEST == 'true'
@@ -1052,6 +1052,9 @@ jobs:
       TEST_TYPE: ${{ matrix.test_type }}
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       # Prepare disks: free preinstalled software, choose scratch directory, add swap, start
       # Docker disk guard. The shared script sets NXF_WORK and image cache paths in GITHUB_ENV.
       - name: Prepare disks (free space, scratch dir, swap)
@@ -1062,9 +1065,6 @@ jobs:
           # Custom reference tests also need CUSTOM_REF_DIR
           SCRATCH_BASE=$(dirname "$NXF_WORK")
           echo "CUSTOM_REF_DIR=${SCRATCH_BASE}/custom_refs" >> "$GITHUB_ENV"
-
-      - name: Checkout code
-        uses: actions/checkout@v4
 
       - name: Set up Java
         uses: actions/setup-java@v4
