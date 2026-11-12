@@ -76,9 +76,9 @@ process FRAGPIPE {
         cp ${protein_fasta} database_with_decoys.fasta
     else
         echo "No decoys found - generating decoys with philosopher..."
-        # Docker/Singularity: Philosopher is in /fragpipe_bin. 
+        # Docker/Singularity: Philosopher is in /fragpipe_bin.
         # Conda: it is on PATH.
-        PHILOSOPHER=\$(find /fragpipe_bin -name "philosopher*" -type f -executable 2>/dev/null | head -1)
+        PHILOSOPHER=\$(find /fragpipe_bin -name "philosopher*" -type f -executable 2>/dev/null | head -1 || true)
         if [ -z "\$PHILOSOPHER" ]; then
             PHILOSOPHER=\$(command -v philosopher 2>/dev/null || true)
         fi
@@ -178,9 +178,14 @@ process FRAGPIPE {
     # and --ionquant_key for bioconda's own MSFragger/IonQuant packages. This pipeline supplies the
     # licensed JARs through --config-tools-folder instead (FRAGPIPE_AUTHENTICATE), so we call the real
     # launcher the wrapper would call.
-    CONDA_FRAGPIPE=\$(find "\${CONDA_PREFIX:-/nonexistent}/share" -path "*/fragpipe-*/bin/fragpipe" -type f 2>/dev/null | head -1)
+    CONDA_FRAGPIPE=\$(find "\${CONDA_PREFIX:-/nonexistent}/share" -path "*/fragpipe-*/bin/fragpipe" -type f 2>/dev/null | head -1 || true)
     if [ -n "\$CONDA_FRAGPIPE" ]; then
-        FRAGPIPE_CMD="\$CONDA_FRAGPIPE"
+        # bioconda's wrapper starts the launcher with 'sh'; do the same if it isn't marked executable
+        if [ -x "\$CONDA_FRAGPIPE" ]; then
+            FRAGPIPE_CMD="\$CONDA_FRAGPIPE"
+        else
+            FRAGPIPE_CMD="sh \$CONDA_FRAGPIPE"
+        fi
         FRAGPIPE_PYTHON="\${CONDA_PREFIX}/bin/python"
     elif [ -f "/fragpipe_bin/fragpipe-24.0/fragpipe-24.0/bin/fragpipe" ]; then
         FRAGPIPE_CMD="/fragpipe_bin/fragpipe-24.0/fragpipe-24.0/bin/fragpipe"
