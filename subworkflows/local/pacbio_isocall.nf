@@ -103,15 +103,20 @@ workflow PACBIO_ISOCALL {
     )
     ch_versions = ch_versions.mix(ISOCALL_PREP.out.versions)
 
-    //
-    // Collect all profiles and create a single meta for merged analysis
-    //
-    ch_all_profiles = ISOCALL_PROFILE.out.profile
-        .map { _meta, profile -> profile }
+    // Sample IDs in samplesheet order (ch_samples is emitted in samplesheet order)
+    ch_sample_order = ch_samples
+        .map { meta, _sample -> meta.id }
         .collect()
-        .map { profiles ->
-            def meta = [id: params.dataset_name]
-            [meta, profiles]
+
+    // Collect profiles as they finish, then reorder them to match the samplesheet
+    ch_all_profiles = ISOCALL_PROFILE.out.profile
+        .map { meta, profile -> [meta.id, profile] }
+        .collect(flat: false)
+        .map { pairs -> [pairs] }
+        .combine(ch_sample_order.map { ids -> [ids] })
+        .map { pairs, ids ->
+            def profile_by_id = pairs.collectEntries { id, profile -> [(id): profile] }
+            [[id: params.dataset_name], ids.collect { id -> profile_by_id[id] }]
         }
 
     //
