@@ -13,6 +13,6 @@ nextflow run main.nf \
     --input test_data/run_rna_only/samplesheet_rna_only.csv \
     --outdir test_data/run_rna_only/test_results \
     --dataset_name lrptest \
-    --genome GRCh38.p14.v49 \
+    --genome GRCh38.p14.v50 \
     -profile singularity,slurm
     
