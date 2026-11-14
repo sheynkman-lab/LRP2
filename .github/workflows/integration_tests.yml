@@ -350,20 +350,22 @@ jobs:
       # DEFAULT_GENOME at the top of this file (the S2/S5 entry-point tests start from these outputs).
       # GRCh38.p13.v40 (GENCODE v25-v43 era) exercises _PAR_Y gene-ID handling (SANITIZE_PAR_IDS).
       # container_engine is the lower-case value the steps test against; engine_label is for display.
+      # snapshot: the expected outputs this test's results are compared with,
+      #           tests/output_snapshots/<snapshot>.json (see tests/output_snapshots/README.md)
       matrix:
         include:
-          - { n: 1,  test_profile: test_rna, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
-          - { n: 2,  test_profile: test_rna, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
-          - { n: 3,  test_profile: test_rna, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
-          - { n: 4,  test_profile: test_rna, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p13.v40, NXF_VER: "25.04.0" }
-          - { n: 5,  test_profile: test_rna, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p13.v40, NXF_VER: "25.04.0" }
-          - { n: 6,  test_profile: test_rna, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p13.v40, NXF_VER: "25.04.0" }
-          - { n: 7,  test_profile: test_dda, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
-          - { n: 8,  test_profile: test_dda, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
-          - { n: 9,  test_profile: test_dda, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
-          - { n: 10, test_profile: test_dia, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
-          - { n: 11, test_profile: test_dia, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
-          - { n: 12, test_profile: test_dia, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p14.v50, NXF_VER: "25.04.0" }
+          - { n: 1,  test_profile: test_rna, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p14.v50, NXF_VER: "25.04.0", snapshot: test_rna_GRCh38.p14.v50 }
+          - { n: 2,  test_profile: test_rna, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p14.v50, NXF_VER: "25.04.0", snapshot: test_rna_GRCh38.p14.v50 }
+          - { n: 3,  test_profile: test_rna, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p14.v50, NXF_VER: "25.04.0", snapshot: test_rna_GRCh38.p14.v50 }
+          - { n: 4,  test_profile: test_rna, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p13.v40, NXF_VER: "25.04.0", snapshot: test_rna_GRCh38.p13.v40 }
+          - { n: 5,  test_profile: test_rna, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p13.v40, NXF_VER: "25.04.0", snapshot: test_rna_GRCh38.p13.v40 }
+          - { n: 6,  test_profile: test_rna, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p13.v40, NXF_VER: "25.04.0", snapshot: test_rna_GRCh38.p13.v40 }
+          - { n: 7,  test_profile: test_dda, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p14.v50, NXF_VER: "25.04.0", snapshot: test_dda_GRCh38.p14.v50 }
+          - { n: 8,  test_profile: test_dda, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p14.v50, NXF_VER: "25.04.0", snapshot: test_dda_GRCh38.p14.v50 }
+          - { n: 9,  test_profile: test_dda, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p14.v50, NXF_VER: "25.04.0", snapshot: test_dda_GRCh38.p14.v50 }
+          - { n: 10, test_profile: test_dia, container_engine: docker,      engine_label: Docker,      genome: GRCh38.p14.v50, NXF_VER: "25.04.0", snapshot: test_dia_GRCh38.p14.v50 }
+          - { n: 11, test_profile: test_dia, container_engine: singularity, engine_label: Singularity, genome: GRCh38.p14.v50, NXF_VER: "25.04.0", snapshot: test_dia_GRCh38.p14.v50 }
+          - { n: 12, test_profile: test_dia, container_engine: conda,       engine_label: Conda,       genome: GRCh38.p14.v50, NXF_VER: "25.04.0", snapshot: test_dia_GRCh38.p14.v50 }
     env:
       TEST_NUMBER: ${{ matrix.n }}
       TEST_PROFILE: ${{ matrix.test_profile }}
@@ -650,6 +652,48 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      # Compare this run's published outputs (everything rules.txt doesn't ignore) with the expected
+      # snapshot recorded from a known-good run: tests/output_snapshots/<snapshot>.json.
+      # It runs after the uploads above, so a difference doesn't stop Stage 2 getting its inputs.
+      # Set the repository variable SNAPSHOT_REPORT_ONLY to 'true' to report differences without
+      # failing the test (useful while first tuning tests/output_snapshots/rules.txt).
+      - name: Compare outputs with the expected snapshot
+        id: compare_outputs
+        if: steps.run_test.outcome == 'success' && matrix.snapshot != ''
+        continue-on-error: ${{ vars.SNAPSHOT_REPORT_ONLY == 'true' }}
+        env:
+          SNAPSHOT: ${{ matrix.snapshot }}
+          SNAPSHOT_LABEL: "Full Pipeline Test ${{ matrix.n }}/12 (${{ matrix.test_profile }} | ${{ matrix.engine_label }} | ${{ matrix.genome }})"
+        run: |
+          python3 .github/scripts/output_snapshot.py compare \
+            "tests/output_snapshots/${SNAPSHOT}.json" "$OUTDIR" \
+            --replace "${GITHUB_WORKSPACE}=<PIPELINE_DIR>" \
+            --label "$SNAPSHOT_LABEL" \
+            --write-actual "${RUNNER_TEMP}/actual_snapshot/${SNAPSHOT}.json" \
+            --summary "$GITHUB_STEP_SUMMARY" --github
+
+      # If the change is intended, this file can replace tests/output_snapshots/<snapshot>.json
+      - name: Upload this run's snapshot (outputs differ)
+        if: always() && steps.compare_outputs.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-snapshot-full-pipeline-test${{ matrix.n }}-${{ matrix.container_engine }}-${{ matrix.snapshot }}
+          path: ${{ runner.temp }}/actual_snapshot/
+          retention-days: 14
+
+      - name: Upload outputs for inspection (outputs differ)
+        if: always() && steps.compare_outputs.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: differing-outputs-full-pipeline-test${{ matrix.n }}-${{ matrix.container_engine }}-${{ matrix.snapshot }}
+          path: |
+            ${{ env.OUTDIR }}/
+            !${{ env.OUTDIR }}/**/*.jar
+            !${{ env.OUTDIR }}/fragpipe/**
+            !${{ env.OUTDIR }}/download/**
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Clean up work directory
         if: always() && env.RUN_TEST == 'true'
         run: |
@@ -683,12 +727,15 @@ jobs:
           - entry_point: S2
             slug: s2
             upstream_profile: test_rna
+            snapshot: s2_entry
           - entry_point: S4
             slug: s4
             upstream_profile: test_rna
+            snapshot: s4_entry
           - entry_point: S5
             slug: s5
             upstream_profile: test_dda
+            snapshot: s5_entry
     env:
       ENTRY_POINT: ${{ matrix.entry_point }}
       CONTAINER_ENGINE: ${{ matrix.container_engine }}
@@ -1020,6 +1067,47 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      # Compare this run's published outputs (everything rules.txt doesn't ignore) with the expected
+      # snapshot recorded from a known-good run: tests/output_snapshots/<snapshot>.json.
+      # Set the repository variable SNAPSHOT_REPORT_ONLY to 'true' to report differences without
+      # failing the test (useful while first tuning tests/output_snapshots/rules.txt).
+      - name: Compare outputs with the expected snapshot
+        id: compare_outputs
+        if: steps.run_test.outcome == 'success' && matrix.snapshot != ''
+        continue-on-error: ${{ vars.SNAPSHOT_REPORT_ONLY == 'true' }}
+        env:
+          SNAPSHOT: ${{ matrix.snapshot }}
+          SNAPSHOT_LABEL: "${{ matrix.entry_point }} Entry Point | ${{ matrix.container_engine }}"
+        run: |
+          python3 .github/scripts/output_snapshot.py compare \
+            "tests/output_snapshots/${SNAPSHOT}.json" "$OUTDIR" \
+            --replace "${GITHUB_WORKSPACE}=<PIPELINE_DIR>" \
+            --label "$SNAPSHOT_LABEL" \
+            --write-actual "${RUNNER_TEMP}/actual_snapshot/${SNAPSHOT}.json" \
+            --summary "$GITHUB_STEP_SUMMARY" --github
+
+      # If the change is intended, this file can replace tests/output_snapshots/<snapshot>.json
+      - name: Upload this run's snapshot (outputs differ)
+        if: always() && steps.compare_outputs.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-snapshot-${{ matrix.slug }}-entry-${{ matrix.container_engine }}-${{ matrix.snapshot }}
+          path: ${{ runner.temp }}/actual_snapshot/
+          retention-days: 14
+
+      - name: Upload outputs for inspection (outputs differ)
+        if: always() && steps.compare_outputs.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: differing-outputs-${{ matrix.slug }}-entry-${{ matrix.container_engine }}-${{ matrix.snapshot }}
+          path: |
+            ${{ env.OUTDIR }}/
+            !${{ env.OUTDIR }}/**/*.jar
+            !${{ env.OUTDIR }}/fragpipe/**
+            !${{ env.OUTDIR }}/download/**
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Clean up work directory
         if: always() && env.RUN_TEST == 'true'
         run: |
@@ -1043,9 +1131,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { n: 1, test_name: "chr22 custom references (positive)", test_type: "positive" }
-          - { n: 2, test_name: "missing species parameter (negative)", test_type: "missing_species" }
-          - { n: 3, test_name: "mixed genome and local refs (negative)", test_type: "mixed_refs" }
+          # snapshot: expected outputs to compare with (tests/output_snapshots/<snapshot>.json).
+          # Tests 2 and 3 are expected to fail with an error, so they have no outputs to compare.
+          - { n: 1, test_name: "chr22 custom references (positive)", test_type: "positive", snapshot: custom_v42_chr22_test_rna }
+          - { n: 2, test_name: "missing species parameter (negative)", test_type: "missing_species", snapshot: "" }
+          - { n: 3, test_name: "mixed genome and local refs (negative)", test_type: "mixed_refs", snapshot: "" }
     env:
       TEST_NUMBER: ${{ matrix.n }}
       TEST_NAME: ${{ matrix.test_name }}
@@ -1447,6 +1537,48 @@ jobs:
             ${{ env.NXF_WORK }}/**/.command.log
             ${{ env.NXF_WORK }}/**/.command.err
           include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
+      # Compare this run's published outputs (everything rules.txt doesn't ignore) with the expected
+      # snapshot recorded from a known-good run: tests/output_snapshots/<snapshot>.json.
+      # Only the positive test has a snapshot; it runs after the validation checks above.
+      # Set the repository variable SNAPSHOT_REPORT_ONLY to 'true' to report differences without
+      # failing the test (useful while first tuning tests/output_snapshots/rules.txt).
+      - name: Compare outputs with the expected snapshot
+        id: compare_outputs
+        if: steps.test_positive.outcome == 'success' && matrix.snapshot != ''
+        continue-on-error: ${{ vars.SNAPSHOT_REPORT_ONLY == 'true' }}
+        env:
+          SNAPSHOT: ${{ matrix.snapshot }}
+          SNAPSHOT_LABEL: "Custom Reference Test ${{ matrix.n }}/3 (${{ matrix.test_name }})"
+        run: |
+          python3 .github/scripts/output_snapshot.py compare \
+            "tests/output_snapshots/${SNAPSHOT}.json" "$OUTDIR" \
+            --replace "${GITHUB_WORKSPACE}=<PIPELINE_DIR>" \
+            --label "$SNAPSHOT_LABEL" \
+            --write-actual "${RUNNER_TEMP}/actual_snapshot/${SNAPSHOT}.json" \
+            --summary "$GITHUB_STEP_SUMMARY" --github
+
+      # If the change is intended, this file can replace tests/output_snapshots/<snapshot>.json
+      - name: Upload this run's snapshot (outputs differ)
+        if: always() && steps.compare_outputs.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: actual-snapshot-custom-reference-test${{ matrix.n }}-${{ matrix.snapshot }}
+          path: ${{ runner.temp }}/actual_snapshot/
+          retention-days: 14
+
+      - name: Upload outputs for inspection (outputs differ)
+        if: always() && steps.compare_outputs.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: differing-outputs-custom-reference-test${{ matrix.n }}-${{ matrix.snapshot }}
+          path: |
+            ${{ env.OUTDIR }}/
+            !${{ env.OUTDIR }}/**/*.jar
+            !${{ env.OUTDIR }}/fragpipe/**
+            !${{ env.OUTDIR }}/download/**
           if-no-files-found: ignore
           retention-days: 7
 
