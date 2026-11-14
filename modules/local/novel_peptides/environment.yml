@@ -1,10 +1,12 @@
-name: novel_peptides
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
 channels:
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
-  - r-base=4.5.0
-  - r-tidyverse=2.0.0
-  - r-magrittr=2.0.3
-  - r-optparse=1.7.5
+  - bioconda::bioconductor-biostrings=2.70.1
+  - bioconda::bioconductor-rtracklayer=1.62.0
+  - conda-forge::r-base=4.3.3
+  - conda-forge::r-magrittr=2.0.3
+  - conda-forge::r-optparse=1.7.5
+  - conda-forge::r-tidyverse=2.0.0

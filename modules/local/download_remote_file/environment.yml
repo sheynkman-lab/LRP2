@@ -1,7 +1,7 @@
-name: download_remote_file
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
 channels:
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
-  - curl=8.4.0
+  - conda-forge::curl=8.4.0

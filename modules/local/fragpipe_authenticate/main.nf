@@ -33,11 +33,14 @@ process FRAGPIPE_AUTHENTICATE {
     val token           // Can be null for interactive mode
     val license_accept  // Can be false for interactive mode
 
+    // Only `path` outputs here. storeDir skips this task when these files already exist in
+    // params.fragpipe_tools_dir, but Nextflow disables storeDir if any output is a literal
+    // `val` (e.g. `val true`). Callers that need a "ready" signal can derive it from a JAR:
+    //   FRAGPIPE_AUTHENTICATE.out.msfragger_jar.map { true }
     output:
     path "msfragger/MSFragger*.jar", emit: msfragger_jar
     path "ionquant/IonQuant*.jar", emit: ionquant_jar
     path "diatracer/diaTracer*.jar", emit: diatracer_jar
-    val true, emit: ready
     path "versions.yml", emit: versions
 
     when:
@@ -48,13 +51,18 @@ process FRAGPIPE_AUTHENTICATE {
     // - MODE 1 (Interactive): All params empty/false
     // - MODE 2 (Token-only): Only token provided, rest empty/false
     // - MODE 3 (Full non-interactive): All params provided
-    def has_token = token != ''
-    def has_user_info = first_name != '' && last_name != '' && email != '' && institution != ''
-    def has_license = license_accept == true
+    // Groovy truth treats both null and '' as "not provided"
+    def has_token = token ? true : false
+    def has_user_info = (first_name && last_name && email && institution) ? true : false
+    def has_license = license_accept in [true, 'true']
 
     def interactive_mode = !has_token && !has_user_info && !has_license
-    def token_only_mode = has_token && !has_user_info && !has_license
+    // A token without user details means the user already registered via curl, whether or not
+    // --fragpipe_license_accept was also given (pipelines typically require that flag anyway)
+    def token_only_mode = has_token && !has_user_info
     def full_mode = has_token && has_user_info && has_license
+    // No token, no user details, not interactive: nothing to register and nothing to download with
+    def missing_credentials = !has_token && !has_user_info && !interactive_mode
     """
     #!/bin/bash
     set -euo pipefail
@@ -100,6 +108,15 @@ process FRAGPIPE_AUTHENTICATE {
         INTERACTIVE="${interactive_mode}"
         TOKEN_ONLY="${token_only_mode}"
         FULL_MODE="${full_mode}"
+
+        if [ "${missing_credentials}" = "true" ]; then
+            echo -e "\${RED}ERROR: FragPipe tools were not found in ${params.fragpipe_tools_dir}"
+            echo -e "and no --fragpipe_token was provided.\${RESET}"
+            echo ""
+            echo "Request a 6-digit token (see the README), then re-run with:"
+            echo "  --fragpipe_token XXXXXX -resume"
+            exit 1
+        fi
 
         if [ "\$TOKEN_ONLY" = "true" ]; then
             #
@@ -271,9 +288,15 @@ process FRAGPIPE_AUTHENTICATE {
                         echo "\${RED}✗ Invalid token. Please enter exactly 6 digits.\${RESET}"
                     fi
                 done
-            else
-                echo "Using token from parameters: ${token}"
+            elif [ "${has_token}" = "true" ]; then
+                echo "Using token from parameters"
                 USER_TOKEN="${token}"
+            else
+                # Registration was just sent with the user's details, which emails them a token
+                echo -e "\${YELLOW}A 6-digit verification code has been sent to: \$USER_EMAIL\${RESET}"
+                echo "Re-run the pipeline within 20 minutes with:"
+                echo "  --fragpipe_token XXXXXX -resume"
+                exit 1
             fi
         fi
 
@@ -333,9 +356,9 @@ process FRAGPIPE_AUTHENTICATE {
                 echo -e "     \${GREEN}--fragpipe_token XXXXXX\${RESET}"
             else
                 echo -e "  \${CYAN}1.\${RESET} Check your email (\$USER_EMAIL) for a \${CYAN}NEW\${RESET} verification code"
-                echo -e "     \${YELLOW}(The code expires quickly - usually within minutes to hours)\${RESET}"
+                echo -e "     \${YELLOW}(The code expires in 20 minutes.)\${RESET}"
                 echo ""
-                echo -e "  \${CYAN}2.\${RESET} If you don't have a recent email, request a new token by running:"
+                echo -e "  \${CYAN}2.\${RESET} If you don't have a recent email, please request a new token by running:"
                 echo ""
                 echo -e "\${GREEN}"
                 echo "     curl --location --request POST \\\\"
@@ -421,7 +444,7 @@ process FRAGPIPE_AUTHENTICATE {
 
         echo "Downloading DiaTracer..."
         DIATRACER_VERSION=\$(curl -s https://msfragger-upgrader.nesvilab.org/diatracer/latest_version.php)
-        curl --fail --silent --show-error --location --output diatracer.zip \
+        curl --fail --silent --show-error --location --output diatracer.zip \\
             "https://msfragger-upgrader.nesvilab.org/diatracer/download.php?token=\$USER_TOKEN&download=\${DIATRACER_VERSION}%24zip"
 
         if [ ! -f diatracer.zip ] || [ ! -s diatracer.zip ]; then

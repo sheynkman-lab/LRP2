@@ -3,7 +3,7 @@ process SANITIZE_TRANSCRIPT_IDS {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://ubuntu:22.04"
+    container 'docker.io/library/ubuntu:22.04'
 
     input:
     tuple val(meta), path(input_file)

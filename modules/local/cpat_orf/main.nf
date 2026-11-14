@@ -3,7 +3,7 @@ process CPAT_ORF {
     label 'process_low'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/jtllab/lrp2-lite:latest"
+    container "docker.io/jtllab/lrp2-lite:latest"
 
     input:
     tuple val(meta), path(corrected_fasta)

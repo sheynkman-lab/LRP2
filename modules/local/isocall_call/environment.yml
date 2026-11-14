@@ -3,4 +3,4 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - bioconda::isocall=0.14.0
+  - bioconda::isocall=1.3.0
