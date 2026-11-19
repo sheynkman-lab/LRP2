@@ -363,7 +363,23 @@ The pipeline supports human and mouse data using GENCODE reference genomes acros
 
 The pipeline automatically downloads the appropriate FASTA and GTF files based on your `--genome` selection. Species is auto-detected from `--genome` and determines which CPAT model (human or mouse) is used for ORF prediction. See `conf/gencode_references.config` for the full list of supported versions.
 
-Support for RefSeq / igenomes and custom references is under active development.
+### Custom References
+
+
+**Custom references should be in GENCODE format.** Currently, LRP2 has been extensively tested and validated with GENCODE references only. While you can provide custom (e.g., filtered or subsetted) references using `--local_reference_gtf` and `--local_reference_fasta`, they **should be derived from GENCODE** and maintain GENCODE formatting conventions. Using non-GENCODE references (e.g., RefSeq, Ensembl) is not supported and may lead to unexpected results. Please contact us for assistance if you are interested in using such references. 
+
+When using custom references, please note that both `--local_reference_gtf` and `--local_reference_fasta` must be provided together, and you must manually specify `--species` (either `human` or `mouse`).
+
+**Example command**:
+> ```bash
+> nextflow run /path/to/LRP2 \
+>     --input samplesheet.csv \
+>     --local_reference_gtf /path/to/gencode.filtered.gtf \
+>     --local_reference_fasta /path/to/gencode.filtered.fa \
+>     --species human \
+>     --outdir results \
+>     -profile singularity,slurm
+> ```
 
 > [!INFO]
 >  For GENCODE references v25 - v43, the pipeline automatically sanitizes Pseudoautosomal Region (PAR) gene IDs by converting `_PAR_Y` to `-PAR-Y` in the reference GTF (and any GTF and counts matrix from the user for entry from S2 TRANSCRIPTOME, if provided) to ensure formatting compatibility. 
