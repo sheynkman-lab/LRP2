@@ -4,7 +4,7 @@ process MSCONVERT_MZML {
     stageInMode 'copy'
 
     conda "${moduleDir}/environment.yml"
-    container "docker.io/proteowizard/pwiz-skyline-i-agree-to-the-vendor-licenses:latest"
+    container "docker://docker.io/proteowizard/pwiz-skyline-i-agree-to-the-vendor-licenses:3.0.26121-ed8dc8a"
 
     input:
     tuple val(meta), path(raw_file)

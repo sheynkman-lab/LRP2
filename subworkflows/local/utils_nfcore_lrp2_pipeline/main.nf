@@ -434,15 +434,14 @@ def validateReferenceParameters() {
 // Validate species parameter when using custom local references
 //
 def validateSpeciesParameter() {
-    // If using custom local references (not from gencode_refs), require manual species setting
-    def is_predefined_genome = params.genome && params.gencode_refs?.containsKey(params.genome)
-    def using_local_refs = (params.local_reference_fasta || params.local_reference_gtf) && !is_predefined_genome
+    // If using custom local references, require manual species setting
+    def using_local_refs = (params.local_reference_fasta || params.local_reference_gtf)
     def has_rna_samples = params.input ? true : false  // validated later in samplesheet parsing
 
     if (using_local_refs && has_rna_samples && !params.species) {
         def error_string = "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n" +
             "  ERROR: --species parameter is required when using local reference files.\n" +
-            "  You are using custom reference files without specifying a predefined --genome.\n" +
+            "  You are using custom reference files (--local_reference_gtf / --local_reference_fasta).\n" +
             "  Please specify --species with either 'human' or 'mouse'.\n" +
             "  Example: --local_reference_fasta /path/to/genome.fa --local_reference_gtf /path/to/annotation.gtf --species mouse\n" +
             "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
