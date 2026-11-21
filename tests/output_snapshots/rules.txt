@@ -1,0 +1,52 @@
+# Which published files the integration tests compare against the expected snapshots, and how.
+# Used by .github/scripts/output_snapshot.py. The FIRST matching line wins, so specific
+# patterns go above general ones. If you change a rule, re-create the snapshots it affects.
+#
+# Patterns are relative to the pipeline's --outdir:
+#   **/  any number of folders (including none)    *  anything within one file or folder name
+#   ?    one character
+#
+# Checks:
+#   ignore    not compared at all, not even whether the file exists
+#   exists    must exist, and must not be empty if the expected file wasn't
+#   content   contents must match. Gzip files are compared decompressed. In text files, Nextflow
+#             work-dir paths become <WORK> and the results directory's path becomes <OUTDIR>.
+#
+# Options for content:
+#   round=N      round decimal numbers to N significant digits first (tolerates last-digit
+#                floating-point differences between machines, CPUs and library builds)
+#   sort         compare lines in sorted order (for tools whose output order can vary)
+#   drop=REGEX   leave out lines matching REGEX, e.g. drop='^#.*date' (quote it if it has spaces)
+
+# --- Execution reports, logs and version files: different on every run --------------------
+pipeline_info/**                     ignore
+**/*_log.txt                         ignore
+**/log_*.txt                         ignore
+**/*.log                             ignore
+**/versions.yml                      ignore
+
+# --- Not results: FragPipe tool JARs (licensed, never published by CI's cached runs) and the
+#     downloaded mass-spec input files -------------------------------------------------------
+fragpipe/**                          ignore
+download/**                          ignore
+
+# --- Binary or visual files that embed timestamps, versions or compression details ----------
+**/*.html                            exists
+**/*.pdf                             exists
+**/*.png                             exists
+**/*.svg                             exists
+**/*.jpg                             exists
+**/*.bam                             exists
+**/*.bai                             exists
+**/*.pbi                             exists
+**/*.csi                             exists
+**/*.tbi                             exists
+**/*.RData                           exists
+**/*.rds                             exists
+
+# --- Statistics and search results: tolerate last-digit floating-point differences --------
+S4_MULTISAMPLE_ANALYSIS/**           content round=6
+S5_PROTEOMICS/**                     content round=6
+
+# --- Everything else: exact content ------------------------------------------------------
+**                                   content

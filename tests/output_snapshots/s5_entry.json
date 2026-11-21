@@ -1,0 +1,315 @@
+{
+ "created": "2026-11-14T04:59:59Z",
+ "files": {
+  "S5_PROTEOMICS/M1_BUILD_PROTEOME_REFERENCE/ENCFF634YSN/ENCFF634YSN.lrp.v50.proteomics.reference.fasta": {
+   "bytes": 178789651,
+   "kind": "text",
+   "lines": 2528529,
+   "rule": "content round=6",
+   "sha256": "f19d9a6740c66958c0677b7902e57ab2cc15b7c01525d799c0e2fe4f294faa41"
+  },
+  "S5_PROTEOMICS/M1_BUILD_PROTEOME_REFERENCE/ENCFF634YSN/ENCFF634YSN.lrp.v50.proteomics.reference.tsv": {
+   "bytes": 60180112,
+   "kind": "text",
+   "lines": 382666,
+   "rule": "content round=6",
+   "sha256": "38c515e61d3ae3ba89eaa3a3ba4c830d1bbc79c5f7fa3ceecf703bbd633fc8d0"
+  },
+  "S5_PROTEOMICS/M2_MSCONVERT_MZML/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18.mzML": {
+   "bytes": 1286916978,
+   "kind": "text",
+   "lines": 5882658,
+   "rule": "content round=6",
+   "sha256": "74d9982d3f2866566ada99c7816bc52909efc48ca33dcca9e25e4010501e26b1"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN.tsv": {
+   "bytes": 52799094,
+   "kind": "text",
+   "lines": 26272,
+   "rule": "content round=6",
+   "sha256": "189022a246f63de1b1721333457c61dffb714cbfb0473292df666b97ac8fd94d"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18.pepXML": {
+   "bytes": 236348721,
+   "kind": "text",
+   "lines": 1793540,
+   "rule": "content round=6",
+   "sha256": "35fd65b6703b678e5e274bf41a9107a6f92831b2a53b73069962f7dc3499afee"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18.pin": {
+   "bytes": 77179866,
+   "kind": "text",
+   "lines": 70954,
+   "rule": "content round=6",
+   "sha256": "3a1e265b6be8417caa323981df4e39d4f6b50af84ecb32185e746bc28178e4f8"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_edited.pin": {
+   "bytes": 80751617,
+   "kind": "text",
+   "lines": 70954,
+   "rule": "content round=6",
+   "sha256": "bf9195561fedfb956ed744280653cd7178621346eadd18838039e830576850e5"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/RT_calibration_curves/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18.png": {
+   "bytes": 179624,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/RT_calibration_curves/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_calibrated.png": {
+   "bytes": 177310,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_edited_delta_RT_loess.png": {
+   "bytes": 34629,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_edited_delta_RT_loess_real.png": {
+   "bytes": 38892,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_edited_hypergeometric_probability.png": {
+   "bytes": 34691,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_edited_intersection.png": {
+   "bytes": 26978,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_edited_top6_matched_intensity.png": {
+   "bytes": 28761,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_edited_unweighted_spectral_entropy.png": {
+   "bytes": 36564,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_edited_weighted_spectral_entropy.png": {
+   "bytes": 35741,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/spectraRT.predicted.bin": {
+   "bytes": 9837236,
+   "kind": "binary",
+   "rule": "content round=6",
+   "sha256": "77cf9052777dec5e4c84614141d26a604423ec32220dcf47181dc74f51d6479f"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/spectraRT.tsv": {
+   "bytes": 1743040,
+   "kind": "text",
+   "lines": 55731,
+   "rule": "content round=6",
+   "sha256": "7734be0b55c962634f3141dfb12013241716d6a01dc8597fbe0d5ed9d2df7849"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/spectraRT_full.tsv": {
+   "bytes": 1675574,
+   "kind": "text",
+   "lines": 55730,
+   "rule": "content round=6",
+   "sha256": "ce4ca520ba3497dcaabf95b3aa55005960ce2d2580cd6789d79683c82398788c"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/interact-ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18.pep.xml": {
+   "bytes": 147021416,
+   "kind": "text",
+   "lines": 1301409,
+   "rule": "content round=6",
+   "sha256": "8c10a4fa83a2bb353868d1ac899125860f0dfb671953a3fc87d66172da279a14"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/ion.tsv": {
+   "bytes": 21303128,
+   "kind": "text",
+   "lines": 14179,
+   "rule": "content round=6",
+   "sha256": "9b4d203c6942c97e1b77406fb564f21d78cdea2c4b0ca7801228cd8e326cca3b"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/peptide.tsv": {
+   "bytes": 14139855,
+   "kind": "text",
+   "lines": 10229,
+   "rule": "content round=6",
+   "sha256": "7d4f15632ec1378305e62d69763a843fd9442e177d2e83de9c47827bad18ff95"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/protein.fas": {
+   "bytes": 3418255,
+   "kind": "text",
+   "lines": 8832,
+   "rule": "content round=6",
+   "sha256": "1796ae49b17e8096f16bdf42475a7c3ca57a40717300ae7711276a6048a3c85c"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/protein.tsv": {
+   "bytes": 4999491,
+   "kind": "text",
+   "lines": 4417,
+   "rule": "content round=6",
+   "sha256": "9d8db7401aa6caf396ea7f4ca1e30981a972bd12b27a569d8673836d0061a8b0"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/psm.tsv": {
+   "bytes": 52799094,
+   "kind": "text",
+   "lines": 26272,
+   "rule": "content round=6",
+   "sha256": "189022a246f63de1b1721333457c61dffb714cbfb0473292df666b97ac8fd94d"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/combined.prot.xml": {
+   "bytes": 120841596,
+   "kind": "text",
+   "lines": 1112548,
+   "rule": "content round=6",
+   "sha256": "34669dad8eca66862c359f1d80ea2891d60ac71be6f1655efac794ebb7cf045e"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/combined_ion.tsv": {
+   "bytes": 20917787,
+   "kind": "text",
+   "lines": 14179,
+   "rule": "content round=6",
+   "sha256": "99e1d1980354862f728c7818dfa094aa21268e3d0f99ba264c9576ed74bda81f"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/combined_modified_peptide.tsv": {
+   "bytes": 15936244,
+   "kind": "text",
+   "lines": 11218,
+   "rule": "content round=6",
+   "sha256": "f24106dd2083e32bef8fa1d45ee3587faf85527fbdf78391120e371dd960a51c"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/combined_peptide.tsv": {
+   "bytes": 14012982,
+   "kind": "text",
+   "lines": 10229,
+   "rule": "content round=6",
+   "sha256": "8f04defff0d3bf0125ad3ea01ac44dbbaaa7b00394315d62c439114d533075d2"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/combined_protein.tsv": {
+   "bytes": 4698979,
+   "kind": "text",
+   "lines": 4417,
+   "rule": "content round=6",
+   "sha256": "b3b2240f9e301467de97386cce8323aef0f965af03be96cc68e96b15cd0920ac"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/combined_site_C_57.0215.tsv": {
+   "bytes": 397738,
+   "kind": "text",
+   "lines": 1996,
+   "rule": "content round=6",
+   "sha256": "f67045e64a27915c2a4302e0eebe14bded38b7291d27522445b2fc4e017bac59"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/combined_site_M_15.9949.tsv": {
+   "bytes": 389297,
+   "kind": "text",
+   "lines": 1928,
+   "rule": "content round=6",
+   "sha256": "58d4439cddaf7a0d2ea30e99b3aaa7dad2fd6934c500f2f09be484bccc790bef"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/experiment_annotation.tsv": {
+   "bytes": 268,
+   "kind": "text",
+   "lines": 2,
+   "rule": "content round=6",
+   "sha256": "7e1131d2da01bc236a6f6132ae73e8d823a5cda924c0f2250a0b6a36ae1f31d5"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/filelist_ionquant.txt": {
+   "bytes": 148,
+   "kind": "text",
+   "lines": 3,
+   "rule": "content round=6",
+   "sha256": "e4f5c6f302f291bc204dad499897688b219da27d3801462bb2a6585e3d88316a"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/filelist_proteinprophet.txt": {
+   "bytes": 216,
+   "kind": "text",
+   "lines": 1,
+   "rule": "content round=6",
+   "sha256": "72a3ba66ccce304a54cea22989735df326fd6f00ba396e7564807f0f4ba57e1b"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/fragger.params": {
+   "bytes": 10291,
+   "kind": "text",
+   "lines": 146,
+   "rule": "content round=6",
+   "sha256": "e7df2dc34626590cd20004f765b708f8398bbd36c13b3f7070250041891fc780"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/fragpipe-files.fp-manifest": {
+   "bytes": 199,
+   "kind": "text",
+   "lines": 1,
+   "rule": "content round=6",
+   "sha256": "dde5271bc94f7b1af1ca5fb37561fa8183caba2368a641bef5f4ce5db360a6ca"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/fragpipe.job": {
+   "bytes": 797,
+   "kind": "text",
+   "lines": 2,
+   "rule": "content round=6",
+   "sha256": "6ae672aec4bd3bfabe0a8e5cc99e4a4ee503a7060bfafa492124016b1c479607"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/fragpipe.workflow": {
+   "bytes": 15374,
+   "kind": "text",
+   "lines": 440,
+   "rule": "content round=6",
+   "sha256": "15986e7e893368a4aee3e2942463dac0634da699f1797e97a4cc022b4f77b714"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/modmasses_ionquant.txt": {
+   "bytes": 25,
+   "kind": "text",
+   "lines": 3,
+   "rule": "content round=6",
+   "sha256": "23cf44362d3ba3b7be8483db8f0a91a6a00bcaae7425532d71a87fd99f5d9d20"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/msbooster_params.txt": {
+   "bytes": 1511,
+   "kind": "text",
+   "lines": 24,
+   "rule": "content round=6",
+   "sha256": "6f5221bbc448258005600ce2b1c95c20214d46c3e88d8dc013b1b103f13d8723"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/msstats.csv": {
+   "bytes": 2617531,
+   "kind": "text",
+   "lines": 13505,
+   "rule": "content round=6",
+   "sha256": "7eacbddefc72a6b0ed4a5c6f7c6506b516a9f2c176fe6d50b118a6583795481f"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/msstats_ptm.csv": {
+   "bytes": 2796804,
+   "kind": "text",
+   "lines": 13505,
+   "rule": "content round=6",
+   "sha256": "acf0b7830ce0933ad7aeb6d7454d79c064c952d50b00e39015f6babcf370d681"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/reprint.int.tsv": {
+   "bytes": 277565,
+   "kind": "text",
+   "lines": 4303,
+   "rule": "content round=6",
+   "sha256": "31a8b7dc045ea7312d1503bb5f2b27d2f2d25b91675dd3d2042e5b8e2c4e5942"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/reprint.spc.tsv": {
+   "bytes": 258669,
+   "kind": "text",
+   "lines": 4418,
+   "rule": "content round=6",
+   "sha256": "8b80d1291eb7d175d968a18ebf1606938dda8391031fddc2d015f82d7cd199f7"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/sdrf.tsv": {
+   "bytes": 953,
+   "kind": "text",
+   "lines": 2,
+   "rule": "content round=6",
+   "sha256": "44306642ab4a180f1fbc91c32d535a612fb75c460daa51d258c1a4bcd7e25b6b"
+  },
+  "S5_PROTEOMICS/M4_NOVEL_PEPTIDES/ENCFF634YSN/ENCFF634YSN.proteomics.all_peptides.bed": {
+   "bytes": 740572,
+   "kind": "text",
+   "lines": 8887,
+   "rule": "content round=6",
+   "sha256": "a8f96c401b43409d83ad14b6d4d54a7101adef45737060e8b4782af0423abe8d"
+  },
+  "S5_PROTEOMICS/M4_NOVEL_PEPTIDES/ENCFF634YSN/ENCFF634YSN.proteomics.novel_peptides.tsv": {
+   "bytes": 16672512,
+   "kind": "text",
+   "lines": 10229,
+   "rule": "content round=6",
+   "sha256": "a258e0efc4eaf1624ae810c0fd5a089d994fc569912024d5b051cb0792159baa"
+  }
+ },
+ "format": 1,
+ "source": "test_results_s5_entry"
+}

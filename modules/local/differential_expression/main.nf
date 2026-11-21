@@ -3,7 +3,7 @@ process DIFFERENTIAL_EXPRESSION {
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/jtllab/lrp2-lite:latest"
+    container "docker.io/jtllab/lrp2-lite:latest"
 
     input:
     tuple val(meta), path(transcript_counts), path(orf_counts)

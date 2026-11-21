@@ -1,0 +1,152 @@
+{
+ "created": "2026-11-14T04:57:59Z",
+ "files": {
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.ds_cluster_significance.txt": {
+   "bytes": 3009,
+   "kind": "text",
+   "lines": 45,
+   "rule": "content round=6",
+   "sha256": "b040909a3e4b724d091177539243e5421811b69dc0e19fd504e775ef2bbacc04"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.ds_effect_sizes.txt": {
+   "bytes": 3714,
+   "kind": "text",
+   "lines": 47,
+   "rule": "content round=6",
+   "sha256": "ce422de668acf2d9f68dade6535eca5975de9a7c35996fb9afc8c50dbc25e205"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.groups_file.txt": {
+   "bytes": 139,
+   "kind": "text",
+   "lines": 8,
+   "rule": "content round=6",
+   "sha256": "32410b9e4bc09008b4aa38e231212036ddb4b23a9f4a1a40de456b0b5d8cd87f"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.perind_numers.counts.gz": {
+   "bytes": 2545,
+   "kind": "text",
+   "lines": 153,
+   "rule": "content round=6",
+   "sha256": "60209a34ed5b0dfbeb78554947b4f590b4378ce828e7abfc0839bfd4517974fe"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.subisoform_clusters.txt": {
+   "bytes": 44803,
+   "kind": "text",
+   "lines": 153,
+   "rule": "content round=6",
+   "sha256": "4942f309c9588d589b49682b6bc47f40547e822f76af03c53e4fe7112d8e73d1"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/lrptest.transcriptome.filtered.psl": {
+   "bytes": 104817,
+   "kind": "text",
+   "lines": 351,
+   "rule": "content round=6",
+   "sha256": "3fb7d694e8d237e79f65dce248e83a4645a9ccc3c951580f3f1eb08beafc8671"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/lrptest.transcriptome.filtered_exon_coords.txt": {
+   "bytes": 387269,
+   "kind": "text",
+   "lines": 3822,
+   "rule": "content round=6",
+   "sha256": "7b4b5647fffe94b573cd4e85550c7c428e609cda9b515a85fb46927eabc94762"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/lrptest.transcriptome.filtered_intron_coords.txt": {
+   "bytes": 359939,
+   "kind": "text",
+   "lines": 3471,
+   "rule": "content round=6",
+   "sha256": "2e24382eab6c926bb0d0e5a5b2498665ab51d710443f6a7184479a778297ce95"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_expression/HepG2_vs_K562_DE_ORF_MD_plot.pdf": {
+   "bytes": 6687,
+   "rule": "exists"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_expression/HepG2_vs_K562_DE_ORF_edgeR_normalized_CPM_matrix.txt": {
+   "bytes": 12396,
+   "kind": "text",
+   "lines": 30,
+   "rule": "content round=6",
+   "sha256": "943702614dc620881c3873a73985e9271d5d5a7fb3a0869dd67d76f2931014c6"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_expression/HepG2_vs_K562_DE_ORF_edgeR_raw_CPM_matrix.txt": {
+   "bytes": 40348,
+   "kind": "text",
+   "lines": 139,
+   "rule": "content round=6",
+   "sha256": "813cc18664b79f102a9c2b6119cf06f53a95644750e2bd75807e02d06a22d8ae"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_expression/HepG2_vs_K562_DE_ORF_edgeR_results.txt": {
+   "bytes": 10907,
+   "kind": "text",
+   "lines": 30,
+   "rule": "content round=6",
+   "sha256": "811571fa371a3384df333259a8f86b305cafb9786497731275e4d5a88f5b1b00"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_usage/HepG2_vs_K562_DU_ORF_DRIMSeq_summary.txt": {
+   "bytes": 20629,
+   "kind": "text",
+   "lines": 38,
+   "rule": "content round=6",
+   "sha256": "82b4774ddd8cd5656ca68f577fcf42d832023973b9658f3266d50c595aff1e24"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_MD_plot.pdf": {
+   "bytes": 6052,
+   "rule": "exists"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_edgeR_normalized_CPM_matrix.txt": {
+   "bytes": 5797,
+   "kind": "text",
+   "lines": 19,
+   "rule": "content round=6",
+   "sha256": "690ec5afd73392265b2c22271699b7b56792546d83be1238b3040844a1e6cdba"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_edgeR_raw_CPM_matrix.txt": {
+   "bytes": 6254,
+   "kind": "text",
+   "lines": 21,
+   "rule": "content round=6",
+   "sha256": "56c1bffc94020c50133662c471a2f5e57591c563483ad0d699f84a808ac88083"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_edgeR_results.txt": {
+   "bytes": 4583,
+   "kind": "text",
+   "lines": 19,
+   "rule": "content round=6",
+   "sha256": "43590759ea00ff1d3cbc3b9f1dab1a08f15af2ec7c925efe696830ce0bee3864"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_MD_plot.pdf": {
+   "bytes": 7563,
+   "rule": "exists"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_edgeR_normalized_CPM_matrix.txt": {
+   "bytes": 17205,
+   "kind": "text",
+   "lines": 45,
+   "rule": "content round=6",
+   "sha256": "f716d9a135be3e12c9f0b43a023955b913482ae6843a6247cd4bcb85a5ba4e97"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_edgeR_raw_CPM_matrix.txt": {
+   "bytes": 98015,
+   "kind": "text",
+   "lines": 352,
+   "rule": "content round=6",
+   "sha256": "71c3ddda26c415a37a9e31389dba578d74ebeac891cac9c747c3c69062415130"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_edgeR_results.txt": {
+   "bytes": 14791,
+   "kind": "text",
+   "lines": 45,
+   "rule": "content round=6",
+   "sha256": "218dc892496a13523a2f227d4e6fc0943b73a966380e4c94437f7b838c1b16d9"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_usage/HepG2_vs_K562_DTU_transcript_DRIMSeq_summary.txt": {
+   "bytes": 34447,
+   "kind": "text",
+   "lines": 67,
+   "rule": "content round=6",
+   "sha256": "aa0b74d9a0f3aa770d50e6c6bf7820fd272ad34823f3381477bb03998baf9270"
+  }
+ },
+ "format": 1,
+ "source": "test_results_s4_entry"
+}

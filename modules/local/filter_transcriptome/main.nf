@@ -3,7 +3,7 @@ process FILTER_TRANSCRIPTOME {
     label 'process_medium'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/jtllab/lrp2-lite:latest"
+    container 'docker.io/jtllab/lrp2-lite:latest'
 
     input:
     tuple val(meta), path(classification_file), path(corrected_gtf), path(corrected_fasta), path(hashids_mapping), path(corrected_psl)

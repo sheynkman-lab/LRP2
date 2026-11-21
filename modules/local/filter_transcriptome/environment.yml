@@ -4,9 +4,15 @@ channels:
   - conda-forge
   - bioconda
 dependencies:
-  - bioconda::bioconductor-genomicranges=1.54.0
+  # R 4.3 / Bioconductor 3.18. Bioconda never built Biostrings 2.70.0 or GenomicRanges 1.54.0;
+  # its Bioconductor 3.18 builds are 2.70.1 and 1.54.1.
+  - bioconda::bioconductor-biostrings=2.70.1
+  - bioconda::bioconductor-genomicranges=1.54.1
   - bioconda::bioconductor-rtracklayer=1.62.0
-  - bioconda::bioconductor-biostrings=2.70.0
-  - conda-forge::r-tidyverse=2.0.0
+  - conda-forge::r-base=4.3.3
   - conda-forge::r-data.table=1.14.8
   - conda-forge::r-magrittr=2.0.3
+  - conda-forge::r-optparse=1.7.5
+  - conda-forge::r-tidyverse=2.0.0
+  # viridis::viridis() colours the BED track in 02_filter_sqanti_transcripts.R
+  - conda-forge::r-viridis=0.6.5

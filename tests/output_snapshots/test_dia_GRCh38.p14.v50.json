@@ -1,0 +1,961 @@
+{
+ "created": "2026-11-14T04:57:23Z",
+ "files": {
+  "S1_PACBIO_ISOCALL/M1_ISOCALL_PREP/gencode.v50.annotation.gtf.isoforms.gz": {
+   "bytes": 12766010,
+   "kind": "text",
+   "lines": 644292,
+   "rule": "content",
+   "sha256": "61c625f96a1b29fa8f410803a9d5156f293356665a5cfa3050d7b3925514960b"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF427JDY.aligned.bam": {
+   "bytes": 369539,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF427JDY.aligned.bam.bai": {
+   "bytes": 52040,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF429VVB.aligned.bam": {
+   "bytes": 1956576,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF429VVB.aligned.bam.bai": {
+   "bytes": 943392,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF483HTA.aligned.bam": {
+   "bytes": 1101246,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF483HTA.aligned.bam.bai": {
+   "bytes": 697296,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF589SMB.aligned.bam": {
+   "bytes": 547298,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF589SMB.aligned.bam.bai": {
+   "bytes": 84384,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF634YSN.aligned.bam": {
+   "bytes": 1913627,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF634YSN.aligned.bam.bai": {
+   "bytes": 852568,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF694INI.aligned.bam": {
+   "bytes": 888602,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF694INI.aligned.bam.bai": {
+   "bytes": 267040,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF696GDL.aligned.bam": {
+   "bytes": 1505887,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF696GDL.aligned.bam.bai": {
+   "bytes": 515544,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF763VZC.aligned.bam": {
+   "bytes": 2013123,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF763VZC.aligned.bam.bai": {
+   "bytes": 481552,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF427JDY_profile.gz": {
+   "bytes": 11046,
+   "kind": "text",
+   "lines": 363,
+   "rule": "content",
+   "sha256": "871c4f7d40619ceb026074624d3706043712f1d776d509dfd6fec1d282bd25d2"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF429VVB_profile.gz": {
+   "bytes": 49065,
+   "kind": "text",
+   "lines": 1071,
+   "rule": "content",
+   "sha256": "073cccd87c590d8fc41c7007b6da05ae67222b6d0b66c6b640a515886350334a"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF483HTA_profile.gz": {
+   "bytes": 35858,
+   "kind": "text",
+   "lines": 828,
+   "rule": "content",
+   "sha256": "8eba605b93d4244febc0fd09f9d51746680c121ee932d1f6db3b58b3b1854875"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF589SMB_profile.gz": {
+   "bytes": 15162,
+   "kind": "text",
+   "lines": 429,
+   "rule": "content",
+   "sha256": "4280071594df24307c9219865c7c1c12ba60cf4d9c37410f5e7d850328fae94d"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF634YSN_profile.gz": {
+   "bytes": 45729,
+   "kind": "text",
+   "lines": 1020,
+   "rule": "content",
+   "sha256": "a196b4a2594d26d94851732c032e6556e05f8f0ad8858f2f56320eb71522ebdb"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF694INI_profile.gz": {
+   "bytes": 15057,
+   "kind": "text",
+   "lines": 461,
+   "rule": "content",
+   "sha256": "e20d0f5fe42c5631a4b084101597792e417accd2f15cfcf845fa8c222c8339bb"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF696GDL_profile.gz": {
+   "bytes": 44929,
+   "kind": "text",
+   "lines": 962,
+   "rule": "content",
+   "sha256": "55c6fb14ada1c977fc503f2e65763c4c5197c4b0314bbaad0a0309026f5f83b4"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF763VZC_profile.gz": {
+   "bytes": 19856,
+   "kind": "text",
+   "lines": 520,
+   "rule": "content",
+   "sha256": "ce1796f4fca8240b1de1114118370fdb9ebd505eb7ccf28095047dddb8f5f577"
+  },
+  "S1_PACBIO_ISOCALL/M4_ISOCALL_MERGE/lrptest_dia.isocall.merged_profiles.gz": {
+   "bytes": 147835,
+   "kind": "text",
+   "lines": 2584,
+   "rule": "content",
+   "sha256": "cde7b1b3615fd68341878f11f7cc340fccbed9d5c309944010e29a3176f213a2"
+  },
+  "S1_PACBIO_ISOCALL/M5_ISOCALL_CALL/lrptest_dia.isocall.count_matrix.csv": {
+   "bytes": 16618,
+   "kind": "text",
+   "lines": 429,
+   "rule": "content",
+   "sha256": "0e031e5940d1f5e1a3cbc2ae131d5658fd2755b07cf36093693218cca3770029"
+  },
+  "S1_PACBIO_ISOCALL/M5_ISOCALL_CALL/lrptest_dia.isocall.isoforms.gtf": {
+   "bytes": 895962,
+   "kind": "text",
+   "lines": 4851,
+   "rule": "content",
+   "sha256": "55d158bc3c6e625c1349564abc7d792a10821dcd6ec8ef5d1c3a91e6b7ea3723"
+  },
+  "S2_TRANSCRIPTOME/M1_SQANTI_QC/lrptest_dia.transcriptome.SQANTI_classification.txt": {
+   "bytes": 133882,
+   "kind": "text",
+   "lines": 429,
+   "rule": "content",
+   "sha256": "5156b5156cff9ea73859494a8f21b1309a010a8c84e1f2e2db9e9393352490fe"
+  },
+  "S2_TRANSCRIPTOME/M1_SQANTI_QC/lrptest_dia.transcriptome.fasta": {
+   "bytes": 1064007,
+   "kind": "text",
+   "lines": 15486,
+   "rule": "content",
+   "sha256": "34420a9e56fe0eff10c257ba2488a44a2a3158e005af519f2af98552afe0588c"
+  },
+  "S2_TRANSCRIPTOME/M1_SQANTI_QC/lrptest_dia.transcriptome.gtf": {
+   "bytes": 629962,
+   "kind": "text",
+   "lines": 4816,
+   "rule": "content",
+   "sha256": "ad79e31584eae77eff3dc3f0e0a53416db869c2d3bc4aad09fc62c8a0abd9364"
+  },
+  "S2_TRANSCRIPTOME/M1_SQANTI_QC/lrptest_dia.transcriptome.junctions.txt": {
+   "bytes": 521090,
+   "kind": "text",
+   "lines": 3961,
+   "rule": "content",
+   "sha256": "4bc1f61b48dc4bf4ce75274a49e9689341e1a029fa790eccec3930b46d55fb6a"
+  },
+  "S2_TRANSCRIPTOME/M2_GENERATE_HASHIDS/lrptest_dia.transcriptome.hashids_mapping.txt": {
+   "bytes": 68418,
+   "kind": "text",
+   "lines": 392,
+   "rule": "content",
+   "sha256": "d73451cecefaf4d9f07bc986834eaa2dbb52e4639aedaa630d8f5ea64b41db4b"
+  },
+  "S2_TRANSCRIPTOME/M2_GENERATE_HASHIDS/lrptest_dia.transcriptome.psl": {
+   "bytes": 117871,
+   "kind": "text",
+   "lines": 428,
+   "rule": "content",
+   "sha256": "835d9826b03b083ecb8348a2ad21c3d129b060111683d9eb9e0b47a888c110d6"
+  },
+  "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest_dia.transcriptome.all_hashids_with_cpm.txt": {
+   "bytes": 106328,
+   "kind": "text",
+   "lines": 392,
+   "rule": "content",
+   "sha256": "da7e4651383537e02d787684a8523fd611e5b96ddc1349f02a221d69bfb06c0a"
+  },
+  "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest_dia.transcriptome.filtered.bed": {
+   "bytes": 69343,
+   "kind": "text",
+   "lines": 351,
+   "rule": "content",
+   "sha256": "182a06442455ff2ecd4e6d9070d67e28f3582008daadafe1531a8c1eb446bbc4"
+  },
+  "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest_dia.transcriptome.filtered.fasta": {
+   "bytes": 860882,
+   "kind": "text",
+   "lines": 10987,
+   "rule": "content",
+   "sha256": "fe40b1725c0c857c9192bf268eb07003ffd03b91360b58a9db2e6c097f33e352"
+  },
+  "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest_dia.transcriptome.filtered.gtf": {
+   "bytes": 869475,
+   "kind": "text",
+   "lines": 4175,
+   "rule": "content",
+   "sha256": "2cdb6de9b75ba55a7701dc564ce0561782a9b111a2c521c7b104357555047a7c"
+  },
+  "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest_dia.transcriptome.filtered_SQANTI_classification.txt": {
+   "bytes": 152903,
+   "kind": "text",
+   "lines": 352,
+   "rule": "content",
+   "sha256": "341f8d297c3ec19ce508423db295d734a8603454abc209f159ff634ce95cdb29"
+  },
+  "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest_dia.transcriptome.filtered_hashids_with_cpm.txt": {
+   "bytes": 95844,
+   "kind": "text",
+   "lines": 352,
+   "rule": "content",
+   "sha256": "613902a7cd4377adbd45690e53f1525a43129feb28f152ea347f1ed26d0d7e5b"
+  },
+  "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest_dia.predicted_proteome.CPAT.ORF_prob.best.tsv": {
+   "bytes": 48935,
+   "kind": "text",
+   "lines": 352,
+   "rule": "content",
+   "sha256": "280c3cb2d59396e575a3121370eca62abf89cf20fd27b6d4d5b0d8ecd1ab9080"
+  },
+  "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest_dia.predicted_proteome.CPAT.ORF_prob.tsv": {
+   "bytes": 172284,
+   "kind": "text",
+   "lines": 1617,
+   "rule": "content",
+   "sha256": "3956b2e09b39c123966698cbc5b95534f725d54521698daa87d3867f1c965a1a"
+  },
+  "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest_dia.predicted_proteome.CPAT.ORF_seqs.fa": {
+   "bytes": 846327,
+   "kind": "text",
+   "lines": 9818,
+   "rule": "content",
+   "sha256": "c4e1b45b0d291f86a06197aafc16f884beb650e102d6c8bc2ffb881c7432f5b5"
+  },
+  "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest_dia.predicted_proteome.CPAT.error": {
+   "bytes": 9636,
+   "kind": "text",
+   "lines": 19,
+   "rule": "content",
+   "sha256": "0a7a130b12fbc47de88e259f4a74e43fdaf9f3aab26b8e927f08bc6fed4d9975"
+  },
+  "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest_dia.predicted_proteome.CPAT.no_ORF.txt": {
+   "bytes": 0,
+   "kind": "text",
+   "lines": 0,
+   "rule": "content",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "S3_PREDICTED_PROTEOME/M2_FILTER_CPAT/lrptest_dia.predicted_proteome.CPAT_ORFs_mapped.tsv": {
+   "bytes": 339172,
+   "kind": "text",
+   "lines": 1617,
+   "rule": "content",
+   "sha256": "7ce681c3e72b14c7fb4a3a391b562be1990f56afda2f69d9c8969dde144b888f"
+  },
+  "S3_PREDICTED_PROTEOME/M2_FILTER_CPAT/lrptest_dia.predicted_proteome.best_ORF.gtf": {
+   "bytes": 892882,
+   "kind": "text",
+   "lines": 7176,
+   "rule": "content",
+   "sha256": "256d4b9d6aefdfc003af24023b16bdcef40cb01b0cb5d724f3733530ed514310"
+  },
+  "S3_PREDICTED_PROTEOME/M3_SQANTI_PROTEIN/lrptest_dia.predicted_proteome.best_ORF_SQANTI_classification.tsv": {
+   "bytes": 74819,
+   "kind": "text",
+   "lines": 343,
+   "rule": "content",
+   "sha256": "5ff0cb9e5eb55cf84e32977efd7fcd86cc22b11cab1fa609c4d31cda74c92dcc"
+  },
+  "S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/lrptest_dia.predicted_proteome.best_ORF.fa": {
+   "bytes": 154577,
+   "kind": "text",
+   "lines": 2098,
+   "rule": "content",
+   "sha256": "1b82b5bb85cac13b2c6c5942734701ea65450004025744a3ce209a499ab6cb68"
+  },
+  "S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/lrptest_dia.predicted_proteome.best_ORF_summary.txt": {
+   "bytes": 71506,
+   "kind": "text",
+   "lines": 352,
+   "rule": "content",
+   "sha256": "60b57d391a0cda9d607e79df1508b51b62d227eb31eabe31fc5f3a804db356ab"
+  },
+  "S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/lrptest_dia.predicted_proteome.collapsed_high_confidence_ORF.bed": {
+   "bytes": 27775,
+   "kind": "text",
+   "lines": 139,
+   "rule": "content",
+   "sha256": "f7344f98db01ec40f5707e13883499a9c37cf8d90a2891854d0ed15ccc8fcd15"
+  },
+  "S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/lrptest_dia.predicted_proteome.collapsed_high_confidence_ORF.gtf": {
+   "bytes": 370122,
+   "kind": "text",
+   "lines": 1636,
+   "rule": "content",
+   "sha256": "81a700f30066bf636a78b60e2a60b2e5e37c5908a07a3d34c2d4beb70e072ecf"
+  },
+  "S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/lrptest_dia.predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt": {
+   "bytes": 31746,
+   "kind": "text",
+   "lines": 139,
+   "rule": "content",
+   "sha256": "cca4f0884ed487853cbf6b49f25d21449c54ebdecb3d13671998e93ee0ea0f26"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.ds_cluster_significance.txt": {
+   "bytes": 3009,
+   "kind": "text",
+   "lines": 45,
+   "rule": "content round=6",
+   "sha256": "b040909a3e4b724d091177539243e5421811b69dc0e19fd504e775ef2bbacc04"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.ds_effect_sizes.txt": {
+   "bytes": 3714,
+   "kind": "text",
+   "lines": 47,
+   "rule": "content round=6",
+   "sha256": "ce422de668acf2d9f68dade6535eca5975de9a7c35996fb9afc8c50dbc25e205"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.groups_file.txt": {
+   "bytes": 139,
+   "kind": "text",
+   "lines": 8,
+   "rule": "content round=6",
+   "sha256": "32410b9e4bc09008b4aa38e231212036ddb4b23a9f4a1a40de456b0b5d8cd87f"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.perind_numers.counts.gz": {
+   "bytes": 2532,
+   "kind": "text",
+   "lines": 153,
+   "rule": "content round=6",
+   "sha256": "9dc514887ea3cee67d7c2705b0952dc46ab3cd11e98244c638d0607e9f65bf89"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.subisoform_clusters.txt": {
+   "bytes": 44803,
+   "kind": "text",
+   "lines": 153,
+   "rule": "content round=6",
+   "sha256": "be44302f70c29cd1eef55bf68b704a723a6ff2c1116c5a6720ab92a0668ad473"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/lrptest_dia.transcriptome.filtered.psl": {
+   "bytes": 104817,
+   "kind": "text",
+   "lines": 351,
+   "rule": "content round=6",
+   "sha256": "3fb7d694e8d237e79f65dce248e83a4645a9ccc3c951580f3f1eb08beafc8671"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/lrptest_dia.transcriptome.filtered_exon_coords.txt": {
+   "bytes": 387269,
+   "kind": "text",
+   "lines": 3822,
+   "rule": "content round=6",
+   "sha256": "7b4b5647fffe94b573cd4e85550c7c428e609cda9b515a85fb46927eabc94762"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/lrptest_dia.transcriptome.filtered_intron_coords.txt": {
+   "bytes": 359939,
+   "kind": "text",
+   "lines": 3471,
+   "rule": "content round=6",
+   "sha256": "2e24382eab6c926bb0d0e5a5b2498665ab51d710443f6a7184479a778297ce95"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_expression/HepG2_vs_K562_DE_ORF_MD_plot.pdf": {
+   "bytes": 6687,
+   "rule": "exists"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_expression/HepG2_vs_K562_DE_ORF_edgeR_normalized_CPM_matrix.txt": {
+   "bytes": 12396,
+   "kind": "text",
+   "lines": 30,
+   "rule": "content round=6",
+   "sha256": "ed6ec663626bd2b8c473640923b8c573cb6757df800a377a22f731975bdcc635"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_expression/HepG2_vs_K562_DE_ORF_edgeR_raw_CPM_matrix.txt": {
+   "bytes": 40348,
+   "kind": "text",
+   "lines": 139,
+   "rule": "content round=6",
+   "sha256": "22888cb3b2a25bde0ff4e10852a79a829643cde079b53aea6a302a8962139287"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_expression/HepG2_vs_K562_DE_ORF_edgeR_results.txt": {
+   "bytes": 10908,
+   "kind": "text",
+   "lines": 30,
+   "rule": "content round=6",
+   "sha256": "bc2ae9bb596312661f84d8272548417a19786ec5ceb40bc516a6c9a7757d7e5b"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_usage/HepG2_vs_K562_DU_ORF_DRIMSeq_summary.txt": {
+   "bytes": 20629,
+   "kind": "text",
+   "lines": 38,
+   "rule": "content round=6",
+   "sha256": "648399e6be26b437379e313f211869eb2be51bb2303b8f2bd12a5d65e438990d"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_MD_plot.pdf": {
+   "bytes": 6052,
+   "rule": "exists"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_edgeR_normalized_CPM_matrix.txt": {
+   "bytes": 5797,
+   "kind": "text",
+   "lines": 19,
+   "rule": "content round=6",
+   "sha256": "dae02c425e0b21aaa413b579e7bba0ec71798bab8fb17d26aa543a7781222f48"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_edgeR_raw_CPM_matrix.txt": {
+   "bytes": 6254,
+   "kind": "text",
+   "lines": 21,
+   "rule": "content round=6",
+   "sha256": "a91229c247d2880a7014413ee197f472fc530c33f84468a587a4bea80d33ae2e"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_edgeR_results.txt": {
+   "bytes": 4589,
+   "kind": "text",
+   "lines": 19,
+   "rule": "content round=6",
+   "sha256": "c3477a524bb1ea4a3024b49c61079bf89047ef336e77b9262642b4ca21eaa8a9"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_MD_plot.pdf": {
+   "bytes": 7566,
+   "rule": "exists"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_edgeR_normalized_CPM_matrix.txt": {
+   "bytes": 17205,
+   "kind": "text",
+   "lines": 45,
+   "rule": "content round=6",
+   "sha256": "54fcb86f4ce952d8528ffe89f3412cf15da9a14286efd6b7442c5b729d27d083"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_edgeR_raw_CPM_matrix.txt": {
+   "bytes": 98015,
+   "kind": "text",
+   "lines": 352,
+   "rule": "content round=6",
+   "sha256": "140e8b169f494acfaf33885789a902ce8fdf3ade0034bc84d150638cf16a9eea"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_edgeR_results.txt": {
+   "bytes": 14792,
+   "kind": "text",
+   "lines": 45,
+   "rule": "content round=6",
+   "sha256": "982f47e8e398b7c71d0663904e8f7ee88c5507c03a99accc326e623374650a4a"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_usage/HepG2_vs_K562_DTU_transcript_DRIMSeq_summary.txt": {
+   "bytes": 34450,
+   "kind": "text",
+   "lines": 67,
+   "rule": "content round=6",
+   "sha256": "a20480c277ac373c616de22a9db229a97ed52e8a3f954a195bd2f1a9be4fb0e3"
+  },
+  "S5_PROTEOMICS/M1_BUILD_PROTEOME_REFERENCE/ENCFF634YSN/ENCFF634YSN.lrp.v50.proteomics.reference.fasta": {
+   "bytes": 178789651,
+   "kind": "text",
+   "lines": 2528529,
+   "rule": "content round=6",
+   "sha256": "f19d9a6740c66958c0677b7902e57ab2cc15b7c01525d799c0e2fe4f294faa41"
+  },
+  "S5_PROTEOMICS/M1_BUILD_PROTEOME_REFERENCE/ENCFF634YSN/ENCFF634YSN.lrp.v50.proteomics.reference.tsv": {
+   "bytes": 60180112,
+   "kind": "text",
+   "lines": 382666,
+   "rule": "content round=6",
+   "sha256": "38c515e61d3ae3ba89eaa3a3ba4c830d1bbc79c5f7fa3ceecf703bbd633fc8d0"
+  },
+  "S5_PROTEOMICS/M2_MSCONVERT_MZML/ENCFF634YSN_DIA_test_az20260516a095.mzML": {
+   "bytes": 4317263390,
+   "kind": "text",
+   "lines": 33081256,
+   "rule": "content round=6",
+   "sha256": "ae51bfa0e4c2d6aec0ba869a68c4f71c10fcdceea0b61ab66f0ac107d1af7dea"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN.tsv": {
+   "bytes": 33289658,
+   "kind": "text",
+   "lines": 18493,
+   "rule": "content round=6",
+   "sha256": "d3b5240a78d4befccbead0d239ccfae07433b86d63192985d6535829ea31f343"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_DIA_test_az20260516a095.pin": {
+   "bytes": 90089701,
+   "kind": "text",
+   "lines": 84804,
+   "rule": "content round=6",
+   "sha256": "6e4345cba1853e96c6a6b49d68e7134ec7db945f30dc0ee8e5d13c4326841d51"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_DIA_test_az20260516a095_edited.pin": {
+   "bytes": 94344622,
+   "kind": "text",
+   "lines": 84804,
+   "rule": "content round=6",
+   "sha256": "d06809df59a9e66fab0664ce81983e3c556f5eb83194a117cca3c5e7d8da8392"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_DIA_test_az20260516a095_rank1.pepXML": {
+   "bytes": 204387774,
+   "kind": "text",
+   "lines": 1533424,
+   "rule": "content round=6",
+   "sha256": "5a49a1d7ec92d3fe42a981c9edaae15f023ed76987e091d14c3d8229b9b42e2d"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_DIA_test_az20260516a095_rank2.pepXML": {
+   "bytes": 44206629,
+   "kind": "text",
+   "lines": 349454,
+   "rule": "content round=6",
+   "sha256": "8c111fb39a43a38c7ec30d3dc007d41e9aad57cf3bdc9c88d8e6f14d45936596"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_DIA_test_az20260516a095_rank3.pepXML": {
+   "bytes": 15354283,
+   "kind": "text",
+   "lines": 123640,
+   "rule": "content round=6",
+   "sha256": "0a5ffec4051591a42f737fb030ac7312ab22f8ed4810ca8c6a56af60e3d068be"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_DIA_test_az20260516a095_rank4.pepXML": {
+   "bytes": 5867131,
+   "kind": "text",
+   "lines": 47347,
+   "rule": "content round=6",
+   "sha256": "d5b2692c74312efb101d7669adda80836c956836622e851fc0d4b6d2f6a6f708"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_DIA_test_az20260516a095_rank5.pepXML": {
+   "bytes": 2280582,
+   "kind": "text",
+   "lines": 18563,
+   "rule": "content round=6",
+   "sha256": "8ceb67bcca3b0d34ffd5a34b7dab5abaa41cc0aa9d067d33e062a915271112e2"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/MSBooster_plots/RT_calibration_curves/ENCFF634YSN_DIA_test_az20260516a095.png": {
+   "bytes": 154851,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/MSBooster_plots/RT_calibration_curves/ENCFF634YSN_DIA_test_az20260516a095_calibrated.png": {
+   "bytes": 162710,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DIA_test_az20260516a095_edited_delta_RT_loess.png": {
+   "bytes": 36681,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DIA_test_az20260516a095_edited_delta_RT_loess_real.png": {
+   "bytes": 39018,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DIA_test_az20260516a095_edited_hypergeometric_probability.png": {
+   "bytes": 34183,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DIA_test_az20260516a095_edited_intersection.png": {
+   "bytes": 24818,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DIA_test_az20260516a095_edited_top6_matched_intensity.png": {
+   "bytes": 24860,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DIA_test_az20260516a095_edited_unweighted_spectral_entropy.png": {
+   "bytes": 30972,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DIA_test_az20260516a095_edited_weighted_spectral_entropy.png": {
+   "bytes": 30582,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/spectraRT.predicted.bin": {
+   "bytes": 12650616,
+   "kind": "binary",
+   "rule": "content round=6",
+   "sha256": "3a8045c3ef53c9dba4c790f20055d076026263c112556b984b9f5cea0e36b38a"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/spectraRT.tsv": {
+   "bytes": 1874856,
+   "kind": "text",
+   "lines": 72810,
+   "rule": "content round=6",
+   "sha256": "1a55e90d7a19139958f1dadbd4a3beeed72e3c90808e465046d41b5cdafca4bc"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/spectraRT_full.tsv": {
+   "bytes": 1824168,
+   "kind": "text",
+   "lines": 72809,
+   "rule": "content round=6",
+   "sha256": "28baee3eb605fd226a61c35dd6ef37add9b081ee5eda2003430e606ee642e15a"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/combined.prot.xml": {
+   "bytes": 238914997,
+   "kind": "text",
+   "lines": 2152892,
+   "rule": "content round=6",
+   "sha256": "0e1b417f5ebeaca955e71e5a8242a158428470f71722e1dd7eb2921469dc6e95"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_gene_MS1quant_None.tsv": {
+   "bytes": 335811,
+   "kind": "text",
+   "lines": 4040,
+   "rule": "content round=6",
+   "sha256": "9df269384f64761806f2d126172b2aeaa66e991a19ae6798dac5efe99aaab82e"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_gene_MS2quant_None.tsv": {
+   "bytes": 333185,
+   "kind": "text",
+   "lines": 4040,
+   "rule": "content round=6",
+   "sha256": "35aa065f543bacaf62250c76d0cabb854628e95c2016487f6fbbaa7c65df9332"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_gene_MS2quant_Norm.tsv": {
+   "bytes": 333185,
+   "kind": "text",
+   "lines": 4040,
+   "rule": "content round=6",
+   "sha256": "35aa065f543bacaf62250c76d0cabb854628e95c2016487f6fbbaa7c65df9332"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_modified-peptide_MS1quant_None.tsv": {
+   "bytes": 25347018,
+   "kind": "text",
+   "lines": 16713,
+   "rule": "content round=6",
+   "sha256": "9a3a31dd14be5d98c42269cf0adef20636b94bc2eefed70487051efdb0ea3612"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_modified-peptide_MS2quant_None.tsv": {
+   "bytes": 25331719,
+   "kind": "text",
+   "lines": 16713,
+   "rule": "content round=6",
+   "sha256": "134487cb1c8aa642fa906b074e64b7ea38721eb2fecab1839626351ce8db5f12"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_modified-peptide_MS2quant_Norm.tsv": {
+   "bytes": 25331719,
+   "kind": "text",
+   "lines": 16713,
+   "rule": "content round=6",
+   "sha256": "134487cb1c8aa642fa906b074e64b7ea38721eb2fecab1839626351ce8db5f12"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_peptide_MS1quant_None.tsv": {
+   "bytes": 21948530,
+   "kind": "text",
+   "lines": 14875,
+   "rule": "content round=6",
+   "sha256": "8f653bcf0b8ef6e925ab757f18da737f5b905a76f7fb3a3f07b7e88bd75146c2"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_peptide_MS2quant_None.tsv": {
+   "bytes": 21935207,
+   "kind": "text",
+   "lines": 14875,
+   "rule": "content round=6",
+   "sha256": "e7f91c6fdcc19a34a5040a53a54f01cc8b0d3b00c6bb7463ebe15e60ec7b7c5f"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_peptide_MS2quant_Norm.tsv": {
+   "bytes": 21935207,
+   "kind": "text",
+   "lines": 14875,
+   "rule": "content round=6",
+   "sha256": "e7f91c6fdcc19a34a5040a53a54f01cc8b0d3b00c6bb7463ebe15e60ec7b7c5f"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_protein_MS1quant_None.tsv": {
+   "bytes": 4218681,
+   "kind": "text",
+   "lines": 4040,
+   "rule": "content round=6",
+   "sha256": "65d67cfae30475f35781539ac671361e2c117276791c31dba322ed59915062fb"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_protein_MS2quant_None.tsv": {
+   "bytes": 4216055,
+   "kind": "text",
+   "lines": 4040,
+   "rule": "content round=6",
+   "sha256": "22c821925fa740e65d141f2a74bae1e01223b412c99d80fde257991389ea8cc8"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_protein_MS2quant_Norm.tsv": {
+   "bytes": 4216055,
+   "kind": "text",
+   "lines": 4040,
+   "rule": "content round=6",
+   "sha256": "22c821925fa740e65d141f2a74bae1e01223b412c99d80fde257991389ea8cc8"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/msstats.csv": {
+   "bytes": 23684803,
+   "kind": "text",
+   "lines": 156459,
+   "rule": "content round=6",
+   "sha256": "17bac49c44c22ddd98c521e246817633f66fe553717ea4ee4b1d948f627506ae"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/msstats_ptm.csv": {
+   "bytes": 23684803,
+   "kind": "text",
+   "lines": 156459,
+   "rule": "content round=6",
+   "sha256": "17bac49c44c22ddd98c521e246817633f66fe553717ea4ee4b1d948f627506ae"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/report-tsv.speclib": {
+   "bytes": 5379051,
+   "kind": "binary",
+   "rule": "content round=6",
+   "sha256": "18c8a08e50e2892627e7847cdb8bb37a2cb62b6218d0ba0c70b915ce95f8db5b"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/report.gg_matrix.tsv": {
+   "bytes": 146,
+   "kind": "text",
+   "lines": 1,
+   "rule": "content round=6",
+   "sha256": "2dcb9b67bb9fb01d3088da59ca67b36d243c2cd1701588e18ad92a270a395077"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/report.log.txt": {
+   "bytes": 3694,
+   "kind": "text",
+   "lines": 62,
+   "rule": "content round=6",
+   "sha256": "fa58e30ee071698651b542d7a4e4a90f44dd6482f0545ffdcfb56c768de0340f"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/report.pg_matrix.tsv": {
+   "bytes": 457686,
+   "kind": "text",
+   "lines": 4040,
+   "rule": "content round=6",
+   "sha256": "f7edc8fd927fdba2aa24492dfac20310bb9c054cf38356b37055d62e168c5e09"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/report.pr_matrix.tsv": {
+   "bytes": 26217940,
+   "kind": "text",
+   "lines": 18403,
+   "rule": "content round=6",
+   "sha256": "9da763dac9aa2cf0acc87696570cd0977d6a4c13d1a8e0eaf0dceccea0274fce"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/report.stats.tsv": {
+   "bytes": 625,
+   "kind": "text",
+   "lines": 2,
+   "rule": "content round=6",
+   "sha256": "be4dee15c0944f3decabc6dfdb17714bcdfd8c085571bbffa9f15bd7e5954ca4"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/report.tsv": {
+   "bytes": 46654838,
+   "kind": "text",
+   "lines": 18403,
+   "rule": "content round=6",
+   "sha256": "4ad0458a7f45405a4ea2197d71fe3edea292d8a57392810ccbd2867f411ec879"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/report.unique_genes_matrix.tsv": {
+   "bytes": 146,
+   "kind": "text",
+   "lines": 1,
+   "rule": "content round=6",
+   "sha256": "2dcb9b67bb9fb01d3088da59ca67b36d243c2cd1701588e18ad92a270a395077"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/easypqp_files/cmds.txt": {
+   "bytes": 1848,
+   "kind": "text",
+   "lines": 2,
+   "rule": "content round=6",
+   "sha256": "b5e80a33be6116003cff8e5e041ec18041dc88cd118a0b4f997e63f9655fd44e"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/easypqp_files/easypqp_rt_alignment_ENCFF634YSN_DIA_test_az20260516a095.pdf": {
+   "bytes": 141090,
+   "rule": "exists"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/easypqp_rt_reference_run.tsv": {
+   "bytes": 752244,
+   "kind": "text",
+   "lines": 18460,
+   "rule": "content round=6",
+   "sha256": "a92bde459a78de22f61f708a936228cf26bf18fd4d3d1bf829331e3800c5fe92"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/experiment_annotation.tsv": {
+   "bytes": 352,
+   "kind": "text",
+   "lines": 2,
+   "rule": "content round=6",
+   "sha256": "5bdaa176d601558fe1cfa2729352a851d07df838b945d1335196342d8cf6d53a"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/filelist_diann.txt": {
+   "bytes": 144,
+   "kind": "text",
+   "lines": 1,
+   "rule": "content round=6",
+   "sha256": "b0bb24366bc49972ebee5a4cc441a8fe250c80aba2c937653f40ffdf06acd043"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/filelist_easypqp_library.txt": {
+   "bytes": 300,
+   "kind": "text",
+   "lines": 2,
+   "rule": "content round=6",
+   "sha256": "56a4467b7775caf8b2f1860f972ac8de92b003275e9ed073eead5eeefe3fcf27"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/filelist_proteinprophet.txt": {
+   "bytes": 830,
+   "kind": "text",
+   "lines": 5,
+   "rule": "content round=6",
+   "sha256": "136a8a41cd493f10ee558e9e4a25c989fc7d84c4b0bd556fb16fe7e822a3cdf9"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/filelist_speclibgen.txt": {
+   "bytes": 140,
+   "kind": "text",
+   "lines": 1,
+   "rule": "content round=6",
+   "sha256": "bd0c9d7cae900cab3bc84b53ccdabab4c83c01170fe3077533712bc16ed9f7be"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/fragger_dia.params": {
+   "bytes": 10290,
+   "kind": "text",
+   "lines": 146,
+   "rule": "content round=6",
+   "sha256": "0c15f8caa4ee7f4b32527b71f3857516913acd854e4d327eb5ca040121c2bf4a"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/fragpipe-files.fp-manifest": {
+   "bytes": 157,
+   "kind": "text",
+   "lines": 1,
+   "rule": "content round=6",
+   "sha256": "f0f4a5166cb410037a5b7b28d55605ca0e80f45814039ca94bdfe3717cf9b6ed"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/fragpipe.job": {
+   "bytes": 797,
+   "kind": "text",
+   "lines": 2,
+   "rule": "content round=6",
+   "sha256": "6ae672aec4bd3bfabe0a8e5cc99e4a4ee503a7060bfafa492124016b1c479607"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/fragpipe.workflow": {
+   "bytes": 15310,
+   "kind": "text",
+   "lines": 440,
+   "rule": "content round=6",
+   "sha256": "1f0887f850e8ea0f7203dfa238508726fabde6b8e6cafd2bd1acb6a72abb10e3"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/interact-ENCFF634YSN_DIA_test_az20260516a095_rank1.pep.xml": {
+   "bytes": 93070770,
+   "kind": "text",
+   "lines": 840794,
+   "rule": "content round=6",
+   "sha256": "17c5a452ebaac7cc59bdbd4e5fb30611147962b62e7c97d4e4b3da1855719744"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/interact-ENCFF634YSN_DIA_test_az20260516a095_rank2.pep.xml": {
+   "bytes": 5130466,
+   "kind": "text",
+   "lines": 47480,
+   "rule": "content round=6",
+   "sha256": "17e63a2875e7c5240a03ccab2c759ea2b56aa5c55d9bbb1b3e8ce3422ec9d56f"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/interact-ENCFF634YSN_DIA_test_az20260516a095_rank3.pep.xml": {
+   "bytes": 438048,
+   "kind": "text",
+   "lines": 4280,
+   "rule": "content round=6",
+   "sha256": "0965969f76f7cbbba671e82401ebea9328db4e2e1319001aff2b6b9e184dcccd"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/interact-ENCFF634YSN_DIA_test_az20260516a095_rank4.pep.xml": {
+   "bytes": 68151,
+   "kind": "text",
+   "lines": 693,
+   "rule": "content round=6",
+   "sha256": "e405d85fb4328c22485d2197a3ba14dbd3d715708980fb3541820684a349c104"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/interact-ENCFF634YSN_DIA_test_az20260516a095_rank5.pep.xml": {
+   "bytes": 23860,
+   "kind": "text",
+   "lines": 302,
+   "rule": "content round=6",
+   "sha256": "83041b684cef012614746cec3a833af9feab4f1ca9722c945a56a0f655f9c595"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ion.tsv": {
+   "bytes": 28032783,
+   "kind": "text",
+   "lines": 18314,
+   "rule": "content round=6",
+   "sha256": "9fe67a7218df0cc9ee34f3b562123f01458340bbfc932dedfa21aa227a0b2655"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/library.tsv": {
+   "bytes": 308094554,
+   "kind": "text",
+   "lines": 210098,
+   "rule": "content round=6",
+   "sha256": "e83ebbfddff084753e7cb2ab8d9f1fc26642898c0338b47e74aafe586d22fadd"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/msbooster_params.txt": {
+   "bytes": 1445,
+   "kind": "text",
+   "lines": 24,
+   "rule": "content round=6",
+   "sha256": "7ad3b991b2b659f70ebc698d991880f4b0847bda62d72222955c378961a9d650"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/peptide.tsv": {
+   "bytes": 22426829,
+   "kind": "text",
+   "lines": 14938,
+   "rule": "content round=6",
+   "sha256": "06063e9c3e0d974701b20b39be79dad4411bd345215644115e059382a2512ab2"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/protein.fas": {
+   "bytes": 2784355,
+   "kind": "text",
+   "lines": 8092,
+   "rule": "content round=6",
+   "sha256": "65b9da958c9ff939aff783b855b67ed74fb0865040cdb3487e0dcc1644855d6a"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/protein.tsv": {
+   "bytes": 4447977,
+   "kind": "text",
+   "lines": 4047,
+   "rule": "content round=6",
+   "sha256": "e4d8203dec9a913fa2699fee69d08d5d0e8a3dc63b993bdd3f343b6a3f707c45"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/psm.tsv": {
+   "bytes": 33289658,
+   "kind": "text",
+   "lines": 18493,
+   "rule": "content round=6",
+   "sha256": "d3b5240a78d4befccbead0d239ccfae07433b86d63192985d6535829ea31f343"
+  },
+  "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/sdrf.tsv": {
+   "bytes": 898,
+   "kind": "text",
+   "lines": 2,
+   "rule": "content round=6",
+   "sha256": "a8578c767b16f3d778bd31ff39ced257c486d7bd14d47382f1ecdf440d55efa1"
+  },
+  "S5_PROTEOMICS/M4_NOVEL_PEPTIDES/ENCFF634YSN/ENCFF634YSN.proteomics.all_peptides.bed": {
+   "bytes": 1053860,
+   "kind": "text",
+   "lines": 12679,
+   "rule": "content round=6",
+   "sha256": "850d1281a5f837cfec4ee79699b298eb7f8e9942dc541d4e8a7e59eb379fd603"
+  },
+  "S5_PROTEOMICS/M4_NOVEL_PEPTIDES/ENCFF634YSN/ENCFF634YSN.proteomics.novel_peptides.tsv": {
+   "bytes": 26294236,
+   "kind": "text",
+   "lines": 14938,
+   "rule": "content round=6",
+   "sha256": "41e86efea31a3d1899ce640ffb717e163d88bcf1b085c61d5dce00e85e6a3e5f"
+  },
+  "gzip/gencode.v50.annotation.gtf.gz": {
+   "bytes": 137276325,
+   "kind": "text",
+   "lines": 11242719,
+   "rule": "content",
+   "sha256": "e644cbdae6dcd1724765c8e892db23950faf37a2c87ec05888e218fce69eb6b6"
+  }
+ },
+ "format": 1,
+ "source": "test_results_test_dia_GRCh38.p14.v50"
+}
