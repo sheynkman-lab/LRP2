@@ -1,5 +1,5 @@
 {
- "created": "2026-11-14T04:57:23Z",
+ "created": "2026-11-24T05:44:06Z",
  "files": {
   "S1_PACBIO_ISOCALL/M1_ISOCALL_PREP/gencode.v50.annotation.gtf.isoforms.gz": {
    "bytes": 12766010,
@@ -9,7 +9,7 @@
    "sha256": "61c625f96a1b29fa8f410803a9d5156f293356665a5cfa3050d7b3925514960b"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF427JDY.aligned.bam": {
-   "bytes": 369539,
+   "bytes": 369521,
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF427JDY.aligned.bam.bai": {
@@ -17,15 +17,15 @@
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF429VVB.aligned.bam": {
-   "bytes": 1956576,
+   "bytes": 1955223,
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF429VVB.aligned.bam.bai": {
-   "bytes": 943392,
+   "bytes": 943432,
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF483HTA.aligned.bam": {
-   "bytes": 1101246,
+   "bytes": 1101262,
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF483HTA.aligned.bam.bai": {
@@ -33,7 +33,7 @@
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF589SMB.aligned.bam": {
-   "bytes": 547298,
+   "bytes": 547300,
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF589SMB.aligned.bam.bai": {
@@ -41,15 +41,15 @@
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF634YSN.aligned.bam": {
-   "bytes": 1913627,
+   "bytes": 1914198,
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF634YSN.aligned.bam.bai": {
-   "bytes": 852568,
+   "bytes": 852536,
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF694INI.aligned.bam": {
-   "bytes": 888602,
+   "bytes": 888722,
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF694INI.aligned.bam.bai": {
@@ -57,7 +57,7 @@
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF696GDL.aligned.bam": {
-   "bytes": 1505887,
+   "bytes": 1505913,
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF696GDL.aligned.bam.bai": {
@@ -65,7 +65,7 @@
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF763VZC.aligned.bam": {
-   "bytes": 2013123,
+   "bytes": 2013149,
    "rule": "exists"
   },
   "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF763VZC.aligned.bam.bai": {
@@ -129,137 +129,137 @@
    "sha256": "ce1796f4fca8240b1de1114118370fdb9ebd505eb7ccf28095047dddb8f5f577"
   },
   "S1_PACBIO_ISOCALL/M4_ISOCALL_MERGE/lrptest_dia.isocall.merged_profiles.gz": {
-   "bytes": 147835,
+   "bytes": 147889,
    "kind": "text",
    "lines": 2584,
    "rule": "content",
-   "sha256": "cde7b1b3615fd68341878f11f7cc340fccbed9d5c309944010e29a3176f213a2"
+   "sha256": "4b586368b3c1d0bae2c7025000463b44c3da26e4dadb00fd7385f74068cf28de"
   },
   "S1_PACBIO_ISOCALL/M5_ISOCALL_CALL/lrptest_dia.isocall.count_matrix.csv": {
    "bytes": 16618,
    "kind": "text",
    "lines": 429,
    "rule": "content",
-   "sha256": "0e031e5940d1f5e1a3cbc2ae131d5658fd2755b07cf36093693218cca3770029"
+   "sha256": "7ad0281f0ccc09747416935af9169e620d660e777e983191af19a96463098b0c"
   },
-  "S1_PACBIO_ISOCALL/M5_ISOCALL_CALL/lrptest_dia.isocall.isoforms.gtf": {
-   "bytes": 895962,
+  "S1_PACBIO_ISOCALL/M5_ISOCALL_CALL/lrptest_dia.isocall.isoforms.gtf.gz": {
+   "bytes": 39546,
    "kind": "text",
    "lines": 4851,
    "rule": "content",
-   "sha256": "55d158bc3c6e625c1349564abc7d792a10821dcd6ec8ef5d1c3a91e6b7ea3723"
+   "sha256": "49fcaf6b7bfff0dd52ab306e3c54b70fd2cf002fa2b61bc43ca703cb27e2093f"
   },
   "S2_TRANSCRIPTOME/M1_SQANTI_QC/lrptest_dia.transcriptome.SQANTI_classification.txt": {
    "bytes": 133882,
    "kind": "text",
    "lines": 429,
    "rule": "content",
-   "sha256": "5156b5156cff9ea73859494a8f21b1309a010a8c84e1f2e2db9e9393352490fe"
+   "sha256": "81787c2c5d77c8ce7f0a372c78f1bcd0b5c33becd0a7b7c9303b48ebe11bf24a"
   },
   "S2_TRANSCRIPTOME/M1_SQANTI_QC/lrptest_dia.transcriptome.fasta": {
    "bytes": 1064007,
    "kind": "text",
    "lines": 15486,
    "rule": "content",
-   "sha256": "34420a9e56fe0eff10c257ba2488a44a2a3158e005af519f2af98552afe0588c"
+   "sha256": "c9e599aa04eb70ccfe6a9c3ee5ce54f47e8b720a7e002a3d319804cc3bc5dfcf"
   },
   "S2_TRANSCRIPTOME/M1_SQANTI_QC/lrptest_dia.transcriptome.gtf": {
-   "bytes": 629962,
+   "bytes": 629961,
    "kind": "text",
    "lines": 4816,
    "rule": "content",
-   "sha256": "ad79e31584eae77eff3dc3f0e0a53416db869c2d3bc4aad09fc62c8a0abd9364"
+   "sha256": "69f73d82d1267fb7a74ea8d9d152248e656c3cbad8d40a98c6cf804a67b8a524"
   },
   "S2_TRANSCRIPTOME/M1_SQANTI_QC/lrptest_dia.transcriptome.junctions.txt": {
-   "bytes": 521090,
+   "bytes": 521089,
    "kind": "text",
    "lines": 3961,
    "rule": "content",
-   "sha256": "4bc1f61b48dc4bf4ce75274a49e9689341e1a029fa790eccec3930b46d55fb6a"
+   "sha256": "1361ad4ec2a2b98b4d1e7387e3d2581fefa87ad329a3ce65926b13a4e290fe8c"
   },
   "S2_TRANSCRIPTOME/M2_GENERATE_HASHIDS/lrptest_dia.transcriptome.hashids_mapping.txt": {
    "bytes": 68418,
    "kind": "text",
    "lines": 392,
    "rule": "content",
-   "sha256": "d73451cecefaf4d9f07bc986834eaa2dbb52e4639aedaa630d8f5ea64b41db4b"
+   "sha256": "3390184c8eeeb98f048d62aad6b02f1a6d809786339c23d9fd64c0ac662b0f22"
   },
   "S2_TRANSCRIPTOME/M2_GENERATE_HASHIDS/lrptest_dia.transcriptome.psl": {
    "bytes": 117871,
    "kind": "text",
    "lines": 428,
    "rule": "content",
-   "sha256": "835d9826b03b083ecb8348a2ad21c3d129b060111683d9eb9e0b47a888c110d6"
+   "sha256": "2b4e30ffb47f56266fcdbbf68f37d67b185cbeb02c7f8e6063f7207a51299c12"
   },
   "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest_dia.transcriptome.all_hashids_with_cpm.txt": {
    "bytes": 106328,
    "kind": "text",
    "lines": 392,
    "rule": "content",
-   "sha256": "da7e4651383537e02d787684a8523fd611e5b96ddc1349f02a221d69bfb06c0a"
+   "sha256": "7fcd4963f24ce2724cf197f58dc25dbebff1a2f168f71c52950d4731bdb6c962"
   },
   "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest_dia.transcriptome.filtered.bed": {
    "bytes": 69343,
    "kind": "text",
    "lines": 351,
    "rule": "content",
-   "sha256": "182a06442455ff2ecd4e6d9070d67e28f3582008daadafe1531a8c1eb446bbc4"
+   "sha256": "26ae16b5bb72ce721d09c4cec0986dc91260d8fb5ba12807e6119eafe5bace3a"
   },
   "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest_dia.transcriptome.filtered.fasta": {
    "bytes": 860882,
    "kind": "text",
    "lines": 10987,
    "rule": "content",
-   "sha256": "fe40b1725c0c857c9192bf268eb07003ffd03b91360b58a9db2e6c097f33e352"
+   "sha256": "6ebdba9637e978350e2a5767031fbd77c5152260f5627cd59fbb4b4b09078e7b"
   },
   "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest_dia.transcriptome.filtered.gtf": {
    "bytes": 869475,
    "kind": "text",
    "lines": 4175,
    "rule": "content",
-   "sha256": "2cdb6de9b75ba55a7701dc564ce0561782a9b111a2c521c7b104357555047a7c"
+   "sha256": "2b9859e8059d0ea0f6b18d78ccf6bd5ba1592976be9c1661a71702e4312b9729"
   },
   "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest_dia.transcriptome.filtered_SQANTI_classification.txt": {
    "bytes": 152903,
    "kind": "text",
    "lines": 352,
    "rule": "content",
-   "sha256": "341f8d297c3ec19ce508423db295d734a8603454abc209f159ff634ce95cdb29"
+   "sha256": "81d929c48a6592f72ffc7c60ad4de9df2b9f579615b8d2188d61b6f5e38c614f"
   },
   "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest_dia.transcriptome.filtered_hashids_with_cpm.txt": {
    "bytes": 95844,
    "kind": "text",
    "lines": 352,
    "rule": "content",
-   "sha256": "613902a7cd4377adbd45690e53f1525a43129feb28f152ea347f1ed26d0d7e5b"
+   "sha256": "27550a7eb7e9c5e7b369deb54777ee34827b38af6f807ac0f416c6e294db98c3"
   },
   "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest_dia.predicted_proteome.CPAT.ORF_prob.best.tsv": {
    "bytes": 48935,
    "kind": "text",
    "lines": 352,
    "rule": "content",
-   "sha256": "280c3cb2d59396e575a3121370eca62abf89cf20fd27b6d4d5b0d8ecd1ab9080"
+   "sha256": "437fbbf272b677cb605193a4113fec71c354019d936b3e898153e6041032a19d"
   },
   "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest_dia.predicted_proteome.CPAT.ORF_prob.tsv": {
    "bytes": 172284,
    "kind": "text",
    "lines": 1617,
    "rule": "content",
-   "sha256": "3956b2e09b39c123966698cbc5b95534f725d54521698daa87d3867f1c965a1a"
+   "sha256": "0d346c092f373099b0f5cad74f2fc6f17daf095df1c24dc6b502ff544304810f"
   },
   "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest_dia.predicted_proteome.CPAT.ORF_seqs.fa": {
    "bytes": 846327,
    "kind": "text",
    "lines": 9818,
    "rule": "content",
-   "sha256": "c4e1b45b0d291f86a06197aafc16f884beb650e102d6c8bc2ffb881c7432f5b5"
+   "sha256": "8dcbd85595fd7fe7848e039ac841e0ed0994fbdee181183e748551e47ff3fc8e"
   },
   "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest_dia.predicted_proteome.CPAT.error": {
    "bytes": 9636,
    "kind": "text",
    "lines": 19,
    "rule": "content",
-   "sha256": "0a7a130b12fbc47de88e259f4a74e43fdaf9f3aab26b8e927f08bc6fed4d9975"
+   "sha256": "e3adb2482dc17a2f53a4c2abadff439eefa95f0faaafbaf14650b808790c2ad6"
   },
   "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest_dia.predicted_proteome.CPAT.no_ORF.txt": {
    "bytes": 0,
@@ -273,7 +273,7 @@
    "kind": "text",
    "lines": 1617,
    "rule": "content",
-   "sha256": "7ce681c3e72b14c7fb4a3a391b562be1990f56afda2f69d9c8969dde144b888f"
+   "sha256": "e987ef6f344e339e6224996283d627c34018ff5026856b7f9d4e3fe899182941"
   },
   "S3_PREDICTED_PROTEOME/M2_FILTER_CPAT/lrptest_dia.predicted_proteome.best_ORF.gtf": {
    "bytes": 892882,
@@ -315,28 +315,28 @@
    "kind": "text",
    "lines": 1636,
    "rule": "content",
-   "sha256": "81a700f30066bf636a78b60e2a60b2e5e37c5908a07a3d34c2d4beb70e072ecf"
+   "sha256": "3b39d130dcd44723406065e2e2d25b871b94a9816da2d2d18c51a851592adc37"
   },
   "S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/lrptest_dia.predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt": {
    "bytes": 31746,
    "kind": "text",
    "lines": 139,
    "rule": "content",
-   "sha256": "cca4f0884ed487853cbf6b49f25d21449c54ebdecb3d13671998e93ee0ea0f26"
+   "sha256": "3236f42eaf45dc87105a6727051199cbe51d854d3cd34f55e3842d45971aea2f"
   },
   "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.ds_cluster_significance.txt": {
-   "bytes": 3009,
+   "bytes": 2996,
    "kind": "text",
    "lines": 45,
    "rule": "content round=6",
-   "sha256": "b040909a3e4b724d091177539243e5421811b69dc0e19fd504e775ef2bbacc04"
+   "sha256": "c5137facf18f2a529a871ebdba5689c228bfbc4fcec541adec6343ccff52fa1f"
   },
   "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.ds_effect_sizes.txt": {
-   "bytes": 3714,
+   "bytes": 3728,
    "kind": "text",
    "lines": 47,
    "rule": "content round=6",
-   "sha256": "ce422de668acf2d9f68dade6535eca5975de9a7c35996fb9afc8c50dbc25e205"
+   "sha256": "59127bbc7903f20dfe4fcc575163b55a01cb4ef33c2c7a29050feb204203b07b"
   },
   "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.groups_file.txt": {
    "bytes": 139,
@@ -346,18 +346,18 @@
    "sha256": "32410b9e4bc09008b4aa38e231212036ddb4b23a9f4a1a40de456b0b5d8cd87f"
   },
   "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.perind_numers.counts.gz": {
-   "bytes": 2532,
+   "bytes": 2534,
    "kind": "text",
    "lines": 153,
    "rule": "content round=6",
-   "sha256": "9dc514887ea3cee67d7c2705b0952dc46ab3cd11e98244c638d0607e9f65bf89"
+   "sha256": "ba6de40b427ed5b64adfa3b59a3b3d3f886dcda539f3687dd9959eb3d37171ba"
   },
   "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.subisoform_clusters.txt": {
    "bytes": 44803,
    "kind": "text",
    "lines": 153,
    "rule": "content round=6",
-   "sha256": "be44302f70c29cd1eef55bf68b704a723a6ff2c1116c5a6720ab92a0668ad473"
+   "sha256": "e04a66bd28fefa39a65de9ff026b24673091454f658c1b03c8a0f1abe7cbf427"
   },
   "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/lrptest_dia.transcriptome.filtered.psl": {
    "bytes": 104817,
@@ -389,28 +389,28 @@
    "kind": "text",
    "lines": 30,
    "rule": "content round=6",
-   "sha256": "ed6ec663626bd2b8c473640923b8c573cb6757df800a377a22f731975bdcc635"
+   "sha256": "9f9645e3edc8f5acc719bd84ea366753230cc136778d8dce64d055c76c1053cc"
   },
   "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_expression/HepG2_vs_K562_DE_ORF_edgeR_raw_CPM_matrix.txt": {
    "bytes": 40348,
    "kind": "text",
    "lines": 139,
    "rule": "content round=6",
-   "sha256": "22888cb3b2a25bde0ff4e10852a79a829643cde079b53aea6a302a8962139287"
+   "sha256": "e5b0d016938d9123c7903642c62e34ded9fc113032cc9740679e4dcf698a577c"
   },
   "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_expression/HepG2_vs_K562_DE_ORF_edgeR_results.txt": {
-   "bytes": 10908,
+   "bytes": 10903,
    "kind": "text",
    "lines": 30,
    "rule": "content round=6",
-   "sha256": "bc2ae9bb596312661f84d8272548417a19786ec5ceb40bc516a6c9a7757d7e5b"
+   "sha256": "acbbed318cf77e3d55cf758355aa56216481b4d2826dd7ff4ca6f76f17d19443"
   },
   "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_usage/HepG2_vs_K562_DU_ORF_DRIMSeq_summary.txt": {
    "bytes": 20629,
    "kind": "text",
    "lines": 38,
    "rule": "content round=6",
-   "sha256": "648399e6be26b437379e313f211869eb2be51bb2303b8f2bd12a5d65e438990d"
+   "sha256": "458cad0a8d76010672ff49500d75b3bbd896f8d37859fa8f9f0e983db77a577a"
   },
   "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_MD_plot.pdf": {
    "bytes": 6052,
@@ -421,21 +421,21 @@
    "kind": "text",
    "lines": 19,
    "rule": "content round=6",
-   "sha256": "dae02c425e0b21aaa413b579e7bba0ec71798bab8fb17d26aa543a7781222f48"
+   "sha256": "3d0f5cd2e39c51a6fd240fed646f110dba1e3497636ac5b5d3eb19df760a3fa9"
   },
   "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_edgeR_raw_CPM_matrix.txt": {
    "bytes": 6254,
    "kind": "text",
    "lines": 21,
    "rule": "content round=6",
-   "sha256": "a91229c247d2880a7014413ee197f472fc530c33f84468a587a4bea80d33ae2e"
+   "sha256": "243edb0f5930e865d15701d3eb56425b618e6cde76e046cc245d947e14eff7a2"
   },
   "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_edgeR_results.txt": {
    "bytes": 4589,
    "kind": "text",
    "lines": 19,
    "rule": "content round=6",
-   "sha256": "c3477a524bb1ea4a3024b49c61079bf89047ef336e77b9262642b4ca21eaa8a9"
+   "sha256": "a02befedc6edbee6158a21377234e4f2fbdeb88e141a730894afcaa9ad10219f"
   },
   "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_MD_plot.pdf": {
    "bytes": 7566,
@@ -446,28 +446,28 @@
    "kind": "text",
    "lines": 45,
    "rule": "content round=6",
-   "sha256": "54fcb86f4ce952d8528ffe89f3412cf15da9a14286efd6b7442c5b729d27d083"
+   "sha256": "6e34fe4c0cedca447bd0496669b62b0341dc5d78b4cf16886a420d90957625a4"
   },
   "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_edgeR_raw_CPM_matrix.txt": {
    "bytes": 98015,
    "kind": "text",
    "lines": 352,
    "rule": "content round=6",
-   "sha256": "140e8b169f494acfaf33885789a902ce8fdf3ade0034bc84d150638cf16a9eea"
+   "sha256": "d8f1cd4c44f79ac068a6f34d9cdc3cc199bab21e8089b0dde07b332cf348bddc"
   },
   "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_edgeR_results.txt": {
-   "bytes": 14792,
+   "bytes": 14788,
    "kind": "text",
    "lines": 45,
    "rule": "content round=6",
-   "sha256": "982f47e8e398b7c71d0663904e8f7ee88c5507c03a99accc326e623374650a4a"
+   "sha256": "3b203f0c5ff1dcb98ccc61df27cadd169481f1e51329aa495084b4d24d86bbfe"
   },
   "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_usage/HepG2_vs_K562_DTU_transcript_DRIMSeq_summary.txt": {
-   "bytes": 34450,
+   "bytes": 34452,
    "kind": "text",
    "lines": 67,
    "rule": "content round=6",
-   "sha256": "a20480c277ac373c616de22a9db229a97ed52e8a3f954a195bd2f1a9be4fb0e3"
+   "sha256": "492ebc04f9879570c86739ef46935c1a7f056ecfe91c07a2ff1769d7b20f13ae"
   },
   "S5_PROTEOMICS/M1_BUILD_PROTEOME_REFERENCE/ENCFF634YSN/ENCFF634YSN.lrp.v50.proteomics.reference.fasta": {
    "bytes": 178789651,
@@ -484,18 +484,18 @@
    "sha256": "38c515e61d3ae3ba89eaa3a3ba4c830d1bbc79c5f7fa3ceecf703bbd633fc8d0"
   },
   "S5_PROTEOMICS/M2_MSCONVERT_MZML/ENCFF634YSN_DIA_test_az20260516a095.mzML": {
-   "bytes": 4317263390,
+   "bytes": 4269466476,
    "kind": "text",
-   "lines": 33081256,
+   "lines": 33081255,
    "rule": "content round=6",
-   "sha256": "ae51bfa0e4c2d6aec0ba869a68c4f71c10fcdceea0b61ab66f0ac107d1af7dea"
+   "sha256": "e4d5e483aeb44bcb0d6fdefd7e791cc9bb9bca2025baa83bbd1b30c144485d2a"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN.tsv": {
    "bytes": 33289658,
    "kind": "text",
    "lines": 18493,
    "rule": "content round=6",
-   "sha256": "d3b5240a78d4befccbead0d239ccfae07433b86d63192985d6535829ea31f343"
+   "sha256": "544ceee9d82c19cea918468f06ae068745245c3f913a81cffbf0adb73972a628"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_DIA_test_az20260516a095.pin": {
    "bytes": 90089701,
@@ -509,53 +509,53 @@
    "kind": "text",
    "lines": 84804,
    "rule": "content round=6",
-   "sha256": "d06809df59a9e66fab0664ce81983e3c556f5eb83194a117cca3c5e7d8da8392"
+   "sha256": "85f12d4cadb25c1539dd89b1d5e01bb6ed4498e1e27fee0ade92be328286455b"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_DIA_test_az20260516a095_rank1.pepXML": {
    "bytes": 204387774,
    "kind": "text",
    "lines": 1533424,
    "rule": "content round=6",
-   "sha256": "5a49a1d7ec92d3fe42a981c9edaae15f023ed76987e091d14c3d8229b9b42e2d"
+   "sha256": "85100f58fd5c715bdeb0a111999f5fbd77b53274de8114c108b07aeb8cca8529"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_DIA_test_az20260516a095_rank2.pepXML": {
    "bytes": 44206629,
    "kind": "text",
    "lines": 349454,
    "rule": "content round=6",
-   "sha256": "8c111fb39a43a38c7ec30d3dc007d41e9aad57cf3bdc9c88d8e6f14d45936596"
+   "sha256": "2bc5a2d663cf7e15c7125957c6747f23d69f788121f8ccab5c015de052fdacaa"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_DIA_test_az20260516a095_rank3.pepXML": {
    "bytes": 15354283,
    "kind": "text",
    "lines": 123640,
    "rule": "content round=6",
-   "sha256": "0a5ffec4051591a42f737fb030ac7312ab22f8ed4810ca8c6a56af60e3d068be"
+   "sha256": "0bc27f5d49800793cefb640b750754da7dccda870139a948778164428ac19f4a"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_DIA_test_az20260516a095_rank4.pepXML": {
    "bytes": 5867131,
    "kind": "text",
    "lines": 47347,
    "rule": "content round=6",
-   "sha256": "d5b2692c74312efb101d7669adda80836c956836622e851fc0d4b6d2f6a6f708"
+   "sha256": "d0c62124670d1f5ea88056de8621600b7bbe402986dcd9e3a705c35fe4237be3"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_DIA_test_az20260516a095_rank5.pepXML": {
    "bytes": 2280582,
    "kind": "text",
    "lines": 18563,
    "rule": "content round=6",
-   "sha256": "8ceb67bcca3b0d34ffd5a34b7dab5abaa41cc0aa9d067d33e062a915271112e2"
+   "sha256": "564dec5ba74623ad115416895d519cceaeec6992225e1aec964d09c49d3f02a2"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/MSBooster_plots/RT_calibration_curves/ENCFF634YSN_DIA_test_az20260516a095.png": {
-   "bytes": 154851,
+   "bytes": 154732,
    "rule": "exists"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/MSBooster_plots/RT_calibration_curves/ENCFF634YSN_DIA_test_az20260516a095_calibrated.png": {
-   "bytes": 162710,
+   "bytes": 162649,
    "rule": "exists"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DIA_test_az20260516a095_edited_delta_RT_loess.png": {
-   "bytes": 36681,
+   "bytes": 36689,
    "rule": "exists"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DIA_test_az20260516a095_edited_delta_RT_loess_real.png": {
@@ -579,14 +579,14 @@
    "rule": "exists"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DIA_test_az20260516a095_edited_weighted_spectral_entropy.png": {
-   "bytes": 30582,
+   "bytes": 30572,
    "rule": "exists"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/spectraRT.predicted.bin": {
    "bytes": 12650616,
    "kind": "binary",
    "rule": "content round=6",
-   "sha256": "3a8045c3ef53c9dba4c790f20055d076026263c112556b984b9f5cea0e36b38a"
+   "sha256": "32d65833b5c6f3d826af9e1b7d6e25e0e2ce99bc175dfa47d012b2d5ca7abda4"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/MSBooster/spectraRT.tsv": {
    "bytes": 1874856,
@@ -603,11 +603,11 @@
    "sha256": "28baee3eb605fd226a61c35dd6ef37add9b081ee5eda2003430e606ee642e15a"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/combined.prot.xml": {
-   "bytes": 238914997,
+   "bytes": 238915949,
    "kind": "text",
-   "lines": 2152892,
+   "lines": 2152903,
    "rule": "content round=6",
-   "sha256": "0e1b417f5ebeaca955e71e5a8242a158428470f71722e1dd7eb2921469dc6e95"
+   "sha256": "a8c2faead9e2a2715450ed517027df2352dc5952567a64ffb5401949a2bf9a98"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_gene_MS1quant_None.tsv": {
    "bytes": 335811,
@@ -673,25 +673,25 @@
    "sha256": "e7f91c6fdcc19a34a5040a53a54f01cc8b0d3b00c6bb7463ebe15e60ec7b7c5f"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_protein_MS1quant_None.tsv": {
-   "bytes": 4218681,
+   "bytes": 4218696,
    "kind": "text",
    "lines": 4040,
    "rule": "content round=6",
-   "sha256": "65d67cfae30475f35781539ac671361e2c117276791c31dba322ed59915062fb"
+   "sha256": "1053bf35903e21c609cf0364bfa9ece63bde162047baaad3ee51aa406a93ac88"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_protein_MS2quant_None.tsv": {
-   "bytes": 4216055,
+   "bytes": 4216070,
    "kind": "text",
    "lines": 4040,
    "rule": "content round=6",
-   "sha256": "22c821925fa740e65d141f2a74bae1e01223b412c99d80fde257991389ea8cc8"
+   "sha256": "69cc62b02c6f5986fc25ae4bad51833d807ae7ffb5995b8e7f10c33bf4ceb700"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/abundance_protein_MS2quant_Norm.tsv": {
-   "bytes": 4216055,
+   "bytes": 4216070,
    "kind": "text",
    "lines": 4040,
    "rule": "content round=6",
-   "sha256": "22c821925fa740e65d141f2a74bae1e01223b412c99d80fde257991389ea8cc8"
+   "sha256": "69cc62b02c6f5986fc25ae4bad51833d807ae7ffb5995b8e7f10c33bf4ceb700"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/msstats.csv": {
    "bytes": 23684803,
@@ -725,7 +725,7 @@
    "kind": "text",
    "lines": 62,
    "rule": "content round=6",
-   "sha256": "fa58e30ee071698651b542d7a4e4a90f44dd6482f0545ffdcfb56c768de0340f"
+   "sha256": "fe5cdc6bc757e3640683c76ae47138ddec99916208a604de0f404ab7666abba8"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/dia-quant-output/report.pg_matrix.tsv": {
    "bytes": 457686,
@@ -820,7 +820,7 @@
    "kind": "text",
    "lines": 146,
    "rule": "content round=6",
-   "sha256": "0c15f8caa4ee7f4b32527b71f3857516913acd854e4d327eb5ca040121c2bf4a"
+   "sha256": "1b014c87401fe209a5547e3ecce8ea16eda6681fc3bac3974ac421b210b2a3e7"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/fragpipe-files.fp-manifest": {
    "bytes": 157,
@@ -834,56 +834,56 @@
    "kind": "text",
    "lines": 2,
    "rule": "content round=6",
-   "sha256": "6ae672aec4bd3bfabe0a8e5cc99e4a4ee503a7060bfafa492124016b1c479607"
+   "sha256": "08f357263f36958d64fc0ae097df9be89befabae2f72b330ac2ad01b9ebd857b"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/fragpipe.workflow": {
    "bytes": 15310,
    "kind": "text",
    "lines": 440,
    "rule": "content round=6",
-   "sha256": "1f0887f850e8ea0f7203dfa238508726fabde6b8e6cafd2bd1acb6a72abb10e3"
+   "sha256": "6a1edc076c295c5018f0630adab30aa429c862d4ff8f23cb8b65854e602ab5de"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/interact-ENCFF634YSN_DIA_test_az20260516a095_rank1.pep.xml": {
    "bytes": 93070770,
    "kind": "text",
    "lines": 840794,
    "rule": "content round=6",
-   "sha256": "17c5a452ebaac7cc59bdbd4e5fb30611147962b62e7c97d4e4b3da1855719744"
+   "sha256": "b21ea7de4bc8cdc1662fa19fae856c8d636ba84fef1edce53e91c938af377dad"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/interact-ENCFF634YSN_DIA_test_az20260516a095_rank2.pep.xml": {
    "bytes": 5130466,
    "kind": "text",
    "lines": 47480,
    "rule": "content round=6",
-   "sha256": "17e63a2875e7c5240a03ccab2c759ea2b56aa5c55d9bbb1b3e8ce3422ec9d56f"
+   "sha256": "c2a9b64716edfa1b6cda7e4692d0d0611339f63dc23149a2c0ec643cd96b61a7"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/interact-ENCFF634YSN_DIA_test_az20260516a095_rank3.pep.xml": {
    "bytes": 438048,
    "kind": "text",
    "lines": 4280,
    "rule": "content round=6",
-   "sha256": "0965969f76f7cbbba671e82401ebea9328db4e2e1319001aff2b6b9e184dcccd"
+   "sha256": "e1491ae739b8e523345542b64e56077fa1d73b8fb9e9ec23fd521775d54c3bf4"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/interact-ENCFF634YSN_DIA_test_az20260516a095_rank4.pep.xml": {
    "bytes": 68151,
    "kind": "text",
    "lines": 693,
    "rule": "content round=6",
-   "sha256": "e405d85fb4328c22485d2197a3ba14dbd3d715708980fb3541820684a349c104"
+   "sha256": "595892fc2666fa192349e963b79ed48a1cfd48ddd389fbcd991853fbb5f3ef17"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/interact-ENCFF634YSN_DIA_test_az20260516a095_rank5.pep.xml": {
    "bytes": 23860,
    "kind": "text",
    "lines": 302,
    "rule": "content round=6",
-   "sha256": "83041b684cef012614746cec3a833af9feab4f1ca9722c945a56a0f655f9c595"
+   "sha256": "bebcece3ebc55b1e2ca77aabe5e4c96fdcadff81caebc0e91e57810f603b9a52"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ion.tsv": {
    "bytes": 28032783,
    "kind": "text",
    "lines": 18314,
    "rule": "content round=6",
-   "sha256": "9fe67a7218df0cc9ee34f3b562123f01458340bbfc932dedfa21aa227a0b2655"
+   "sha256": "ebb582bcfdf90b3fb4bf9fc9d1ac966b3594233c4b580197a869b84202436f63"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/library.tsv": {
    "bytes": 308094554,
@@ -897,35 +897,35 @@
    "kind": "text",
    "lines": 24,
    "rule": "content round=6",
-   "sha256": "7ad3b991b2b659f70ebc698d991880f4b0847bda62d72222955c378961a9d650"
+   "sha256": "2edd7baf82834fc3387bffc7de391a9e65f01bee283921c951db2c71e5f4decd"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/peptide.tsv": {
    "bytes": 22426829,
    "kind": "text",
    "lines": 14938,
    "rule": "content round=6",
-   "sha256": "06063e9c3e0d974701b20b39be79dad4411bd345215644115e059382a2512ab2"
+   "sha256": "2cd48e58741fcd22d59ba22e81a07a7073273ce8da5dd74431604d469e9eb30c"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/protein.fas": {
    "bytes": 2784355,
    "kind": "text",
    "lines": 8092,
    "rule": "content round=6",
-   "sha256": "65b9da958c9ff939aff783b855b67ed74fb0865040cdb3487e0dcc1644855d6a"
+   "sha256": "fd0c24f8277c3d604f76f43ac2dade2998a27fa0eae423f3a23cc3092b92af5e"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/protein.tsv": {
    "bytes": 4447977,
    "kind": "text",
    "lines": 4047,
    "rule": "content round=6",
-   "sha256": "e4d8203dec9a913fa2699fee69d08d5d0e8a3dc63b993bdd3f343b6a3f707c45"
+   "sha256": "25a44333015665bf432c222add692d92af8f61f1333a4be1b5c629548d1dd387"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/psm.tsv": {
    "bytes": 33289658,
    "kind": "text",
    "lines": 18493,
    "rule": "content round=6",
-   "sha256": "d3b5240a78d4befccbead0d239ccfae07433b86d63192985d6535829ea31f343"
+   "sha256": "544ceee9d82c19cea918468f06ae068745245c3f913a81cffbf0adb73972a628"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/sdrf.tsv": {
    "bytes": 898,

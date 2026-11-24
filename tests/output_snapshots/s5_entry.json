@@ -1,5 +1,5 @@
 {
- "created": "2026-11-14T04:59:59Z",
+ "created": "2026-11-24T05:46:41Z",
  "files": {
   "S5_PROTEOMICS/M1_BUILD_PROTEOME_REFERENCE/ENCFF634YSN/ENCFF634YSN.lrp.v50.proteomics.reference.fasta": {
    "bytes": 178789651,
@@ -16,25 +16,25 @@
    "sha256": "38c515e61d3ae3ba89eaa3a3ba4c830d1bbc79c5f7fa3ceecf703bbd633fc8d0"
   },
   "S5_PROTEOMICS/M2_MSCONVERT_MZML/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18.mzML": {
-   "bytes": 1286916978,
+   "bytes": 1279293511,
    "kind": "text",
-   "lines": 5882658,
+   "lines": 5882657,
    "rule": "content round=6",
-   "sha256": "74d9982d3f2866566ada99c7816bc52909efc48ca33dcca9e25e4010501e26b1"
+   "sha256": "fe148bad29cd257d22781f45840e7dd557a4c79ecf552862f84d3ce9fa587833"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN.tsv": {
    "bytes": 52799094,
    "kind": "text",
    "lines": 26272,
    "rule": "content round=6",
-   "sha256": "189022a246f63de1b1721333457c61dffb714cbfb0473292df666b97ac8fd94d"
+   "sha256": "2cade78d89343cafa3a0a9e28ba1ec89cc7d61d0915275ccd5fe98dbe7566491"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18.pepXML": {
    "bytes": 236348721,
    "kind": "text",
    "lines": 1793540,
    "rule": "content round=6",
-   "sha256": "35fd65b6703b678e5e274bf41a9107a6f92831b2a53b73069962f7dc3499afee"
+   "sha256": "dce91fb33cba40dd4033025e39808420231d0b41bc4d9264b3f0658698228d74"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18.pin": {
    "bytes": 77179866,
@@ -48,22 +48,22 @@
    "kind": "text",
    "lines": 70954,
    "rule": "content round=6",
-   "sha256": "bf9195561fedfb956ed744280653cd7178621346eadd18838039e830576850e5"
+   "sha256": "4537f9107cb1cbbd8a9f6edf2ea9f31f2e9d9ac80cf89370f95c3765a76084df"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/RT_calibration_curves/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18.png": {
-   "bytes": 179624,
+   "bytes": 179453,
    "rule": "exists"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/RT_calibration_curves/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_calibrated.png": {
-   "bytes": 177310,
+   "bytes": 177215,
    "rule": "exists"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_edited_delta_RT_loess.png": {
-   "bytes": 34629,
+   "bytes": 34610,
    "rule": "exists"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_edited_delta_RT_loess_real.png": {
-   "bytes": 38892,
+   "bytes": 38876,
    "rule": "exists"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_edited_hypergeometric_probability.png": {
@@ -79,7 +79,7 @@
    "rule": "exists"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_edited_unweighted_spectral_entropy.png": {
-   "bytes": 36564,
+   "bytes": 36577,
    "rule": "exists"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/MSBooster_plots/score_histograms/ENCFF634YSN_DDA_test_20160124_alr_CompleteHumanProteome_K562_trypsin_HCD_fr18_edited_weighted_spectral_entropy.png": {
@@ -87,10 +87,10 @@
    "rule": "exists"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/spectraRT.predicted.bin": {
-   "bytes": 9837236,
+   "bytes": 9837240,
    "kind": "binary",
    "rule": "content round=6",
-   "sha256": "77cf9052777dec5e4c84614141d26a604423ec32220dcf47181dc74f51d6479f"
+   "sha256": "aab08240bdf8d46a491aa56140a2ae8452490082070ca50286f5fa783246ea65"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/MSBooster/spectraRT.tsv": {
    "bytes": 1743040,
@@ -111,49 +111,49 @@
    "kind": "text",
    "lines": 1301409,
    "rule": "content round=6",
-   "sha256": "8c10a4fa83a2bb353868d1ac899125860f0dfb671953a3fc87d66172da279a14"
+   "sha256": "31f0536439c939bc008a90f907f7597bd7324c47d9cd57b3ef099fd0f0c2316e"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/ion.tsv": {
    "bytes": 21303128,
    "kind": "text",
    "lines": 14179,
    "rule": "content round=6",
-   "sha256": "9b4d203c6942c97e1b77406fb564f21d78cdea2c4b0ca7801228cd8e326cca3b"
+   "sha256": "96f91e999ff6d739ae37cb4481a5f7203d4dc7f4cd778dc1205843a53e1876be"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/peptide.tsv": {
    "bytes": 14139855,
    "kind": "text",
    "lines": 10229,
    "rule": "content round=6",
-   "sha256": "7d4f15632ec1378305e62d69763a843fd9442e177d2e83de9c47827bad18ff95"
+   "sha256": "c46224730be8933311993622feb45907727ef9895e6dc668529e3ff4688bb3ab"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/protein.fas": {
    "bytes": 3418255,
    "kind": "text",
    "lines": 8832,
    "rule": "content round=6",
-   "sha256": "1796ae49b17e8096f16bdf42475a7c3ca57a40717300ae7711276a6048a3c85c"
+   "sha256": "7ada6f2b608574e60607c3c07f8898ab407fd244c0f12e101dbf0f723efedb20"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/protein.tsv": {
    "bytes": 4999491,
    "kind": "text",
    "lines": 4417,
    "rule": "content round=6",
-   "sha256": "9d8db7401aa6caf396ea7f4ca1e30981a972bd12b27a569d8673836d0061a8b0"
+   "sha256": "4ca61be78a43cf9ad4bdb10b4724bc1d325b91340f8e7ff1509ae294990fcbc6"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/ENCFF634YSN_1/psm.tsv": {
    "bytes": 52799094,
    "kind": "text",
    "lines": 26272,
    "rule": "content round=6",
-   "sha256": "189022a246f63de1b1721333457c61dffb714cbfb0473292df666b97ac8fd94d"
+   "sha256": "2cade78d89343cafa3a0a9e28ba1ec89cc7d61d0915275ccd5fe98dbe7566491"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/combined.prot.xml": {
-   "bytes": 120841596,
+   "bytes": 120842212,
    "kind": "text",
-   "lines": 1112548,
+   "lines": 1112555,
    "rule": "content round=6",
-   "sha256": "34669dad8eca66862c359f1d80ea2891d60ac71be6f1655efac794ebb7cf045e"
+   "sha256": "fe699593d3cf64d386c2934bdc21e87a65f01fa59cdf9a6152b1e61ac4fc97aa"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/combined_ion.tsv": {
    "bytes": 20917787,
@@ -177,11 +177,11 @@
    "sha256": "8f04defff0d3bf0125ad3ea01ac44dbbaaa7b00394315d62c439114d533075d2"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/combined_protein.tsv": {
-   "bytes": 4698979,
+   "bytes": 4698977,
    "kind": "text",
    "lines": 4417,
    "rule": "content round=6",
-   "sha256": "b3b2240f9e301467de97386cce8323aef0f965af03be96cc68e96b15cd0920ac"
+   "sha256": "74abb22dc7fb9bbd6ae03c0e57e75f53404ebdf508b0da426743662f6ca7343d"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/combined_site_C_57.0215.tsv": {
    "bytes": 397738,
@@ -223,7 +223,7 @@
    "kind": "text",
    "lines": 146,
    "rule": "content round=6",
-   "sha256": "e7df2dc34626590cd20004f765b708f8398bbd36c13b3f7070250041891fc780"
+   "sha256": "c688a37c099d779795e7fcd73d68e37cf378a9fbb17399ccb25ff5ce6c0fe001"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/fragpipe-files.fp-manifest": {
    "bytes": 199,
@@ -237,14 +237,14 @@
    "kind": "text",
    "lines": 2,
    "rule": "content round=6",
-   "sha256": "6ae672aec4bd3bfabe0a8e5cc99e4a4ee503a7060bfafa492124016b1c479607"
+   "sha256": "08f357263f36958d64fc0ae097df9be89befabae2f72b330ac2ad01b9ebd857b"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/fragpipe.workflow": {
    "bytes": 15374,
    "kind": "text",
    "lines": 440,
    "rule": "content round=6",
-   "sha256": "15986e7e893368a4aee3e2942463dac0634da699f1797e97a4cc022b4f77b714"
+   "sha256": "08b1899d019f02300174bd60b655bf0a9d59ae822457112331c205345da3c80e"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/modmasses_ionquant.txt": {
    "bytes": 25,
@@ -258,7 +258,7 @@
    "kind": "text",
    "lines": 24,
    "rule": "content round=6",
-   "sha256": "6f5221bbc448258005600ce2b1c95c20214d46c3e88d8dc013b1b103f13d8723"
+   "sha256": "7dc0f57eb4f6d4b2a1c8f7941323e52fdd36374088c9eed25ee86926759b5aeb"
   },
   "S5_PROTEOMICS/M3_FRAGPIPE/ENCFF634YSN/msstats.csv": {
    "bytes": 2617531,

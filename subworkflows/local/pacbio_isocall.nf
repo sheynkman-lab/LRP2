@@ -103,21 +103,11 @@ workflow PACBIO_ISOCALL {
     )
     ch_versions = ch_versions.mix(ISOCALL_PREP.out.versions)
 
-    // Sample IDs in samplesheet order (ch_samples is emitted in samplesheet order)
-    ch_sample_order = ch_samples
-        .map { meta, _sample -> meta.id }
-        .collect()
-
-    // Collect profiles as they finish, then reorder them to match the samplesheet
+    // Corrected logic to merge profiles as sorted by sample ID 
     ch_all_profiles = ISOCALL_PROFILE.out.profile
         .map { meta, profile -> [meta.id, profile] }
-        .collect(flat: false)
-        .map { pairs -> [pairs] }
-        .combine(ch_sample_order.map { ids -> [ids] })
-        .map { pairs, ids ->
-            def profile_by_id = pairs.collectEntries { id, profile -> [(id): profile] }
-            [[id: params.dataset_name], ids.collect { id -> profile_by_id[id] }]
-        }
+        .toSortedList { a, b -> a[0] <=> b[0] }
+        .map { pairs -> [[id: params.dataset_name], pairs.collect { it[1] }] }
 
     //
     // MODULE: Merge all sample profiles into single merged profile for input into isocall call 
