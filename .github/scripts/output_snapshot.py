@@ -2,11 +2,9 @@
 """Snapshot LRP2 pipeline outputs and compare later runs against the snapshot.
 
 A snapshot is a small JSON file listing every published output file (paths relative to the
-pipeline's --outdir) with a SHA-256 of its normalised contents. We leverage snapshots in this 
-context for our CI/CD pipeline to ensure output consistency across runs. For specific rules on
-how to normalise and compare files, see the accompanying tests/output_snapshots/rules.txt file.
-
-How to use: 
+pipeline's --outdir) with a SHA-256 of its normalised contents. Which files are checked, and how,
+is set by a rules file (tests/output_snapshots/rules.txt). Only the standard library is used, so
+the same script runs on an HPC login node and on GitHub's runners.
 
   # Record the expected outputs (e.g. on the HPC, from a known-good run):
   output_snapshot.py snapshot RESULTS_DIR -o tests/output_snapshots/NAME.json
@@ -16,6 +14,9 @@ How to use:
 
   # Compare two snapshots (e.g. the expected one and one saved by a CI run):
   output_snapshot.py compare expected.json actual.json
+
+  # Explain HOW two results directories differ (row order, column order, which lines):
+  output_snapshot.py diff EXPECTED_RESULTS_DIR ACTUAL_RESULTS_DIR
 
 Normalisation for 'content' checks:
   * gzip files (including BGZF) are compared decompressed, so compression level and the
@@ -34,6 +35,7 @@ import os
 import re
 import shlex
 import sys
+from collections import Counter
 from datetime import datetime, timezone
 
 SNAPSHOT_FORMAT = 1
@@ -153,63 +155,62 @@ def round_floats(line, digits):
     return FLOAT_RE.sub(repl, line)
 
 
+def is_binary(path):
+    with open_maybe_gzip(path) as fh:
+        return b"\x00" in fh.read(BINARY_SNIFF)
+
+
+def normalised_lines(path, rule, replacements, apply_sort=True):
+    """Yield a text file's lines as the 'content' check sees them (decompressed, work paths
+    replaced, dropped lines left out, numbers rounded, and sorted if the rule says so)."""
+    def raw_lines(fh):
+        pending = b""
+        for chunk in iter(lambda: fh.read(CHUNK), b""):
+            parts = (pending + chunk).split(b"\n")
+            pending = parts.pop()
+            yield from parts
+        if pending:
+            yield pending
+
+    def normalise(raw):
+        text = raw.decode("utf-8", errors="replace").rstrip("\r")
+        if rule.drop_re and any(r.search(text) for r in rule.drop_re):
+            return None
+        if "/work/" in text:
+            text = WORK_PATH_RE.sub("<WORK>", text)
+        for old, new in replacements:
+            if old in text:
+                text = text.replace(old, new)
+        if rule.rounding is not None:
+            text = round_floats(text, rule.rounding)
+        return text
+
+    with open_maybe_gzip(path) as fh:
+        texts = (t for t in (normalise(r) for r in raw_lines(fh)) if t is not None)
+        if rule.sort and apply_sort:
+            yield from sorted(texts)
+        else:
+            yield from texts
+
+
 def fingerprint(path, rule, replacements):
     size = os.path.getsize(path)
     if rule.check == "exists":
         return {"rule": rule.describe(), "bytes": size}
 
     digest = hashlib.sha256()
-    with open_maybe_gzip(path) as fh:
-        head = fh.read(BINARY_SNIFF)
-        if b"\x00" in head:
-            # Binary content: hash the (decompressed) bytes as they are
-            digest.update(head)
+    if is_binary(path):
+        # Binary content: hash the (decompressed) bytes as they are
+        with open_maybe_gzip(path) as fh:
             for chunk in iter(lambda: fh.read(CHUNK), b""):
                 digest.update(chunk)
-            return {"rule": rule.describe(), "sha256": digest.hexdigest(),
-                    "kind": "binary", "bytes": size}
+        return {"rule": rule.describe(), "sha256": digest.hexdigest(),
+                "kind": "binary", "bytes": size}
 
-        def lines():
-            rest = fh.read(CHUNK)
-            buffer = head + rest
-            pending = b""
-            while buffer:
-                buffer = pending + buffer
-                parts = buffer.split(b"\n")
-                pending = parts.pop()
-                for raw in parts:
-                    yield raw
-                buffer = fh.read(CHUNK)
-            if pending:
-                yield pending
-
-        def normalise(raw):
-            text = raw.decode("utf-8", errors="replace").rstrip("\r")
-            if rule.drop_re and any(r.search(text) for r in rule.drop_re):
-                return None
-            if "/work/" in text:
-                text = WORK_PATH_RE.sub("<WORK>", text)
-            for old, new in replacements:
-                if old in text:
-                    text = text.replace(old, new)
-            if rule.rounding is not None:
-                text = round_floats(text, rule.rounding)
-            return text
-
-        count = 0
-        if rule.sort:
-            kept = [t for t in (normalise(r) for r in lines()) if t is not None]
-            kept.sort()
-            for text in kept:
-                digest.update(text.encode("utf-8") + b"\n")
-            count = len(kept)
-        else:
-            for raw in lines():
-                text = normalise(raw)
-                if text is None:
-                    continue
-                digest.update(text.encode("utf-8") + b"\n")
-                count += 1
+    count = 0
+    for text in normalised_lines(path, rule, replacements):
+        digest.update(text.encode("utf-8") + b"\n")
+        count += 1
     return {"rule": rule.describe(), "sha256": digest.hexdigest(),
             "kind": "text", "lines": count, "bytes": size}
 
@@ -318,6 +319,120 @@ def report(problems, ok, label, summary_path, github):
                     fh.write(f"\n...and {len(problems) - 200} more (see the job log).\n")
 
 
+# ----------------------------------------------------------------------------- diff
+DIFF_MAX_BYTES = 400 * 1024 * 1024  # beyond this (decompressed size unknown), only show the first difference
+
+
+def _short(text, width=160):
+    return text if len(text) <= width else text[:width] + "…"
+
+
+def _split_fields(line):
+    sep = "\t" if "\t" in line else ("," if "," in line else None)
+    return sep, (line.split(sep) if sep else [line])
+
+
+def explain_text_difference(exp_path, act_path, rule, exp_repl, act_repl, show):
+    """Return lines of plain-English explanation of how two text files differ."""
+    out = []
+    if max(os.path.getsize(exp_path), os.path.getsize(act_path)) > DIFF_MAX_BYTES:
+        for n, (e, a) in enumerate(zip(normalised_lines(exp_path, rule, exp_repl, False),
+                                       normalised_lines(act_path, rule, act_repl, False)), 1):
+            if e != a:
+                out.append(f"large file: first difference at line {n}")
+                out.append(f"  expected: {_short(e)}")
+                out.append(f"  now:      {_short(a)}")
+                return out
+        return ["large file: one file is a prefix of the other (different length)"]
+
+    exp = list(normalised_lines(exp_path, rule, exp_repl, False))
+    act = list(normalised_lines(act_path, rule, act_repl, False))
+    if sorted(exp) == sorted(act):
+        return [f"SAME {len(exp)} lines in a DIFFERENT ORDER (row order only; 'sort' in "
+                "rules.txt, or sorting the output in the pipeline, would make it match)"]
+
+    # Tables: are the columns the same but in another order?
+    if exp and act:
+        sep, eh = _split_fields(exp[0])
+        _, ah = _split_fields(act[0])
+        if sep and eh != ah and sorted(eh) == sorted(ah) and len(set(eh)) == len(eh):
+            order = [ah.index(c) for c in eh]
+            remapped = [act[0]] + [sep.join(f[i] if i < len(f) else "" for i in order)
+                                   for f in (r.split(sep) for r in act[1:])]
+            remapped[0] = exp[0]
+            same = sorted(remapped) == sorted(exp)
+            out.append("SAME columns in a DIFFERENT ORDER"
+                       + (" and, with columns put back in order, the same rows "
+                          "(possibly reordered)" if same else ", and the rows also differ"))
+            out.append(f"  expected header: {_short(exp[0], 300)}")
+            out.append(f"  now:             {_short(act[0], 300)}")
+            if same:
+                return out
+
+    def unmatched(lines, others):
+        left = Counter(others)
+        result = []
+        for line in lines:
+            if left[line] > 0:
+                left[line] -= 1
+            else:
+                result.append(line)
+        return result
+
+    only_e, only_a = unmatched(exp, act), unmatched(act, exp)
+    first = next((i for i, (e, a) in enumerate(zip(exp, act), 1) if e != a), min(len(exp), len(act)) + 1)
+    out.append(f"DIFFERENT lines: {len(only_e)} of {len(exp)} expected lines not produced, "
+               f"{len(only_a)} of {len(act)} lines new; first difference at line {first}")
+    for label, items in (("only in expected", only_e), ("only in this run", only_a)):
+        for line in items[:show]:
+            out.append(f"  {label}: {_short(line)}")
+        if len(items) > show:
+            out.append(f"  {label}: ...{len(items) - show} more")
+    return out
+
+
+def diff_dirs(expected_dir, actual_dir, rules, exp_repl, act_repl, show, only):
+    def files(root):
+        found = {}
+        for d, dirs, names in os.walk(root):
+            dirs.sort()
+            for name in sorted(names):
+                full = os.path.join(d, name)
+                rel = os.path.relpath(full, root).replace(os.sep, "/")
+                if only and not re.search(only, rel):
+                    continue
+                rule = rule_for(rel, rules)
+                if rule is not None and rule.check != "ignore" and os.path.isfile(full):
+                    found[rel] = (full, rule)
+        return found
+
+    exp, act = files(expected_dir), files(actual_dir)
+    identical = differing = 0
+    for rel in sorted(set(exp) | set(act)):
+        if rel not in act:
+            print(f"\n=== {rel}\nMISSING from this run")
+            differing += 1
+            continue
+        if rel not in exp:
+            print(f"\n=== {rel}\nNEW in this run (not in the expected outputs)")
+            differing += 1
+            continue
+        (ep, rule), (ap, _) = exp[rel], act[rel]
+        if rule.check == "exists" or (fingerprint(ep, rule, exp_repl).get("sha256")
+                                      == fingerprint(ap, rule, act_repl).get("sha256")):
+            identical += 1
+            continue
+        differing += 1
+        print(f"\n=== {rel}   [{rule.describe()}]")
+        if is_binary(ep) or is_binary(ap):
+            print("binary contents differ")
+            continue
+        for line in explain_text_difference(ep, ap, rule, exp_repl, act_repl, show):
+            print(line)
+    print(f"\n{identical} file(s) identical, {differing} differ")
+    return 1 if differing else 0
+
+
 # ----------------------------------------------------------------------------- CLI
 def parse_replacements(values):
     pairs = []
@@ -356,12 +471,30 @@ def main(argv=None):
     p_cmp.add_argument("--summary", metavar="FILE", help="append a Markdown report (GitHub step summary)")
     p_cmp.add_argument("--github", action="store_true", help="print GitHub ::error annotations")
 
+    p_diff = sub.add_parser("diff", parents=[common],
+                            help="explain how two results directories differ, file by file")
+    p_diff.add_argument("expected_dir", help="expected results directory (e.g. the HPC run)")
+    p_diff.add_argument("actual_dir", help="results directory to check (e.g. a CI artifact)")
+    p_diff.add_argument("--show", type=int, default=4, help="example lines to show per file (default 4)")
+    p_diff.add_argument("--only", metavar="REGEX", help="only files whose path matches REGEX")
+
     args = parser.parse_args(argv)
     try:
         rules = load_rules(args.rules)
     except (OSError, ValueError) as err:
         raise SystemExit(f"ERROR: {err}")
     replacements = parse_replacements(args.replace)
+
+    if args.command == "diff":
+        def repl_for(d):
+            d = os.path.abspath(d)
+            return sorted({(d, "<OUTDIR>"), (os.path.realpath(d), "<OUTDIR>"), *replacements},
+                          key=lambda p: -len(p[0]))
+        for d in (args.expected_dir, args.actual_dir):
+            if not os.path.isdir(d):
+                raise SystemExit(f"ERROR: results directory not found: {d}")
+        return diff_dirs(args.expected_dir, args.actual_dir, rules, repl_for(args.expected_dir),
+                         repl_for(args.actual_dir), args.show, args.only)
 
     if args.command == "snapshot":
         snap = take_snapshot(args.results_dir, rules, replacements)

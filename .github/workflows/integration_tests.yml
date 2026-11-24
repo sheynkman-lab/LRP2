@@ -465,10 +465,13 @@ jobs:
           elif [[ "$CONTAINER_ENGINE" == "singularity" ]]; then
             # autoMounts lets Nextflow bind each task's work dir and staged inputs.
             # --no-home/--cleanenv keep the runner's home dir and env (e.g. JAVA_HOME) out of containers.
+            # pullTimeout: building a large image (e.g. SQANTI3) into a .sif can take over the default
+            # 20 min on a 4-CPU runner while other tasks run; the pull is then killed (status 143).
             printf '%s\n' \
               "singularity.enabled    = true" \
               "singularity.autoMounts = true" \
               "singularity.runOptions = '--no-home --cleanenv'" \
+              "singularity.pullTimeout = '60 min'" \
               "apptainer.enabled      = false" \
               "docker.enabled         = false" > "$CONFIG"
             mkdir -p "$NXF_SINGULARITY_CACHEDIR"
@@ -807,6 +810,7 @@ jobs:
               "singularity.enabled    = true" \
               "singularity.autoMounts = true" \
               "singularity.runOptions = '--no-home --cleanenv'" \
+              "singularity.pullTimeout = '60 min'" \
               "apptainer.enabled      = false" \
               "docker.enabled         = false" > "$CONFIG"
             mkdir -p "$NXF_SINGULARITY_CACHEDIR"
