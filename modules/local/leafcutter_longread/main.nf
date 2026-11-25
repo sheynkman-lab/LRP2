@@ -3,7 +3,7 @@ process LEAFCUTTER_LONGREAD {
     label 'process_high'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/jtllab/leafcutter-longread:latest"
+    container "docker.io/jtllab/leafcutter-longread:latest"
 
     input:
     tuple val(meta), path(filtered_gtf), path(transcript_counts)

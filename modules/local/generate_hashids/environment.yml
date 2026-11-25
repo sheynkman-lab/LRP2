@@ -7,4 +7,5 @@ dependencies:
   - bioconda::bioconductor-rtracklayer=1.62.0
   - conda-forge::r-tidyverse=2.0.0
   - conda-forge::r-magrittr=2.0.3
+  - conda-forge::r-optparse=1.7.5
   - conda-forge::python=3.11.0

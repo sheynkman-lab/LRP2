@@ -3,7 +3,7 @@ process DOWNLOAD_REMOTE_FILE {
     label 'process_low'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/biocontainers/biocontainers:latest"
+    container "docker.io/biocontainers/biocontainers:latest"
 
     input:
     tuple val(meta), val(url)

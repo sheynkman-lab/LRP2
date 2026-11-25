@@ -1,24 +1,26 @@
-name: leafcutter_longread
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
 channels:
   - conda-forge
   - bioconda
 dependencies:
-  - r-base>=4.3
-  - r-data.table
-  - r-tidyverse
-  - r-magrittr
-  - bioconductor-rtracklayer
-  - r-matrix
-  - r-igraph
-  - r-optparse
-  - python=3.11
-  - pip
-  - numpy
-  - scipy
-  - pandas
-  - scikit-learn
-  - pip:
-    - rpy2>=3.5.0
-    - torch>=2.0.0
-    - pyro-ppl>=1.8.0
-    - tqdm
+  # R side: 05_lr_leafcutter.R
+  - bioconda::bioconductor-rtracklayer
+  - conda-forge::r-base>=4.3
+  - conda-forge::r-data.table
+  - conda-forge::r-igraph
+  - conda-forge::r-magrittr
+  - conda-forge::r-matrix
+  - conda-forge::r-optparse
+  - conda-forge::r-tidyverse
+  # Python side: leafcutter_ds.py and bin/leafcutter/. Everything comes from conda-forge rather
+  # than pip: pip's default torch wheel bundles several GB of CUDA libraries, and rpy2 (never
+  # imported by these scripts) was dropped.
+  - conda-forge::python=3.11
+  - conda-forge::numpy
+  - conda-forge::pandas
+  - conda-forge::pyro-ppl>=1.8
+  - conda-forge::pytorch-cpu>=2.0
+  - conda-forge::scikit-learn
+  - conda-forge::scipy
+  - conda-forge::tqdm

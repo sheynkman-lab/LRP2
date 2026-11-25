@@ -1,9 +1,7 @@
-name: sqanti_protein_classification
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
 channels:
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
-  - bioconda::sqanti3=5.5.4
-  - python=3.11
-  - bioconda::bx-python
+  - bioconda::sqanti3=6.1

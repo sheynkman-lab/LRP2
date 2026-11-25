@@ -1,9 +1,11 @@
-name: fragpipe
+---
+# yaml-language-server: $schema=https://raw.githubusercontent.com/nf-core/modules/master/modules/environment-schema.json
 channels:
   - conda-forge
   - bioconda
-  - defaults
 dependencies:
-  - conda-forge::openjdk=17.0.3
-  - wget=1.20.3
-  - curl=8.1.2
+  # FragPipe needs Java 17. The package also provides Philosopher and the launcher that FRAGPIPE calls
+  # directly (share/fragpipe-*/bin/fragpipe); the licensed MSFragger/IonQuant/diaTracer JARs still
+  # come from FRAGPIPE_AUTHENTICATE.
+  - bioconda::fragpipe=24.0
+  - conda-forge::openjdk=17

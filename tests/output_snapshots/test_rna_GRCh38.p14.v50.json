@@ -1,0 +1,482 @@
+{
+ "created": "2026-11-24T05:34:46Z",
+ "files": {
+  "S1_PACBIO_ISOCALL/M1_ISOCALL_PREP/gencode.v50.annotation.gtf.isoforms.gz": {
+   "bytes": 12766010,
+   "kind": "text",
+   "lines": 644292,
+   "rule": "content",
+   "sha256": "61c625f96a1b29fa8f410803a9d5156f293356665a5cfa3050d7b3925514960b"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF427JDY.aligned.bam": {
+   "bytes": 369539,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF427JDY.aligned.bam.bai": {
+   "bytes": 52040,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF429VVB.aligned.bam": {
+   "bytes": 1954923,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF429VVB.aligned.bam.bai": {
+   "bytes": 943416,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF483HTA.aligned.bam": {
+   "bytes": 1101211,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF483HTA.aligned.bam.bai": {
+   "bytes": 697296,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF589SMB.aligned.bam": {
+   "bytes": 547298,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF589SMB.aligned.bam.bai": {
+   "bytes": 84384,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF634YSN.aligned.bam": {
+   "bytes": 1913319,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF634YSN.aligned.bam.bai": {
+   "bytes": 852536,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF694INI.aligned.bam": {
+   "bytes": 888602,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF694INI.aligned.bam.bai": {
+   "bytes": 267040,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF696GDL.aligned.bam": {
+   "bytes": 1506394,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF696GDL.aligned.bam.bai": {
+   "bytes": 515544,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF763VZC.aligned.bam": {
+   "bytes": 2013178,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M2_ISOCALL_ALIGN/ENCFF763VZC.aligned.bam.bai": {
+   "bytes": 481552,
+   "rule": "exists"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF427JDY_profile.gz": {
+   "bytes": 11046,
+   "kind": "text",
+   "lines": 363,
+   "rule": "content",
+   "sha256": "871c4f7d40619ceb026074624d3706043712f1d776d509dfd6fec1d282bd25d2"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF429VVB_profile.gz": {
+   "bytes": 49065,
+   "kind": "text",
+   "lines": 1071,
+   "rule": "content",
+   "sha256": "073cccd87c590d8fc41c7007b6da05ae67222b6d0b66c6b640a515886350334a"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF483HTA_profile.gz": {
+   "bytes": 35858,
+   "kind": "text",
+   "lines": 828,
+   "rule": "content",
+   "sha256": "8eba605b93d4244febc0fd09f9d51746680c121ee932d1f6db3b58b3b1854875"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF589SMB_profile.gz": {
+   "bytes": 15162,
+   "kind": "text",
+   "lines": 429,
+   "rule": "content",
+   "sha256": "4280071594df24307c9219865c7c1c12ba60cf4d9c37410f5e7d850328fae94d"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF634YSN_profile.gz": {
+   "bytes": 45729,
+   "kind": "text",
+   "lines": 1020,
+   "rule": "content",
+   "sha256": "a196b4a2594d26d94851732c032e6556e05f8f0ad8858f2f56320eb71522ebdb"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF694INI_profile.gz": {
+   "bytes": 15057,
+   "kind": "text",
+   "lines": 461,
+   "rule": "content",
+   "sha256": "e20d0f5fe42c5631a4b084101597792e417accd2f15cfcf845fa8c222c8339bb"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF696GDL_profile.gz": {
+   "bytes": 44929,
+   "kind": "text",
+   "lines": 962,
+   "rule": "content",
+   "sha256": "55c6fb14ada1c977fc503f2e65763c4c5197c4b0314bbaad0a0309026f5f83b4"
+  },
+  "S1_PACBIO_ISOCALL/M3_ISOCALL_PROFILE/ENCFF763VZC_profile.gz": {
+   "bytes": 19856,
+   "kind": "text",
+   "lines": 520,
+   "rule": "content",
+   "sha256": "ce1796f4fca8240b1de1114118370fdb9ebd505eb7ccf28095047dddb8f5f577"
+  },
+  "S1_PACBIO_ISOCALL/M4_ISOCALL_MERGE/lrptest.isocall.merged_profiles.gz": {
+   "bytes": 147889,
+   "kind": "text",
+   "lines": 2584,
+   "rule": "content",
+   "sha256": "4b586368b3c1d0bae2c7025000463b44c3da26e4dadb00fd7385f74068cf28de"
+  },
+  "S1_PACBIO_ISOCALL/M5_ISOCALL_CALL/lrptest.isocall.count_matrix.csv": {
+   "bytes": 16618,
+   "kind": "text",
+   "lines": 429,
+   "rule": "content",
+   "sha256": "2a8babaa5ee86b8015646a0683cae47caddc476924b60b467fdeb561b852e596"
+  },
+  "S1_PACBIO_ISOCALL/M5_ISOCALL_CALL/lrptest.isocall.isoforms.gtf.gz": {
+   "bytes": 39670,
+   "kind": "text",
+   "lines": 4851,
+   "rule": "content",
+   "sha256": "efeeba3193e3e41247e3dc3e5816171dacc8370e4aa534d8663b6487764ab85d"
+  },
+  "S2_TRANSCRIPTOME/M1_SQANTI_QC/lrptest.transcriptome.SQANTI_classification.txt": {
+   "bytes": 133882,
+   "kind": "text",
+   "lines": 429,
+   "rule": "content",
+   "sha256": "d4fe040b4f586d0397dbdd0ed48846ec58663d8b50170177e5d9bc50783c371f"
+  },
+  "S2_TRANSCRIPTOME/M1_SQANTI_QC/lrptest.transcriptome.fasta": {
+   "bytes": 1064007,
+   "kind": "text",
+   "lines": 15486,
+   "rule": "content",
+   "sha256": "b1ee5e1ad60ae4d25d3383f300bb804a4ddc50c095008ab9894017b9d9176389"
+  },
+  "S2_TRANSCRIPTOME/M1_SQANTI_QC/lrptest.transcriptome.gtf": {
+   "bytes": 629963,
+   "kind": "text",
+   "lines": 4816,
+   "rule": "content",
+   "sha256": "9ccadedbd52a2842a9f25d606667e202d94e6df49807d8927eafcc93282862aa"
+  },
+  "S2_TRANSCRIPTOME/M1_SQANTI_QC/lrptest.transcriptome.junctions.txt": {
+   "bytes": 521091,
+   "kind": "text",
+   "lines": 3961,
+   "rule": "content",
+   "sha256": "129c4cce8befcf1e2b4afbacd0a4e3648c03c3d30222158a55a183ee0f9dfad9"
+  },
+  "S2_TRANSCRIPTOME/M2_GENERATE_HASHIDS/lrptest.transcriptome.hashids_mapping.txt": {
+   "bytes": 68418,
+   "kind": "text",
+   "lines": 392,
+   "rule": "content",
+   "sha256": "5e86ca61a07f335f97fdc88fb5c98b8d48ef58b3a7212828ee6478286bcdd1ed"
+  },
+  "S2_TRANSCRIPTOME/M2_GENERATE_HASHIDS/lrptest.transcriptome.psl": {
+   "bytes": 117871,
+   "kind": "text",
+   "lines": 428,
+   "rule": "content",
+   "sha256": "56559e705862678441860eef9fe3984f0807a8086997088c6795cf279f63cace"
+  },
+  "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest.transcriptome.all_hashids_with_cpm.txt": {
+   "bytes": 106328,
+   "kind": "text",
+   "lines": 392,
+   "rule": "content",
+   "sha256": "4f0268e8c4643a7b3c5d18536e31318e6af154c5293e447bc6a983c9f4d65601"
+  },
+  "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest.transcriptome.filtered.bed": {
+   "bytes": 69343,
+   "kind": "text",
+   "lines": 351,
+   "rule": "content",
+   "sha256": "07fa07c75471bc2e7c08c1fabfdb9bf195e0fad898515f551ae9d146487d5bd4"
+  },
+  "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest.transcriptome.filtered.fasta": {
+   "bytes": 860882,
+   "kind": "text",
+   "lines": 10987,
+   "rule": "content",
+   "sha256": "dad5586b54dbb6bd45df2ee2262e819513dced6dc7d85581951b858acbdfc417"
+  },
+  "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest.transcriptome.filtered.gtf": {
+   "bytes": 869475,
+   "kind": "text",
+   "lines": 4175,
+   "rule": "content",
+   "sha256": "18b04b3e60220b4c3fe2cb962a30ae635130094e035bfb7d2d94f0cada57a605"
+  },
+  "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest.transcriptome.filtered_SQANTI_classification.txt": {
+   "bytes": 152903,
+   "kind": "text",
+   "lines": 352,
+   "rule": "content",
+   "sha256": "4301ddf10420cd955af1e93baf65fd0de690cab0d84775c61d9151f6ebc19796"
+  },
+  "S2_TRANSCRIPTOME/M3_FILTER_TRANSCRIPTOME/lrptest.transcriptome.filtered_hashids_with_cpm.txt": {
+   "bytes": 95844,
+   "kind": "text",
+   "lines": 352,
+   "rule": "content",
+   "sha256": "f73eb65028e7970af39b8c7fc90b1ffbacd1e667dfa3cd181839ee2b406f5fa1"
+  },
+  "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest.predicted_proteome.CPAT.ORF_prob.best.tsv": {
+   "bytes": 48935,
+   "kind": "text",
+   "lines": 352,
+   "rule": "content",
+   "sha256": "72b99c7bcd288eca963043ee36144a164a00ae4275075c3e6a6e0c1acb12d699"
+  },
+  "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest.predicted_proteome.CPAT.ORF_prob.tsv": {
+   "bytes": 172284,
+   "kind": "text",
+   "lines": 1617,
+   "rule": "content",
+   "sha256": "8c73c95156f49623dc09c481313439b537069edbbb0cc75b2350faa6b5515164"
+  },
+  "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest.predicted_proteome.CPAT.ORF_seqs.fa": {
+   "bytes": 846327,
+   "kind": "text",
+   "lines": 9818,
+   "rule": "content",
+   "sha256": "0a7d226e3bf1629b46ded1dcf1c491928e7cd8506550b7b019af081c1f3cb113"
+  },
+  "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest.predicted_proteome.CPAT.error": {
+   "bytes": 9604,
+   "kind": "text",
+   "lines": 19,
+   "rule": "content",
+   "sha256": "d820343a77ec40fcb3454d7119db27ab6757b303a245a32af36da2d6f951bbcf"
+  },
+  "S3_PREDICTED_PROTEOME/M1_CPAT_ORF/lrptest.predicted_proteome.CPAT.no_ORF.txt": {
+   "bytes": 0,
+   "kind": "text",
+   "lines": 0,
+   "rule": "content",
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "S3_PREDICTED_PROTEOME/M2_FILTER_CPAT/lrptest.predicted_proteome.CPAT_ORFs_mapped.tsv": {
+   "bytes": 339172,
+   "kind": "text",
+   "lines": 1617,
+   "rule": "content",
+   "sha256": "313840abe993e41324198e3b3072048dc585e5eaf2cd89ca9ef04788357579d9"
+  },
+  "S3_PREDICTED_PROTEOME/M2_FILTER_CPAT/lrptest.predicted_proteome.best_ORF.gtf": {
+   "bytes": 892882,
+   "kind": "text",
+   "lines": 7176,
+   "rule": "content",
+   "sha256": "256d4b9d6aefdfc003af24023b16bdcef40cb01b0cb5d724f3733530ed514310"
+  },
+  "S3_PREDICTED_PROTEOME/M3_SQANTI_PROTEIN/lrptest.predicted_proteome.best_ORF_SQANTI_classification.tsv": {
+   "bytes": 74819,
+   "kind": "text",
+   "lines": 343,
+   "rule": "content",
+   "sha256": "5ff0cb9e5eb55cf84e32977efd7fcd86cc22b11cab1fa609c4d31cda74c92dcc"
+  },
+  "S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/lrptest.predicted_proteome.best_ORF.fa": {
+   "bytes": 154577,
+   "kind": "text",
+   "lines": 2098,
+   "rule": "content",
+   "sha256": "1b82b5bb85cac13b2c6c5942734701ea65450004025744a3ce209a499ab6cb68"
+  },
+  "S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/lrptest.predicted_proteome.best_ORF_summary.txt": {
+   "bytes": 71506,
+   "kind": "text",
+   "lines": 352,
+   "rule": "content",
+   "sha256": "60b57d391a0cda9d607e79df1508b51b62d227eb31eabe31fc5f3a804db356ab"
+  },
+  "S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/lrptest.predicted_proteome.collapsed_high_confidence_ORF.bed": {
+   "bytes": 27767,
+   "kind": "text",
+   "lines": 139,
+   "rule": "content",
+   "sha256": "a81043437f76644980ccb49ab553346c683e32f2a1b93ee186ce1e1723bd371f"
+  },
+  "S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/lrptest.predicted_proteome.collapsed_high_confidence_ORF.gtf": {
+   "bytes": 370122,
+   "kind": "text",
+   "lines": 1636,
+   "rule": "content",
+   "sha256": "3b39d130dcd44723406065e2e2d25b871b94a9816da2d2d18c51a851592adc37"
+  },
+  "S3_PREDICTED_PROTEOME/M4_PROTEIN_CLASSIFICATION/lrptest.predicted_proteome.collapsed_high_confidence_ORF_hashids_with_cpm.txt": {
+   "bytes": 31746,
+   "kind": "text",
+   "lines": 139,
+   "rule": "content",
+   "sha256": "3236f42eaf45dc87105a6727051199cbe51d854d3cd34f55e3842d45971aea2f"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.ds_cluster_significance.txt": {
+   "bytes": 2996,
+   "kind": "text",
+   "lines": 45,
+   "rule": "content round=6",
+   "sha256": "c5137facf18f2a529a871ebdba5689c228bfbc4fcec541adec6343ccff52fa1f"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.ds_effect_sizes.txt": {
+   "bytes": 3728,
+   "kind": "text",
+   "lines": 47,
+   "rule": "content round=6",
+   "sha256": "59127bbc7903f20dfe4fcc575163b55a01cb4ef33c2c7a29050feb204203b07b"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.groups_file.txt": {
+   "bytes": 139,
+   "kind": "text",
+   "lines": 8,
+   "rule": "content round=6",
+   "sha256": "32410b9e4bc09008b4aa38e231212036ddb4b23a9f4a1a40de456b0b5d8cd87f"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.perind_numers.counts.gz": {
+   "bytes": 2534,
+   "kind": "text",
+   "lines": 153,
+   "rule": "content round=6",
+   "sha256": "ba6de40b427ed5b64adfa3b59a3b3d3f886dcda539f3687dd9959eb3d37171ba"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/HepG2_vs_K562.lr_leafcutter.subisoform_clusters.txt": {
+   "bytes": 44803,
+   "kind": "text",
+   "lines": 153,
+   "rule": "content round=6",
+   "sha256": "e04a66bd28fefa39a65de9ff026b24673091454f658c1b03c8a0f1abe7cbf427"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/lrptest.transcriptome.filtered.psl": {
+   "bytes": 104817,
+   "kind": "text",
+   "lines": 351,
+   "rule": "content round=6",
+   "sha256": "3fb7d694e8d237e79f65dce248e83a4645a9ccc3c951580f3f1eb08beafc8671"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/lrptest.transcriptome.filtered_exon_coords.txt": {
+   "bytes": 387269,
+   "kind": "text",
+   "lines": 3822,
+   "rule": "content round=6",
+   "sha256": "7b4b5647fffe94b573cd4e85550c7c428e609cda9b515a85fb46927eabc94762"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M1_LEAFCUTTER_LONGREAD/HepG2_vs_K562/lrptest.transcriptome.filtered_intron_coords.txt": {
+   "bytes": 359939,
+   "kind": "text",
+   "lines": 3471,
+   "rule": "content round=6",
+   "sha256": "2e24382eab6c926bb0d0e5a5b2498665ab51d710443f6a7184479a778297ce95"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_expression/HepG2_vs_K562_DE_ORF_MD_plot.pdf": {
+   "bytes": 6687,
+   "rule": "exists"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_expression/HepG2_vs_K562_DE_ORF_edgeR_normalized_CPM_matrix.txt": {
+   "bytes": 12396,
+   "kind": "text",
+   "lines": 30,
+   "rule": "content round=6",
+   "sha256": "9f9645e3edc8f5acc719bd84ea366753230cc136778d8dce64d055c76c1053cc"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_expression/HepG2_vs_K562_DE_ORF_edgeR_raw_CPM_matrix.txt": {
+   "bytes": 40348,
+   "kind": "text",
+   "lines": 139,
+   "rule": "content round=6",
+   "sha256": "e5b0d016938d9123c7903642c62e34ded9fc113032cc9740679e4dcf698a577c"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_expression/HepG2_vs_K562_DE_ORF_edgeR_results.txt": {
+   "bytes": 10903,
+   "kind": "text",
+   "lines": 30,
+   "rule": "content round=6",
+   "sha256": "acbbed318cf77e3d55cf758355aa56216481b4d2826dd7ff4ca6f76f17d19443"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_ORF_usage/HepG2_vs_K562_DU_ORF_DRIMSeq_summary.txt": {
+   "bytes": 20629,
+   "kind": "text",
+   "lines": 38,
+   "rule": "content round=6",
+   "sha256": "458cad0a8d76010672ff49500d75b3bbd896f8d37859fa8f9f0e983db77a577a"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_MD_plot.pdf": {
+   "bytes": 6052,
+   "rule": "exists"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_edgeR_normalized_CPM_matrix.txt": {
+   "bytes": 5797,
+   "kind": "text",
+   "lines": 19,
+   "rule": "content round=6",
+   "sha256": "3d0f5cd2e39c51a6fd240fed646f110dba1e3497636ac5b5d3eb19df760a3fa9"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_edgeR_raw_CPM_matrix.txt": {
+   "bytes": 6254,
+   "kind": "text",
+   "lines": 21,
+   "rule": "content round=6",
+   "sha256": "243edb0f5930e865d15701d3eb56425b618e6cde76e046cc245d947e14eff7a2"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_gene_expression/HepG2_vs_K562_DGE_edgeR_results.txt": {
+   "bytes": 4589,
+   "kind": "text",
+   "lines": 19,
+   "rule": "content round=6",
+   "sha256": "a02befedc6edbee6158a21377234e4f2fbdeb88e141a730894afcaa9ad10219f"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_MD_plot.pdf": {
+   "bytes": 7569,
+   "rule": "exists"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_edgeR_normalized_CPM_matrix.txt": {
+   "bytes": 17205,
+   "kind": "text",
+   "lines": 45,
+   "rule": "content round=6",
+   "sha256": "12a978ca6f5d0f4c41502b50ef41e9e4943cd9974c1148915e9cbd13ff15bf99"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_edgeR_raw_CPM_matrix.txt": {
+   "bytes": 98015,
+   "kind": "text",
+   "lines": 352,
+   "rule": "content round=6",
+   "sha256": "3230635d3781dce75e033dfc1bfcca54527f6edb0db560e3a969d9c1fd9a269e"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_expression/HepG2_vs_K562_DTE_edgeR_results.txt": {
+   "bytes": 14781,
+   "kind": "text",
+   "lines": 45,
+   "rule": "content round=6",
+   "sha256": "3b203f0c5ff1dcb98ccc61df27cadd169481f1e51329aa495084b4d24d86bbfe"
+  },
+  "S4_MULTISAMPLE_ANALYSIS/M2_DIFFERENTIAL_EXPRESSION/HepG2_vs_K562/differential_transcript_usage/HepG2_vs_K562_DTU_transcript_DRIMSeq_summary.txt": {
+   "bytes": 34450,
+   "kind": "text",
+   "lines": 67,
+   "rule": "content round=6",
+   "sha256": "4fcae9c9f14cd7c5777e72c66fc2e43ec51ead693294d60135fa032b12f4a39e"
+  },
+  "gzip/gencode.v50.annotation.gtf.gz": {
+   "bytes": 137276325,
+   "kind": "text",
+   "lines": 11242719,
+   "rule": "content",
+   "sha256": "e644cbdae6dcd1724765c8e892db23950faf37a2c87ec05888e218fce69eb6b6"
+  }
+ },
+ "format": 1,
+ "source": "test_results_test_rna_GRCh38.p14.v50"
+}

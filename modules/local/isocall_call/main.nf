@@ -3,9 +3,7 @@ process ISOCALL_CALL {
     label 'process_low'
 
     conda "${moduleDir}/environment.yml"
-    container "${ workflow.containerEngine == 'singularity' && !task.ext.singularity_pull_docker_container ?
-        'docker://jtllab/isocall:1.3.0-nextflow-fix' :
-        'jtllab/isocall:1.3.0-nextflow-fix' }"
+    container 'docker.io/jtllab/isocall:1.3.0-nextflow-fix'
 
     input:
     tuple val(meta), path(merged_profile)
@@ -36,6 +34,9 @@ process ISOCALL_CALL {
         $args
     
     mv ${prefix}.isocall.count_matrix.txt ${prefix}.isocall.count_matrix.csv
+
+    # put isocall call's outputs in a fixed order
+    sort_isocall_outputs.sh ${prefix}.isocall.isoforms.gtf.gz ${prefix}.isocall.count_matrix.csv
     
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

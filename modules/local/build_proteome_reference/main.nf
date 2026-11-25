@@ -3,7 +3,7 @@ process BUILD_PROTEOME_REFERENCE {
     label 'process_single'
 
     conda "${moduleDir}/environment.yml"
-    container "docker://docker.io/jtllab/lrp2-lite:latest"
+    container "docker.io/jtllab/lrp2-lite:latest"
 
     input:
     tuple val(meta), path(counts), path(custom_fasta), path(gencode_protein_fasta)
