@@ -33,10 +33,10 @@ process ISOCALL_CALL {
         --config $config_toml \\
         $args
     
+    mv ${prefix}.isocall.count_matrix.txt ${prefix}.isocall.count_matrix.csv
+
     # put isocall call's outputs in a fixed order
     sort_isocall_outputs.sh ${prefix}.isocall.isoforms.gtf.gz ${prefix}.isocall.count_matrix.csv
-    
-    mv ${prefix}.isocall.count_matrix.txt ${prefix}.isocall.count_matrix.csv
     
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
